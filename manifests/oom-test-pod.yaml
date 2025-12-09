@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom-test
+spec:
+  restartPolicy: Never
+  containers:
+  - name: python-oom
+    image: python:3.11-slim
+    command:
+      - python
+      - -c
+      - |
+        data = []
+        while True:
+            data.append("X" * 1024 * 1024) # 1MB씩 계속 메모리 증가
+    resources:
+      requests:
+        memory: "16Mi"
+        cpu: "50m"
+      limits:
+        memory: "32Mi"
+        cpu: "100m"
