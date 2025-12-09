@@ -1,0 +1,84 @@
+adminUser: admin
+adminPassword: admin
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+
+persistence:
+  enabled: false
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      # Loki 설정
+      - name: Loki
+        type: loki
+        url: http://loki:3100
+        access: proxy
+
+      # Prometheus 설정 (개발환경 메인 메트릭 데이터소스)
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server:80
+        access: proxy
+        isDefault: true # Prometheus를 기본 데이터소스로 설정
+        jsonData:
+          timeInterval: "15s"
+          queryTimeout: "60s"
+          httpMethod: "POST"
+
+      # # Mimir 설정 (운영환경용)
+      # - name: Mimir
+      #   type: prometheus
+      #   url: http://mimir-nginx:80/prometheus
+      #   access: proxy
+      #   isDefault: false
+      #   jsonData:
+      #     timeInterval: "30s"
+      #     queryTimeout: "300s"
+      #     httpMethod: "POST"
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: "default"
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+dashboards:
+  default:
+    kubernetes-overview:
+      gnetId: 315
+      revision: 3
+      datasource: Prometheus
+
+    node-exporter:
+      gnetId: 1860
+      revision: 37
+      datasource: Prometheus
+
+    kubernetes-cluster-monitoring:
+      gnetId: 7249
+      revision: 1
+      datasource: Prometheus
+
+    # Kubernetes Pods 모니터링
+    kubernetes-pods:
+      gnetId: 6417
+      revision: 1
+      datasource: Prometheus
+
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "1"
