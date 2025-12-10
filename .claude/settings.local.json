@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(kubectl get:*)",
-      "Bash(helm list:*)"
+      "Bash(helm list:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(/usr/local/bin/python3.11 -m venv:*)",
+      "Bash(pip install:*)",
+      "Bash(cat .env)"
     ]
   }
 }
