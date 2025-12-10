@@ -1,4 +1,30 @@
 apps:
+  - name: prometheus-crds
+    namespace: argocd
+    sources:
+      - repoURL: https://prometheus-community.github.io/helm-charts
+        chart: kube-prometheus-stack
+        targetRevision: 55.0.0
+        helm:
+          releaseName: prometheus-crds
+          skipCrds: false
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: monitoring
+    ignoreDifferences:
+      - group: apiextensions.k8s.io
+        kind: CustomResourceDefinition
+        jsonPointers:
+          - /metadata/annotations
+    syncPolicy:
+      automated:
+        prune: false
+        selfHeal: false
+      syncOptions:
+        - CreateNamespace=true
+        - SkipDryRunOnMissingResource=true
+        - ServerSideApply=true
+        - Replace=true
   - name: prometheus
     namespace: argocd
     sources:
@@ -12,7 +38,8 @@ apps:
         helm:
           releaseName: prometheus
           valueFiles:
-            - $values/helm-values/prometheus/values.yaml
+            - $values/helm-charts/prometheus/values.yaml
+          skipCrds: true
     destination:
       server: https://kubernetes.default.svc
       namespace: monitoring
@@ -20,6 +47,10 @@ apps:
       automated:
         prune: true
         selfHeal: true
+      syncOptions:
+        - CreateNamespace=true
+        - SkipDryRunOnMissingResource=true
+        - ServerSideApply=true
   - name: grafana
     namespace: argocd
     sources:
@@ -33,7 +64,7 @@ apps:
         helm:
           releaseName: grafana
           valueFiles:
-            - $values/helm-values/grafana/values.yaml
+            - $values/helm-charts/grafana/values.yaml
     destination:
       server: https://kubernetes.default.svc
       namespace: monitoring
