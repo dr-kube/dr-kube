@@ -12,7 +12,7 @@ apps:
         helm:
           releaseName: prometheus
           valueFiles:
-            - $values/helm-charts/prometheus/values.yaml
+            - $values/helm-values/prometheus/values.yaml
     destination:
       server: https://kubernetes.default.svc
       namespace: monitoring
@@ -33,7 +33,7 @@ apps:
         helm:
           releaseName: grafana
           valueFiles:
-            - $values/helm-charts/grafana/values.yaml
+            - $values/helm-values/grafana/values.yaml
     destination:
       server: https://kubernetes.default.svc
       namespace: monitoring

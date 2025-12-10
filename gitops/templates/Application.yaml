@@ -26,7 +26,7 @@ spec:
       {{- if .helm }}
       helm:
         {{- if .helm.releaseName }}
-        releaseName: {{ .helm.releaseName }}
+        releaseName: {{ .helm.releaseName | lower }}
         {{- end }}
         {{- if .helm.valueFiles }}
         valueFiles:
