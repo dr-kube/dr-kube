@@ -8,7 +8,10 @@ configs:
   params:
     server.insecure: true
   repositories:
-
+    main:
+      url: https://github.com/dr-kube/dr-kube.git
+      name: dr-kube
+      type: git
 controller:
   resources:
     requests:
