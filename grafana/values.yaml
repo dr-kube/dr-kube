@@ -1,0 +1,48 @@
+### Admin 설정
+adminUser: admin
+adminPassword: drkube
+
+### Resources 설정
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+
+### Persistent Volume 설정
+persistence:
+  enabled: true
+  type: pvc
+  storageClassName: csi-storageclass ### NHN Cloud NKS 스토리지 클래스 지정
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+### Service 설정
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+### Ingress 설정
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hosts:
+    - grafana.drkube.shop   # ?? 여기를 너 도메인으로 변경
+  path: /
+  pathType: Prefix
+
+### Datasources 설정 - Loki
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        isDefault: true
+        url: http://loki-gateway.monitoring.svc.cluster.local
+        jsonData:
+          maxLines: 1000
