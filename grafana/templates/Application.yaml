@@ -1,0 +1,67 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .Values.application.name | default "grafana" }}
+  namespace: {{ .Values.application.namespace | default "argocd" }}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: {{ .Values.application.project | default "default" }}
+  sources:
+    # Values 저장소 (values.yaml 파일을 참조하기 위한 소스)
+    - repoURL: {{ .Values.application.sources.valuesRepoURL | required "application.sources.valuesRepoURL이 필요합니다" }}
+      targetRevision: {{ .Values.application.sources.valuesTargetRevision | default "main" }}
+      path: {{ .Values.application.sources.valuesPath | default "." }}
+      ref: values
+    # Grafana Helm 차트 저장소
+    - repoURL: {{ .Values.application.sources.chartRepoURL | default "https://grafana.github.io/helm-charts" }}
+      chart: {{ .Values.application.sources.chart | default "grafana" }}
+      targetRevision: {{ .Values.application.sources.chartTargetRevision | default "7.0.0" }}
+      helm:
+        releaseName: {{ .Values.application.helm.releaseName | default "grafana" }}
+        valueFiles:
+          - $values/{{ .Values.application.helm.valueFilesPath | default "helm-values/grafana/values.yaml" }}
+  destination:
+    server: {{ .Values.application.destination.server | default "https://kubernetes.default.svc" }}
+    namespace: {{ .Values.application.destination.namespace | default "monitoring" }}
+  {{- if .Values.application.ignoreDifferences }}
+  ignoreDifferences:
+  {{- range .Values.application.ignoreDifferences }}
+    - group: {{ .group }}
+      kind: {{ .kind }}
+      {{- if .jsonPointers }}
+      jsonPointers:
+      {{- range .jsonPointers }}
+        - {{ . }}
+      {{- end }}
+      {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.application.syncPolicy }}
+  syncPolicy:
+    {{- if .Values.application.syncPolicy.automated }}
+    automated:
+      {{- if .Values.application.syncPolicy.automated.prune }}
+      prune: {{ .Values.application.syncPolicy.automated.prune }}
+      {{- end }}
+      {{- if .Values.application.syncPolicy.automated.selfHeal }}
+      selfHeal: {{ .Values.application.syncPolicy.automated.selfHeal }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.application.syncPolicy.syncOptions }}
+    syncOptions:
+    {{- range .Values.application.syncPolicy.syncOptions }}
+      - {{ . }}
+    {{- end }}
+    {{- end }}
+  {{- else }}
+  # 기본 동기화 정책
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+      - ServerSideApply=true
+  {{- end }}
