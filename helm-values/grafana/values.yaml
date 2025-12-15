@@ -644,6 +644,12 @@ datasources:
         type: loki
         url: http://loki:3100
         access: proxy
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server:8080
+        isDefault: true
+        access: proxy
+
 
 ## Configure grafana alerting (can be templated)
 ## ref: https://docs.grafana.com/alerting/set-up/provision-alerting-resources/file-provisioning/
