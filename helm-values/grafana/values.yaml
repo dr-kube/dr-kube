@@ -646,8 +646,7 @@ datasources:
         access: proxy
       - name: Prometheus
         type: prometheus
-        url: http://prometheus-server:8080
-        isDefault: true
+        url: http://prometheus-server
         access: proxy
 
 
