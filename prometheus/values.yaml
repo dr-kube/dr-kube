@@ -150,13 +150,34 @@ serverFiles:
     groups:
     - name: container-oom.rules
       rules:
-        - alert: ContainerOOMKilled
-          expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
-          for: 1m
-          labels:
-            severity: critical
-          annotations:
-            summary: "Container OOMKilled 발생"
-            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} 컨테이너 {{ $labels.container }} 가 OOMKilled 되었습니다."
+      - alert: ContainerOOMKilled
+        expr: |
+          increase(kube_pod_container_status_restarts_total[5m]) >= 1
+          and on (namespace, pod, container)
+          max_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[5m]) == 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container OOMKilled 발생"
+          description: |
+            Pod {{ $labels.namespace }}/{{ $labels.pod }}
+            컨테이너 {{ $labels.container }} 가
+            최근 5분 내 OOMKilled로 인해 재시작되었습니다.
+
+
+
+  # alerting_rules.yml:
+  #   groups:
+  #   - name: container-oom.rules
+  #     rules:
+  #       - alert: ContainerOOMKilled
+  #         expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+  #         for: 1m
+  #         labels:
+  #           severity: critical
+  #         annotations:
+  #           summary: "Container OOMKilled 발생"
+  #           description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} 컨테이너 {{ $labels.container }} 가 OOMKilled 되었습니다."
 
 
