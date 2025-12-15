@@ -16,7 +16,7 @@ server:
 
   persistentVolume:
     enabled: true
-    storageClass: "sc"        # ← 원하는 SC로 교체
+    storageClass: "csi-storageclass"        # ← 원하는 SC로 교체
     accessModes:
       - ReadWriteOnce
     size: 8Gi
@@ -26,7 +26,7 @@ server:
     enabled: true
     ingressClassName: nginx
     hosts:
-      - prometheus.jcloud.store
+      - prometheus.drkube.shop
     paths:
       - /
     tls: []     # HTTP만 사용
@@ -39,7 +39,7 @@ alertmanager:
 
   persistence:
     enabled: true
-    storageClass: "sc"        # ← 동일 SC
+    storageClass: "csi-storageclass"        # ← 동일 SC
     accessModes:
       - ReadWriteOnce
     size: 2Gi
@@ -49,7 +49,7 @@ alertmanager:
     enabled: true
     className: nginx
     hosts:
-      - host: alert.jcloud.store
+      - host: alert.drkube.shop
         paths:
           - path: /
             pathType: Prefix
