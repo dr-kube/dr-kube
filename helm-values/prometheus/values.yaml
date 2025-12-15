@@ -91,7 +91,11 @@ serverFiles:
       - job_name: "prometheus"
         static_configs:
           - targets: ["localhost:9090"]
-
+      # Kube-State-Metrics 스크랩
+      - job_name: "kube-state-metrics"
+        static_configs:
+          - targets:
+              - "prometheus-kube-state-metrics.monitoring.svc.cluster.local:8080"
 
       # Node Exporter 자동 스크랩
       - job_name: "node-exporter"
