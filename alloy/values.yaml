@@ -50,7 +50,7 @@ alloy:
   # ref: values.yaml의 alloy.extraEnv
   extraEnv:
     - name: LOKI_URL
-      value: "http://loki-gateway.observability.svc.cluster.local/loki/api/v1/push"
+      value: "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
 
   # 필요하면 여기서 podSecurityContext, resources 등 추가 가능
   # podSecurityContext: {}
