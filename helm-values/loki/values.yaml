@@ -1,6 +1,6 @@
+# 개발환경용 심플한 Prometheus 설정
 deploymentMode: SingleBinary
 
-### Loki 설정
 loki:
   auth_enabled: false
   podSecurityContext:
@@ -12,17 +12,17 @@ loki:
   commonConfig:
     replication_factor: 1
 
-  ### Storage 설정
+  # ★ 여기가 헬름 chart에서 보는 storage 설정
   storage:
     type: filesystem
     filesystem:
       chunks_directory: /var/loki/chunks
       rules_directory: /var/loki/rules
 
-  ### Loki 내부 schema 설정 (object_store = filesystem)
+  # Loki 내부 schema 설정 (object_store = filesystem)
   schemaConfig:
     configs:
-      - from: "2025-12-10"
+      - from: "2025-12-15"
         store: tsdb
         object_store: filesystem
         schema: v13
@@ -38,6 +38,10 @@ loki:
     volume_enabled: true
     retention_period: 672h
 
+#  rulerConfig:
+#    storage:
+#      type: local
+
 singleBinary:
   replicas: 1
   persistence:
@@ -50,11 +54,12 @@ resultsCache:
 
 chunksCache:
   enabled: false
-  ### Persistent Volume 설정
   persistence:
+    # -- Enable creating PVCs for the chunks-cache
     enabled: true
+    # -- Size of persistent disk, must be in G or Gi
     storageSize: 10Gi
-    storageClass: csi-storageclass ### NHN Cloud NKS 스토리지 클래스 지정
+    storageClass: csi-storageclass
 
 write:
   replicas: 0
