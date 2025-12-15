@@ -4,6 +4,22 @@
 controller:
   type: daemonset
 
+image:
+  # -- Grafana Alloy image registry (defaults to docker.io)
+  registry: "docker.io"
+  # -- Grafana Alloy image repository.
+  repository: grafana/alloy
+  # -- (string) Grafana Alloy image tag. When empty, the Chart's appVersion is
+  # used.
+  tag: null
+  # -- Grafana Alloy image's SHA256 digest (either in format "sha256:XYZ" or "XYZ"). When set, will override `image.tag`.
+  digest: null
+  # -- Grafana Alloy image pull policy.
+  pullPolicy: IfNotPresent
+  # -- Optional set of image pull secrets.
+  pullSecrets: []
+
+
 alloy:
   # Alloy 설정을 values.yaml 안에 직접 넣는 방식 (공식 문서 방식)
   # ref: https://grafana.com/docs/alloy/latest/configure/kubernetes/
