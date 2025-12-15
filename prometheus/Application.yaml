@@ -14,7 +14,7 @@ spec:
           - $values/helm-values/prometheus/values.yaml
 
     - repoURL: https://github.com/dr-kube/dr-kube.git
-      targetRevision: feat/helm-prometheus
+      targetRevision: main
       ref: values
 
   destination:
