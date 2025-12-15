@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus 
+  namespace: argocd
+spec:
+  project: default   # ← AppProject 안 쓰는 핵심
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts 
+      chart: prometheus
+      targetRevision: 27.50.1
+      helm:
+        valueFiles:
+          - $values/helm-values/prometheus/values.yaml
+
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: feat/helm-prometheus
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
