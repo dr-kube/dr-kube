@@ -14,13 +14,10 @@ controller:
   # Service 설정
   service:
     type: NodePort
-  
-  # hostPort 설정 (로컬 환경용 - 80 포트 직접 바인딩)
-  hostPort:
-    enabled: true
-    ports:
-      http: 80
-      https: 443
+    nodePorts:
+      http: 30010
+      https: 30011
+    externalTrafficPolicy: Local
 
   # Ingress Class 설정
   ingressClassResource:
