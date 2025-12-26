@@ -4,7 +4,7 @@ metadata:
   name: loki
   namespace: argocd
 spec:
-  project: default   # ← AppProject 안 쓰는 핵심
+  project: default # ← AppProject 안 쓰는 핵심
   sources:
     - repoURL: https://grafana.github.io/helm-charts
       chart: loki
