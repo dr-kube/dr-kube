@@ -72,6 +72,21 @@ result = agent.analyze(auto_approve=False)
 print(result["response"])
 ```
 
+#### 방법 4: Chaos Engineering 🆕
+
+```bash
+# Chaos 시나리오 실행
+./chaos_scenarios.py
+
+# 또는 Python으로
+from langgraph_agent.tools import chaos
+
+# Pod Kill 실험
+chaos.quick_pod_kill("default", {"app": "my-app"}, "30s")
+```
+
+자세한 내용: [CHAOS_GUIDE.md](CHAOS_GUIDE.md)
+
 ### 환경 설정 (선택사항)
 
 Gemini API를 사용하려면:
@@ -93,6 +108,22 @@ agent-core/
 │   ├── graph.py              # 작업 흐름 정의
 │   ├── agent.py              # 에이전트 메인 클래스
 │   ├── cli.py                # 명령줄 인터페이스
+│   └── tools/                # 도구 모음
+│       ├── k8s.py            # Kubernetes 명령 실행
+│       ├── llm.py            # AI 분석 (Gemini)
+│       ├── auto_fix.py       # 🆕 자동 수정 도구 모음
+│       └── chaos.py          # 🆕 Chaos Engineering (Chaos Mesh)
+├── quickstart.py             # 🆕 빠른 시작 스크립트
+├── examples_scenarios.py     # 🆕 시나리오별 예제
+├── chaos_scenarios.py        # 🆕 Chaos Engineering 시나리오
+├── requirements-langgraph.txt # 필요한 라이브러리 목록
+├── .env.example              # 환경변수 예시
+├── .gitignore                # Git 제외 파일
+├── README.md                 # 이 파일
+├── QUICKSTART.md             # 🆕 5분 빠른 시작 가이드
+├── GUIDE.md                  # 🆕 Python 초보자 가이드
+└── CHAOS_GUIDE.md            # 🆕 Chaos Engineering 가이드
+```
 │   └── tools/                # 도구 모음
 │       ├── k8s.py            # Kubernetes 명령 실행
 │       ├── llm.py            # AI 분석 (Gemini)

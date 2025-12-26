@@ -64,15 +64,28 @@ class DrKubeAgent:
         result = self.workflow.invoke(initial_state)
         self._current_state = result
         
-        return result.get("final_response", "분석 결과가 없습니다.")
+        # 결과를 딕셔너리로 반환
+        return {
+            "response": result.get("final_response", "분석 결과가 없습니다."),
+            "fix_plan": result.get("fix_plan"),
+            "detected_issues": result.get("detected_issues", []),
+            "approval_status": result.get("approval_status"),
+            "error": result.get("error")
+        }
     
-    def approve_fix(self) -> str:
+    def approve_fix(self) -> dict:
         """현재 수정 계획 승인 및 실행"""
         if not self._current_state:
-            return "❌ 먼저 analyze()를 실행해주세요."
+            return {
+                "response": "❌ 먼저 analyze()를 실행해주세요.",
+                "error": "no_state"
+            }
         
         if self._current_state.get("approval_status") != "pending":
-            return "❌ 승인 대기 중인 수정 계획이 없습니다."
+            return {
+                "response": "❌ 승인 대기 중인 수정 계획이 없습니다.",
+                "error": "no_pending_plan"
+            }
         
         # 승인 상태로 변경하고 워크플로우 재실행
         self._current_state["approval_status"] = "approved"
@@ -83,19 +96,29 @@ class DrKubeAgent:
         self._current_state = execute_fix(self._current_state)
         self._current_state = generate_response(self._current_state)
         
-        return self._current_state.get("final_response", "실행 결과가 없습니다.")
+        return {
+            "response": self._current_state.get("final_response", "실행 결과가 없습니다."),
+            "execution_result": self._current_state.get("execution_result"),
+            "error": self._current_state.get("error")
+        }
     
-    def reject_fix(self) -> str:
+    def reject_fix(self) -> dict:
         """현재 수정 계획 거부"""
         if not self._current_state:
-            return "❌ 먼저 analyze()를 실행해주세요."
+            return {
+                "response": "❌ 먼저 analyze()를 실행해주세요.",
+                "error": "no_state"
+            }
         
         self._current_state["approval_status"] = "rejected"
         
         from .nodes import generate_response
         self._current_state = generate_response(self._current_state)
         
-        return self._current_state.get("final_response", "")
+        return {
+            "response": self._current_state.get("final_response", ""),
+            "approval_status": "rejected"
+        }
     
     def get_fix_plan(self) -> Optional[dict]:
         """현재 수정 계획 조회"""

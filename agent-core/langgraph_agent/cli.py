@@ -58,16 +58,15 @@ def main():
     print()
     
     try:
-        agent = DrKubeAgent()
+        agent = DrKubeAgent(namespace=args.namespace)
         
         # 분석 실행
         result = agent.analyze(
-            namespace=args.namespace,
             pod_name=args.pod,
             auto_approve=args.auto_approve and not args.dry_run
         )
         
-        print(result)
+        print(result["response"])
         print()
         
         # 수정 계획이 있고 승인 대기 중이면 사용자 입력 받기
@@ -81,11 +80,12 @@ def main():
                     
                     if user_input in ["y", "yes"]:
                         print("\n🔧 수정 실행 중...")
-                        result = agent.approve_fix()
-                        print(result)
+                        exec_result = agent.approve_fix()
+                        print(exec_result["response"])
                     else:
                         print("\n⛔ 수정이 취소되었습니다.")
-                        result = agent.reject_fix()
+                        reject_result = agent.reject_fix()
+                        print(reject_result["response"])
         
         return 0
         

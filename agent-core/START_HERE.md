@@ -41,7 +41,21 @@ python test_installation.py
 5. NodeSelector 추가
 6. 여러 문제 일괄 수정
 
-### 방법 3: CLI 명령어
+### 방법 3: Chaos Engineering (복원력 테스트)
+
+```bash
+./chaos_scenarios.py
+```
+
+**Chaos Mesh 통합**으로 시스템 복원력을 테스트합니다:
+- Pod Kill → 자동 복구
+- Memory Stress → OOM → 자동 수정
+- Network Delay 테스트
+- 전체 복원력 테스트
+
+자세한 내용: [CHAOS_GUIDE.md](CHAOS_GUIDE.md)
+
+### 방법 4: CLI 명령어
 
 ```bash
 # 기본 사용
@@ -59,6 +73,7 @@ python -m langgraph_agent.cli --dry-run
 - **[README.md](README.md)** - 전체 프로젝트 설명
 - **[QUICKSTART.md](QUICKSTART.md)** - 5분 빠른 시작 가이드
 - **[GUIDE.md](GUIDE.md)** - Python 초보자 가이드
+- **[CHAOS_GUIDE.md](CHAOS_GUIDE.md)** - 🆕 Chaos Engineering 가이드
 - **[SUMMARY.md](SUMMARY.md)** - 프로젝트 요약
 
 ## 🎯 주요 기능
@@ -86,6 +101,12 @@ python -m langgraph_agent.cli --dry-run
 - 승인 단계 필수
 - 시뮬레이션 모드 (--dry-run)
 - 롤백 명령어 자동 제공
+
+### 5. 🆕 Chaos Engineering (Chaos Mesh 통합)
+- Pod Kill, Memory Stress, Network Delay 등
+- 시스템 복원력 테스트
+- 자동 복구 메커니즘 검증
+- 다양한 카오스 시나리오 제공
 
 ## 💡 사용 예제
 

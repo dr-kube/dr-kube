@@ -72,3 +72,4 @@ if __name__ == "__main__":
         print(f"\n❌ 오류 발생: {e}")
         print("   자세한 내용은 로그를 확인하세요.")
         sys.exit(1)
+
