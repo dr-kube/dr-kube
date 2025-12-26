@@ -5,13 +5,13 @@
 chaosDaemon:
   runtime: containerd
   socketPath: /run/containerd/containerd.sock
-  
+
   # Host 네트워크 사용 (네트워크 카오스에 필요)
   hostNetwork: false
-  
+
   # 권한 설정
   privileged: true
-  
+
   # 리소스 제한
   resources:
     limits:
@@ -24,7 +24,7 @@ chaosDaemon:
 # Controller Manager 설정
 controllerManager:
   replicaCount: 1
-  
+
   resources:
     limits:
       cpu: 500m
@@ -32,7 +32,7 @@ controllerManager:
     requests:
       cpu: 250m
       memory: 512Mi
-  
+
   # Leader election 설정
   leaderElection:
     enabled: true
@@ -40,7 +40,7 @@ controllerManager:
 # Dashboard 설정
 dashboard:
   create: true
-  
+
   # Ingress 설정 (필요시 활성화)
   ingress:
     enabled: false
@@ -51,12 +51,12 @@ dashboard:
     #     paths:
     #       - path: /
     #         pathType: Prefix
-  
+
   # Service 타입
   service:
     type: ClusterIP
     port: 2333
-  
+
   resources:
     limits:
       cpu: 500m
@@ -64,7 +64,7 @@ dashboard:
     requests:
       cpu: 250m
       memory: 512Mi
-  
+
   # Security Context
   securityContext:
     runAsNonRoot: true
@@ -73,7 +73,7 @@ dashboard:
 # DNS Server 설정
 dnsServer:
   create: true
-  
+
   resources:
     limits:
       cpu: 200m
@@ -99,10 +99,10 @@ webhook:
   # 인증서 자동 갱신
   certManager:
     enabled: false
-  
+
   # Failover 정책
   FailurePolicy: Ignore
-  
+
   # Webhook 타임아웃
   timeoutSeconds: 5
 
@@ -139,7 +139,6 @@ timezone: Asia/Seoul
 
 # 보안 모드 (production 권장)
 securityMode: true
-
 # PVC 설정 (실험 기록 저장)
 # persistentVolume:
 #   enabled: false
