@@ -1,25 +1,7 @@
-# values.yaml (grafana/alloy용)
+# https://artifacthub.io/packages/helm/grafana/alloy
 
-# 컨트롤러 타입: 기본이 daemonset 이라 그대로 둠
-controller:
-  type: daemonset
-
-image:
-  # -- Grafana Alloy image registry (defaults to docker.io)
-  registry: "docker.io"
-  # -- Grafana Alloy image repository.
-  repository: grafana/alloy
-  # -- (string) Grafana Alloy image tag. When empty, the Chart's appVersion is
-  # used.
-  tag: null
-  # -- Grafana Alloy image's SHA256 digest (either in format "sha256:XYZ" or "XYZ"). When set, will override `image.tag`.
-  digest: null
-  # -- Grafana Alloy image pull policy.
-  pullPolicy: IfNotPresent
-  # -- Optional set of image pull secrets.
-  pullSecrets: []
-
-
+# Grafana Alloy - Kubernetes 로그/메트릭 수집 에이전트
+# 상세 설정 문서: docs/ALLOY_CONFIG.md
 alloy:
   # Alloy 설정을 values.yaml 안에 직접 넣는 방식 (공식 문서 방식)
   # ref: https://grafana.com/docs/alloy/latest/configure/kubernetes/
@@ -67,11 +49,4 @@ alloy:
   extraEnv:
     - name: LOKI_URL
       value: "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
-
-  # 필요하면 여기서 podSecurityContext, resources 등 추가 가능
-  # podSecurityContext: {}
-  # resources: {}
-
-# RBAC, ServiceAccount 등은 기본값 그대로 써도
-# discovery.kubernetes + loki.source.kubernetes 동작하도록 이미 설정되어 있음.
-# (values.yaml에 rbac.rules / clusterRules 기본 포함)
+# 참고: docs/ALLOY_CONFIG.md 참조

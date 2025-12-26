@@ -1,3 +1,4 @@
+# https://artifacthub.io/packages/helm/chaos-mesh/chaos-mesh
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,7 +9,7 @@ spec:
   sources:
     - repoURL: https://charts.chaos-mesh.org
       chart: chaos-mesh
-      targetRevision: 2.7.0
+      targetRevision: 2.8.1
       helm:
         valueFiles:
           - $values/values/chaos-mesh.yaml
