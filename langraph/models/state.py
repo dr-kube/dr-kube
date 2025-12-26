@@ -39,4 +39,6 @@ class IncidentState(TypedDict, total=False):
     user_feedback_history: List[Dict]  # 사용자 피드백 이력
     created_at: str                 # 인시던트 생성 시간
     updated_at: str                 # 마지막 업데이트 시간
+    dry_run: bool                   # Dry-run 모드 여부
+    modified_files: List[str]       # 수정된 파일 목록
 

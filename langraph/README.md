@@ -16,7 +16,10 @@ langraph/
 │   └── nodes/                # 워크플로우 노드들
 ├── models/                    # 데이터 모델
 │   └── state.py              # State 정의
-├── services/                  # 외부 서비스 클라이언트 (Phase 2+)
+├── services/                  # 외부 서비스 클라이언트
+│   ├── app_of_apps_analyzer.py  # App of Apps 구조 분석
+│   ├── git_client.py            # Git 작업
+│   └── yaml_modifier.py         # YAML 파일 수정
 ├── utils/                     # 유틸리티
 └── cli/                       # CLI 인터페이스
     └── main.py
@@ -39,7 +42,7 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-### 3. 환경 변수 설정
+### 3. 환경 변수 설정0
 
 ```bash
 cp .env.example .env
@@ -71,12 +74,27 @@ python -m cli.main --log-file log.txt --log-source loki
 ### 예시 실행
 
 ```bash
-# OOM 에러 예시
-python -m cli.main --log-file examples/sample_log_oom.txt
+# OOM 에러 예시 (dry-run 모드)
+python -m cli.main --log-file examples/sample_log_oom.txt --dry-run
+
+# 실제 실행 (파일 수정 및 커밋)
+python -m cli.main --log-file examples/sample_log_oom.txt --repo-root ..
 
 # CrashLoop 에러 예시
-python -m cli.main --log-file examples/sample_log_crashloop.txt
+python -m cli.main --log-file examples/sample_log_crashloop.txt --dry-run
 ```
+
+### 주요 옵션
+
+- `--log-file`: 분석할 로그 파일 경로
+- `--log-text`: 직접 입력할 로그 텍스트
+- `--log-source`: 로그 소스 (file, loki, prometheus)
+- `--dry-run`: Dry-run 모드 ⭐ **권장**
+  - 파일은 실제로 수정됨 (백업 생성 포함)
+  - 예시 로그 파일도 복사됨
+  - **하지만 Git 커밋은 수행하지 않음**
+  - 변경사항을 미리 확인한 후 실제 커밋 가능
+- `--repo-root`: Git 저장소 루트 경로 (기본값: 상위 디렉토리)
 
 ## 워크플로우
 
@@ -94,22 +112,50 @@ python -m cli.main --log-file examples/sample_log_crashloop.txt
 - ✅ 기본 프로젝트 구조
 - ✅ State 모델 정의
 - ✅ 로그 수집 노드 (로컬 파일)
-- ✅ 에러 분류 노드 (키워드 기반)
+- ✅ 에러 분류 노드 (키워드 기반 + App of Apps 구조 활용)
 - ✅ 근본 원인 분석 노드 (기본 템플릿)
 - ✅ 사용자 피드백 노드 (자동 승인)
-- ✅ 액션 생성 노드 (기본 구조)
-- ✅ Git 커밋 노드 (시뮬레이션)
+- ✅ **액션 생성 노드 (실제 values.yaml 수정)** ⭐
+- ✅ **Git 커밋 노드 (실제 Git 커밋)** ⭐
 - ✅ 복구 검증 노드 (시뮬레이션)
 - ✅ 최종 피드백 노드
 - ✅ 기본 LangGraph 구조
+- ✅ **App of Apps 구조 분석기** ⭐
+- ✅ **YAML 파일 수정 유틸리티** ⭐
+- ✅ **Git 클라이언트** ⭐
+- ✅ **Dry-run 모드 지원** ⭐
+
+## 주요 기능
+
+### 1. App of Apps 구조 자동 분석
+- `dr-kube/` 디렉토리의 `Application.yaml` 파일들을 스캔
+- 각 앱의 `values.yaml` 경로 자동 매핑
+- Pod 이름으로 앱 이름 자동 추출
+
+### 2. 자동 파일 수정
+- OOM 에러 시 메모리 리소스 제한 자동 증가
+- `helm-values/{app}/values.yaml` 파일 수정
+- 백업 파일 자동 생성 (`.bak`)
+
+### 3. Git 작업
+- 변경사항 자동 커밋
+- 커밋 메시지 자동 생성
+- Dry-run 모드로 안전하게 테스트 가능
+
+### 4. Dry-run 모드
+- **파일은 실제로 수정됨** (백업 파일 자동 생성)
+- 예시 로그 파일도 `examples/` 디렉토리에 복사됨
+- **Git 커밋만 수행하지 않음**
+- 변경사항을 미리 확인한 후, 수동으로 커밋 가능
+- 프로덕션 환경에서 안전하게 테스트 가능
 
 ## 다음 단계 (Phase 2+)
 
 - LLM 기반 고급 에러 분류 및 분석
-- 실제 사용자 입력 받기
-- Git 작업 실제 구현
+- 실제 사용자 입력 받기 (대화형 인터페이스)
 - Kubernetes/ArgoCD API 연동
 - Loki/Prometheus 연동
+- 더 많은 에러 카테고리 지원 (crashloop, config_error 등)
 
 ## 참고
 

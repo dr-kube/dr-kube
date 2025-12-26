@@ -1,4 +1,5 @@
 """에러 카테고리 정의 및 매칭 로직"""
+from typing import Optional
 
 ERROR_CATEGORIES = {
     "oom": {

@@ -35,12 +35,33 @@ def main():
         default="file",
         help="로그 소스 (file, loki, prometheus)"
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Dry-run 모드 (실제 파일 수정 및 커밋 안 함)"
+    )
+    parser.add_argument(
+        "--repo-root",
+        type=str,
+        default="../..",
+        help="Git 저장소 루트 경로 (기본값: 상위 2단계, dr-kube 디렉토리의 상위)"
+    )
     
     args = parser.parse_args()
     
     # 로그 입력 확인
     if not args.log_file and not args.log_text:
         parser.error("--log-file 또는 --log-text 중 하나는 필수입니다")
+    
+    # repo_root 경로 해석 (스크립트 위치 기준)
+    script_dir = Path(__file__).parent.parent  # langraph 디렉토리
+    if Path(args.repo_root).is_absolute():
+        repo_root = args.repo_root
+    else:
+        # 상대 경로는 스크립트 위치 기준으로 해석
+        repo_root = str((script_dir / args.repo_root).resolve())
+    
+    logger.info(f"Repo root 경로: {repo_root}")
     
     # 초기 State 생성
     initial_state: IncidentState = {
@@ -54,6 +75,9 @@ def main():
         "user_feedback_history": [],
         "created_at": "",
         "updated_at": "",
+        "dry_run": args.dry_run,
+        "repo_root": repo_root,
+        "modified_files": [],
     }
     
     # 그래프 생성 및 실행

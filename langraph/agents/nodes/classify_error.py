@@ -24,6 +24,8 @@ def classify_error_node(state: IncidentState) -> Dict[str, Any]:
     logger.info("에러 분류 시작")
     
     raw_log = state.get("raw_log", "")
+    repo_root = state.get("repo_root", ".")
+    
     if not raw_log:
         logger.warning("분류할 로그가 없습니다")
         return {
@@ -36,10 +38,10 @@ def classify_error_node(state: IncidentState) -> Dict[str, Any]:
     # 키워드 기반 분류
     error_category, error_severity = categorize_error(raw_log)
     
-    # 영향받는 애플리케이션 추출 (간단한 휴리스틱)
-    affected_apps = _extract_affected_apps(raw_log)
+    # 영향받는 애플리케이션 추출 (App of Apps 구조 활용)
+    affected_apps = _extract_affected_apps(raw_log, repo_root)
     
-    logger.info(f"에러 분류 완료: category={error_category}, severity={error_severity}")
+    logger.info(f"에러 분류 완료: category={error_category}, severity={error_severity}, apps={affected_apps}")
     
     return {
         "error_category": error_category,
@@ -49,36 +51,61 @@ def classify_error_node(state: IncidentState) -> Dict[str, Any]:
     }
 
 
-def _extract_affected_apps(log_text: str) -> list[str]:
+def _extract_affected_apps(log_text: str, repo_root: str = ".") -> list[str]:
     """
     로그에서 영향받는 애플리케이션 이름 추출
     
-    Phase 1: 간단한 휴리스틱 사용
-    Phase 2: LLM 기반 추출로 개선 예정
+    App of Apps 구조를 활용하여 정확한 앱 이름 찾기
     """
-    # 일반적인 Kubernetes 리소스 이름 패턴 찾기
     import re
     
-    # Pod 이름 패턴 (예: app-name-xxx-xxx)
-    pod_pattern = r'pod[\/\s]+([a-z0-9-]+(?:-[a-z0-9]+)*)'
-    matches = re.findall(pod_pattern, log_text.lower())
+    # App of Apps 구조 분석
+    try:
+        from langraph.services.app_of_apps_analyzer import AppOfAppsAnalyzer
+        analyzer = AppOfAppsAnalyzer(repo_root=repo_root)
+        analyzer.analyze()
+    except Exception as e:
+        logger.warning(f"App of Apps 분석 실패, 기본 휴리스틱 사용: {e}")
+        analyzer = None
     
-    # 네임스페이스나 애플리케이션 이름 패턴
+    # Pod 이름 패턴 찾기 (예: pod/grafana-7d8f9c4b5-xk2m3)
+    pod_pattern = r'pod[\/\s]+([a-z0-9-]+(?:-[a-z0-9]+)*)'
+    pod_matches = re.findall(pod_pattern, log_text.lower())
+    
+    apps = set()
+    
+    # Pod 이름에서 앱 이름 추출
+    for pod_name in pod_matches:
+        if analyzer:
+            # App of Apps 구조를 활용하여 정확한 앱 이름 찾기
+            app_name = analyzer.find_app_by_pod_name(pod_name)
+            if app_name:
+                apps.add(app_name)
+            else:
+                # 실패 시 기본 휴리스틱 사용
+                parts = pod_name.split('-')
+                if len(parts) > 0:
+                    apps.add(parts[0])
+        else:
+            # 기본 휴리스틱
+            parts = pod_name.split('-')
+            if len(parts) > 0:
+                apps.add(parts[0])
+    
+    # 다른 패턴들도 시도
     app_patterns = [
         r'application[\/\s]+([a-z0-9-]+)',
         r'app[\/\s]+([a-z0-9-]+)',
         r'deployment[\/\s]+([a-z0-9-]+)',
     ]
     
-    apps = set()
     for pattern in app_patterns:
-        apps.update(re.findall(pattern, log_text.lower()))
-    
-    # Pod 이름에서 애플리케이션 이름 추출 (예: grafana-xxx -> grafana)
-    for match in matches:
-        parts = match.split('-')
-        if len(parts) > 0:
-            apps.add(parts[0])
+        matches = re.findall(pattern, log_text.lower())
+        for match in matches:
+            if analyzer and match in analyzer.apps_map:
+                apps.add(match)
+            else:
+                apps.add(match)
     
     return list(apps)[:5]  # 최대 5개만 반환
 
