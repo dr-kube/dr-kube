@@ -1,3 +1,4 @@
+# https://artifacthub.io/packages/helm/prometheus-community/prometheus
 # ============================================
 # Prometheus Server
 # ============================================
@@ -8,7 +9,7 @@ server:
     runAsUser: 0
     runAsNonRoot: false
     runAsGroup: 0
-    fsGroup: 0 
+    fsGroup: 0
 
   service:
     type: ClusterIP
@@ -16,7 +17,7 @@ server:
 
   persistentVolume:
     enabled: true
-    storageClass: "csi-storageclass"        # ← 원하는 SC로 교체
+    storageClass: "csi-storageclass" # ← 원하는 SC로 교체
     accessModes:
       - ReadWriteOnce
     size: 8Gi
@@ -29,7 +30,7 @@ server:
       - prometheus.drkube.shop
     paths:
       - /
-    tls: []     # HTTP만 사용
+    tls: [] # HTTP만 사용
 
 # ============================================
 # Alertmanager
@@ -39,7 +40,7 @@ alertmanager:
 
   persistence:
     enabled: true
-    storageClass: "csi-storageclass"        # ← 동일 SC
+    storageClass: "csi-storageclass" # ← 동일 SC
     accessModes:
       - ReadWriteOnce
     size: 2Gi
@@ -72,20 +73,17 @@ prometheus-nodeExporter:
   podLabels: {}
   resources: {}
 
-
 # ============================================
 # Pushgateway (Off)
 # ============================================
 prometheus-pushgateway:
   enabled: false
 
-
 # ============================================
 # Prometheus Configuration
 # ============================================
 serverFiles:
   prometheus.yml:
-
     scrape_configs:
       # 기본 Prometheus self-scrape
       - job_name: "prometheus"
@@ -105,7 +103,8 @@ serverFiles:
         relabel_configs:
           # 1) node-exporter 서비스만 골라잡기
           #    서비스에 app.kubernetes.io/name=prometheus-node-exporter 라벨이 있다고 가정
-          - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+          - source_labels:
+              [__meta_kubernetes_service_label_app_kubernetes_io_name]
             regex: "prometheus-node-exporter"
             action: keep
 
@@ -147,29 +146,27 @@ serverFiles:
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
-# ===========================================
-# alert rule 설정
-# ============================================
+  # ===========================================
+  # alert rule 설정
+  # ============================================
   alerting_rules.yml:
     groups:
-    - name: container-oom.rules
-      rules:
-      - alert: ContainerOOMKilled
-        expr: |
-          increase(kube_pod_container_status_restarts_total[5m]) >= 1
-          and on (namespace, pod, container)
-          max_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[5m]) == 1
-        for: 0m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Container OOMKilled 발생"
-          description: |
-            Pod {{ $labels.namespace }}/{{ $labels.pod }}
-            컨테이너 {{ $labels.container }} 가
-            최근 5분 내 OOMKilled로 인해 재시작되었습니다.
-
-
+      - name: container-oom.rules
+        rules:
+          - alert: ContainerOOMKilled
+            expr: |
+              increase(kube_pod_container_status_restarts_total[5m]) >= 1
+              and on (namespace, pod, container)
+              max_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[5m]) == 1
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Container OOMKilled 발생"
+              description: |
+                Pod {{ $labels.namespace }}/{{ $labels.pod }}
+                컨테이너 {{ $labels.container }} 가
+                최근 5분 내 OOMKilled로 인해 재시작되었습니다.
 
   # alerting_rules.yml:
   #   groups:
@@ -183,5 +180,3 @@ serverFiles:
   #         annotations:
   #           summary: "Container OOMKilled 발생"
   #           description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} 컨테이너 {{ $labels.container }} 가 OOMKilled 되었습니다."
-
-

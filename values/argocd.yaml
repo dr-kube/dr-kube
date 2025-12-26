@@ -1,7 +1,4 @@
-global:
-  logging:
-    level: info
-
+# https://artifacthub.io/packages/helm/argo/argo-cd
 configs:
   secret:
     argocdServerAdminPassword: $2a$10$7BuGb2czbMSz/Oyd0A56Deqf6xzGFuBqLJDhzP/z4wVMaakYXnQaC%
@@ -12,6 +9,7 @@ configs:
       url: https://github.com/dr-kube/dr-kube.git
       name: dr-kube
       type: git
+
 controller:
   resources:
     requests:

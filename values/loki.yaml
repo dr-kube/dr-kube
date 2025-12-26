@@ -1,3 +1,4 @@
+# https://artifacthub.io/packages/helm/grafana/loki
 # 개발환경용 심플한 Prometheus 설정
 deploymentMode: SingleBinary
 

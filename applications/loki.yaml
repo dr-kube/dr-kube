@@ -1,3 +1,4 @@
+# https://artifacthub.io/packages/helm/grafana/loki
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
