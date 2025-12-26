@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: default # ← AppProject 안 쓰는 핵심
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: grafana
+      targetRevision: 10.3.1
+      helm:
+        valueFiles:
+          - $values/values/grafana.yaml
+
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

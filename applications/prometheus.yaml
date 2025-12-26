@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: alloy
+  name: prometheus 
   namespace: argocd
 spec:
   project: default   # ← AppProject 안 쓰는 핵심
   sources:
-    - repoURL: https://grafana.github.io/helm-charts
-      chart: alloy
-      targetRevision: 1.5.0
+    - repoURL: https://prometheus-community.github.io/helm-charts 
+      chart: prometheus
+      targetRevision: 27.50.1
       helm:
         valueFiles:
-          - $values/helm-values/alloy/values.yaml
+          - $values/values/prometheus.yaml
 
     - repoURL: https://github.com/dr-kube/dr-kube.git
       targetRevision: main
