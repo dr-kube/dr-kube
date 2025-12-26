@@ -427,22 +427,7 @@ initChownData:
   ## If false, data ownership will not be reset at startup
   ## This allows the grafana-server to be run with an arbitrary user
   ##
-  enabled: false ## Prometheus 설정 ㅂ반영하는것때문에변
-    #👉 99% 확률로 이 조합
-    #
-    #✔ persistence.enabled=true
-    #✔ PVC / PV (NFS, hostPath, Longhorn 등)
-    #✔ 해당 스토리지가 chown 을 허용 안 함
-    #
-    #Prometheus datasource를 추가하면서:
-    #
-    #Grafana provisioning 파일 수가 늘고
-    #
-    #/var/lib/grafana 접근 시점이 바뀌거나
-    #
-    #init container가 다시 활성화됨
-    #
-    #➡️ 잠재돼 있던 권한 문제가 드러난 것
+  enabled: true
 
   ## initChownData container image
   ##
@@ -659,11 +644,6 @@ datasources:
         type: loki
         url: http://loki:3100
         access: proxy
-      - name: Prometheus
-        type: prometheus
-        url: http://prometheus-server
-        access: proxy
-
 
 ## Configure grafana alerting (can be templated)
 ## ref: https://docs.grafana.com/alerting/set-up/provision-alerting-resources/file-provisioning/

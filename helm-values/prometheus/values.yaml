@@ -1,168 +1,187 @@
-# 개발환경용 심플한 Prometheus 설정
+# ============================================
+# Prometheus Server
+# ============================================
 server:
+  enabled: true
+
+  securityContext:
+    runAsUser: 0
+    runAsNonRoot: false
+    runAsGroup: 0
+    fsGroup: 0 
+
+  service:
+    type: ClusterIP
+    port: 9090
+
   persistentVolume:
-    enabled: false # 개발환경에서는 PV 없이 사용
+    enabled: true
+    storageClass: "csi-storageclass"        # ← 원하는 SC로 교체
+    accessModes:
+      - ReadWriteOnce
+    size: 8Gi
+    mountPath: /data
 
-  resources:
-    limits:
-      cpu: 500m
-      memory: 1Gi
-    requests:
-      cpu: 200m
-      memory: 512Mi
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - prometheus.drkube.shop
+    paths:
+      - /
+    tls: []     # HTTP만 사용
 
-  retention: "7d" # 개발환경에서는 7일만 보관
-
-  # 추가 스크래핑 설정
-  global:
-    scrape_interval: 15s
-    evaluation_interval: 15s
-
+# ============================================
+# Alertmanager
+# ============================================
 alertmanager:
-  enabled: false # 개발환경에서는 알림 비활성화
-
-nodeExporter:
   enabled: true
 
-kubeStateMetrics:
+  persistence:
+    enabled: true
+    storageClass: "csi-storageclass"        # ← 동일 SC
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+    mountPath: /data
+
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: alert.drkube.shop
+        paths:
+          - path: /
+            pathType: Prefix
+
+# ============================================
+# Node Exporter (DaemonSet)
+# ============================================
+prometheus-nodeExporter:
   enabled: true
 
-pushgateway:
-  enabled: false # 개발환경에서는 비활성화
+  service:
+    type: ClusterIP
+    port: 9100
 
-# ServiceMonitor와 PodMonitor 자동 발견 활성화
-prometheus:
-  serviceMonitorSelector: {}
-  serviceMonitorNamespaceSelector: {}
-  podMonitorSelector: {}
-  podMonitorNamespaceSelector: {}
+  tolerations: []
+  hostNetwork: false
+  hostPID: false
 
-# 추가 스크래핑 잡 설정
+  extraArgs: []
+  podLabels: {}
+  resources: {}
+
+
+# ============================================
+# Pushgateway (Off)
+# ============================================
+prometheus-pushgateway:
+  enabled: false
+
+
+# ============================================
+# Prometheus Configuration
+# ============================================
 serverFiles:
   prometheus.yml:
+
     scrape_configs:
-      # cAdvisor 메트릭 수집 (컨테이너 리소스 메트릭)
-      - job_name: "kubernetes-nodes-cadvisor"
-        scrape_interval: 10s
-        scrape_timeout: 10s
+      # 기본 Prometheus self-scrape
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]
+      # Kube-State-Metrics 스크랩
+      - job_name: "kube-state-metrics"
+        static_configs:
+          - targets:
+              - "prometheus-kube-state-metrics.monitoring.svc.cluster.local:8080"
+
+      # Node Exporter 자동 스크랩
+      - job_name: "node-exporter"
+        kubernetes_sd_configs:
+          - role: endpoints
+
+        relabel_configs:
+          # 1) node-exporter 서비스만 골라잡기
+          #    서비스에 app.kubernetes.io/name=prometheus-node-exporter 라벨이 있다고 가정
+          - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+            regex: "prometheus-node-exporter"
+            action: keep
+
+          # 2) metrics 포트만 사용 (보통 포트 이름이 metrics 또는 http-metrics)
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            regex: "metrics|http-metrics"
+            action: keep
+
+          # 3) node 이름을 라벨로 붙이고 싶으면 (옵션)
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: "node"
+
+      # 3. cAdvisor (kubelet) 통해 Pod/컨테이너 메트릭 스크랩
+      - job_name: "cadvisor"
         scheme: https
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        metrics_path: /metrics/cadvisor
+
+        # 각 Node의 kubelet을 API 서버 proxy로 타고 가는 패턴
         kubernetes_sd_configs:
           - role: node
+
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
         relabel_configs:
+          # 노드 라벨을 Prometheus 라벨로 복사
           - action: labelmap
             regex: __meta_kubernetes_node_label_(.+)
-          # Only for Kubernetes ^1.7.3.
-          # See: https://github.com/prometheus/prometheus/issues/2916
+
+          # 실제 요청은 apiserver로 보내고,
+          # metrics_path로 어느 노드인지 지정 (proxy 사용)
           - target_label: __address__
             replacement: kubernetes.default.svc:443
+
           - source_labels: [__meta_kubernetes_node_name]
             regex: (.+)
             target_label: __metrics_path__
-            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
-        metric_relabel_configs:
-          - action: replace
-            source_labels: [id]
-            regex: '^/machine\.slice/machine-rkt\\x2d([^\\]+)\\.+/([^/]+)\.service$'
-            target_label: rkt_container_name
-            replacement: "${2}-${1}"
-          - action: replace
-            source_labels: [id]
-            regex: '^/system\.slice/(.+)\.service$'
-            target_label: systemd_service_name
-            replacement: "${1}"
+            replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+# ===========================================
+# alert rule 설정
+# ============================================
+  alerting_rules.yml:
+    groups:
+    - name: container-oom.rules
+      rules:
+      - alert: ContainerOOMKilled
+        expr: |
+          increase(kube_pod_container_status_restarts_total[5m]) >= 1
+          and on (namespace, pod, container)
+          max_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[5m]) == 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container OOMKilled 발생"
+          description: |
+            Pod {{ $labels.namespace }}/{{ $labels.pod }}
+            컨테이너 {{ $labels.container }} 가
+            최근 5분 내 OOMKilled로 인해 재시작되었습니다.
 
-      - job_name: "kubernetes-apiservers"
-        kubernetes_sd_configs:
-          - role: endpoints
-        scheme: https
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        relabel_configs:
-          - source_labels:
-              [
-                __meta_kubernetes_namespace,
-                __meta_kubernetes_service_name,
-                __meta_kubernetes_endpoint_port_name,
-              ]
-            action: keep
-            regex: default;kubernetes;https
 
-      - job_name: "kubernetes-nodes"
-        kubernetes_sd_configs:
-          - role: node
-        scheme: https
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        relabel_configs:
-          - action: labelmap
-            regex: __meta_kubernetes_node_label_(.+)
 
-      - job_name: "kubernetes-pods"
-        kubernetes_sd_configs:
-          - role: pod
-        relabel_configs:
-          - source_labels:
-              [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-            action: keep
-            regex: true
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-            action: replace
-            target_label: __metrics_path__
-            regex: (.+)
-          - source_labels:
-              [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-            action: replace
-            regex: ([^:]+)(?::\d+)?;(\d+)
-            replacement: $1:$2
-            target_label: __address__
-          - action: labelmap
-            regex: __meta_kubernetes_pod_label_(.+)
-          - source_labels: [__meta_kubernetes_namespace]
-            action: replace
-            target_label: kubernetes_namespace
-          - source_labels: [__meta_kubernetes_pod_name]
-            action: replace
-            target_label: kubernetes_pod_name
+  # alerting_rules.yml:
+  #   groups:
+  #   - name: container-oom.rules
+  #     rules:
+  #       - alert: ContainerOOMKilled
+  #         expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+  #         for: 1m
+  #         labels:
+  #           severity: critical
+  #         annotations:
+  #           summary: "Container OOMKilled 발생"
+  #           description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} 컨테이너 {{ $labels.container }} 가 OOMKilled 되었습니다."
 
-      - job_name: "kubernetes-services"
-        kubernetes_sd_configs:
-          - role: service
-        relabel_configs:
-          - source_labels:
-              [__meta_kubernetes_service_annotation_prometheus_io_scrape]
-            action: keep
-            regex: true
-          - source_labels:
-              [__meta_kubernetes_service_annotation_prometheus_io_path]
-            action: replace
-            target_label: __metrics_path__
-            regex: (.+)
-          - source_labels:
-              [
-                __address__,
-                __meta_kubernetes_service_annotation_prometheus_io_port,
-              ]
-            action: replace
-            target_label: __address__
-            regex: ([^:]+)(?::\d+)?;(\d+)
-            replacement: $1:$2
-          - action: labelmap
-            regex: __meta_kubernetes_service_label_(.+)
-          - source_labels: [__meta_kubernetes_namespace]
-            action: replace
-            target_label: kubernetes_namespace
-          - source_labels: [__meta_kubernetes_service_name]
-            action: replace
-            target_label: kubernetes_name
 
-      # CloudWatch Exporter (ALB 트래픽 메트릭 수집)
-      - job_name: "cloudwatch-exporter"
-        static_configs:
-          - targets: ["cloudwatch-exporter-prometheus-cloudwatch-exporter:9106"]
-        scrape_interval: 60s
-        metrics_path: /metrics

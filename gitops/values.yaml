@@ -1,44 +1,53 @@
-apps:
-  - name: prometheus
-    namespace: argocd
-    sources:
-      - repoURL: https://github.com/dr-kube/dr-kube
-        targetRevision: main
-        path: .
-        ref: values
-      - repoURL: https://prometheus-community.github.io/helm-charts
-        chart: kube-prometheus-stack
-        targetRevision: 55.0.0
-        helm:
-          releaseName: prometheus
-          valueFiles:
-            - $values/helm-charts/prometheus/values.yaml
-    destination:
-      server: https://kubernetes.default.svc
-      namespace: monitoring
-    syncPolicy:
-      automated:
-        prune: true
-        selfHeal: true
-  - name: grafana
-    namespace: argocd
-    sources:
-      - repoURL: https://github.com/dr-kube/dr-kube
-        targetRevision: main
-        path: .
-        ref: values
-      - repoURL: https://grafana.github.io/helm-charts
-        chart: grafana
-        targetRevision: 7.0.0
-        helm:
-          releaseName: grafana
-          valueFiles:
-            - $values/helm-charts/grafana/values.yaml
-    destination:
-      server: https://kubernetes.default.svc
-      namespace: monitoring
-    syncPolicy:
-      automated:
-        prune: true
-        selfHeal: true
+# apps:
+#   - name: prometheus
+#     namespace: argocd
+#     sources:
+#       - repoURL: https://github.com/dr-kube/dr-kube
+#         targetRevision: main
+#         path: .
+#         ref: values
+#       - repoURL: https://prometheus-community.github.io/helm-charts
+#         chart: kube-prometheus-stack
+#         targetRevision: 55.0.0
+#         helm:
+#           releaseName: prometheus
+#           valueFiles:
+#             - $values/helm-values/prometheus/values.yaml
+#     destination:
+#       server: https://kubernetes.default.svc
+#       namespace: monitoring
+#     ignoreDifferences:
+#       - group: apiextensions.k8s.io
+#         kind: CustomResourceDefinition
+#         jsonPointers:
+#           - /metadata/annotations
+#     syncPolicy:
+#       automated:
+#         prune: true
+#         selfHeal: true
+#       syncOptions:
+#         - CreateNamespace=true
+#         - SkipDryRunOnMissingResource=true
+#         - ServerSideApply=true
+#   - name: grafana
+#     namespace: argocd
+#     sources:
+#       - repoURL: https://github.com/dr-kube/dr-kube
+#         targetRevision: main
+#         path: .
+#         ref: values
+#       - repoURL: https://grafana.github.io/helm-charts
+#         chart: grafana
+#         targetRevision: 7.0.0
+#         helm:
+#           releaseName: grafana
+#           valueFiles:
+#             - $values/helm-values/grafana/values.yaml
+#     destination:
+#       server: https://kubernetes.default.svc
+#       namespace: monitoring
+#     syncPolicy:
+#       automated:
+#         prune: true
+#         selfHeal: true
 
