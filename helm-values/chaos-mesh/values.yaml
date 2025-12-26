@@ -1,0 +1,156 @@
+# Chaos Mesh Helm Values
+# https://chaos-mesh.org/docs/production-installation-using-helm/
+
+# Container Runtime 설정
+chaosDaemon:
+  runtime: containerd
+  socketPath: /run/containerd/containerd.sock
+  
+  # Host 네트워크 사용 (네트워크 카오스에 필요)
+  hostNetwork: false
+  
+  # 권한 설정
+  privileged: true
+  
+  # 리소스 제한
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+# Controller Manager 설정
+controllerManager:
+  replicaCount: 1
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  
+  # Leader election 설정
+  leaderElection:
+    enabled: true
+
+# Dashboard 설정
+dashboard:
+  create: true
+  
+  # Ingress 설정 (필요시 활성화)
+  ingress:
+    enabled: false
+    # annotations:
+    #   kubernetes.io/ingress.class: nginx
+    # hosts:
+    #   - host: chaos-mesh.example.com
+    #     paths:
+    #       - path: /
+    #         pathType: Prefix
+  
+  # Service 타입
+  service:
+    type: ClusterIP
+    port: 2333
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  
+  # Security Context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+
+# DNS Server 설정
+dnsServer:
+  create: true
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# 보안 설정
+clusterScoped: true
+
+# RBAC 설정
+rbac:
+  create: true
+
+# Service Account
+serviceAccount:
+  create: true
+  name: chaos-mesh
+
+# Webhook 설정
+webhook:
+  # 인증서 자동 갱신
+  certManager:
+    enabled: false
+  
+  # Failover 정책
+  FailurePolicy: Ignore
+  
+  # Webhook 타임아웃
+  timeoutSeconds: 5
+
+# Prometheus 모니터링 (선택)
+prometheus:
+  # ServiceMonitor 생성 (Prometheus Operator 사용시)
+  serviceMonitor:
+    enabled: false
+    # interval: 30s
+
+# 로그 레벨
+logLevel: info
+
+# 타임존 설정
+timezone: Asia/Seoul
+
+# 네임스페이스별 권한 제어 (선택)
+# enableFilterNamespace: false
+# targetNamespace: default,dev,staging
+
+# 실험 타입별 활성화/비활성화
+# enablePodChaos: true
+# enableNetworkChaos: true
+# enableIOChaos: true
+# enableStressChaos: true
+# enableTimeChaos: true
+# enableKernelChaos: true
+# enableDNSChaos: true
+# enableHTTPChaos: true
+# enableJVMChaos: false
+# enableAWSChaos: false
+# enableGCPChaos: false
+# enableAzureChaos: false
+
+# 보안 모드 (production 권장)
+securityMode: true
+
+# PVC 설정 (실험 기록 저장)
+# persistentVolume:
+#   enabled: false
+#   size: 8Gi
+#   storageClassName: standard
+
+# Node Selector (특정 노드에 배포)
+# nodeSelector: {}
+
+# Tolerations (Taint가 있는 노드에 배포)
+# tolerations: []
+
+# Affinity (파드 배치 규칙)
+# affinity: {}

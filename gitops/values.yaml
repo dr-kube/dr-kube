@@ -51,3 +51,28 @@
 #         prune: true
 #         selfHeal: true
 
+# Chaos Mesh - 카오스 엔지니어링 플랫폼
+apps:
+  - name: chaos-mesh
+    namespace: argocd
+    sources:
+      - repoURL: https://github.com/dr-kube/dr-kube
+        targetRevision: main
+        path: .
+        ref: values
+      - repoURL: https://charts.chaos-mesh.org
+        chart: chaos-mesh
+        targetRevision: 2.7.0
+        helm:
+          releaseName: chaos-mesh
+          valueFiles:
+            - $values/helm-values/chaos-mesh/values.yaml
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: chaos-mesh
+    syncPolicy:
+      automated:
+        prune: true
+        selfHeal: true
+      syncOptions:
+        - CreateNamespace=true
