@@ -8,6 +8,127 @@ import sys
 from .agent import DrKubeAgent
 
 
+def run_chaos_mode(args):
+    """
+    Chaos Engineering 모드 실행
+    
+    Args:
+        args: CLI 인자
+        
+    Returns:
+        종료 코드
+    """
+    from .tools.chaos import ChaosExperiment, check_chaos_mesh_prerequisites
+    
+    print("💥 Chaos Engineering 모드")
+    print(f"   실험: {args.chaos}")
+    print(f"   네임스페이스: {args.namespace}")
+    print(f"   지속 시간: {args.chaos_duration}")
+    print(f"   대상: {args.chaos_label}")
+    print()
+    
+    # Chaos Mesh 확인
+    success, message = check_chaos_mesh_prerequisites()
+    if not success:
+        print(message)
+        return 1
+    
+    print("✅ Chaos Mesh 사용 가능\n")
+    
+    # 라벨 파싱
+    label_parts = args.chaos_label.split("=")
+    if len(label_parts) != 2:
+        print("❌ 라벨 형식이 잘못되었습니다. 예: app=myapp")
+        return 1
+    
+    label_selector = {label_parts[0]: label_parts[1]}
+    chaos = ChaosExperiment(namespace=args.namespace)
+    
+    # 실험 타입별 실행
+    experiment_name = f"cli-{args.chaos}-{label_parts[1]}"
+    
+    try:
+        if args.chaos == "pod-kill":
+            success, message = chaos.create_pod_kill_chaos(
+                name=experiment_name,
+                label_selector=label_selector,
+                duration=args.chaos_duration,
+                mode="one"
+            )
+        
+        elif args.chaos == "memory-stress":
+            success, message = chaos.create_stress_chaos(
+                name=experiment_name,
+                label_selector=label_selector,
+                memory="256MB",
+                duration=args.chaos_duration
+            )
+        
+        elif args.chaos == "network-delay":
+            success, message = chaos.create_network_delay_chaos(
+                name=experiment_name,
+                label_selector=label_selector,
+                latency="100ms",
+                duration=args.chaos_duration
+            )
+        
+        elif args.chaos == "network-loss":
+            success, message = chaos.create_network_loss_chaos(
+                name=experiment_name,
+                label_selector=label_selector,
+                loss="25",
+                duration=args.chaos_duration
+            )
+        
+        elif args.chaos == "cpu-stress":
+            success, message = chaos.create_stress_chaos(
+                name=experiment_name,
+                label_selector=label_selector,
+                cpu="1",
+                duration=args.chaos_duration
+            )
+        
+        elif args.chaos == "io-delay":
+            success, message = chaos.create_io_delay_chaos(
+                name=experiment_name,
+                label_selector=label_selector,
+                delay="100ms",
+                duration=args.chaos_duration
+            )
+        
+        else:
+            print(f"❌ 알 수 없는 실험 타입: {args.chaos}")
+            return 1
+        
+        print(message)
+        
+        if success:
+            print(f"\n💡 실험 상태 확인:")
+            chaos_type = {
+                "pod-kill": "podchaos",
+                "memory-stress": "stresschaos",
+                "network-delay": "networkchaos",
+                "network-loss": "networkchaos",
+                "cpu-stress": "stresschaos",
+                "io-delay": "iochaos"
+            }[args.chaos]
+            
+            print(f"   kubectl get {chaos_type} {experiment_name} -n {args.namespace}")
+            print(f"\n🗑️ 실험 중단:")
+            print(f"   kubectl delete {chaos_type} {experiment_name} -n {args.namespace}")
+            print(f"\n⏱️ {args.chaos_duration} 후 자동으로 종료됩니다")
+            
+            return 0
+        else:
+            return 1
+    
+    except Exception as e:
+        print(f"❌ 오류 발생: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="🤖 dr-kube: Kubernetes 이슈 자동 분석 및 해결 에이전트",
@@ -49,7 +170,29 @@ def main():
         help="분석만 하고 수정하지 않음"
     )
     
+    parser.add_argument(
+        "--chaos",
+        choices=["pod-kill", "memory-stress", "network-delay", "network-loss", "cpu-stress", "io-delay"],
+        help="카오스 실험 실행 (Chaos Mesh 필요)"
+    )
+    
+    parser.add_argument(
+        "--chaos-duration",
+        default="30s",
+        help="카오스 실험 지속 시간 (기본값: 30s)"
+    )
+    
+    parser.add_argument(
+        "--chaos-label",
+        default="app=test",
+        help="카오스 대상 라벨 선택자 (기본값: app=test)"
+    )
+    
     args = parser.parse_args()
+    
+    # Chaos 모드 처리
+    if args.chaos:
+        return run_chaos_mode(args)
     
     print("🤖 dr-kube Agent 시작...")
     print(f"   네임스페이스: {args.namespace}")

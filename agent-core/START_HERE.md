@@ -41,21 +41,7 @@ python test_installation.py
 5. NodeSelector 추가
 6. 여러 문제 일괄 수정
 
-### 방법 3: Chaos Engineering (복원력 테스트)
-
-```bash
-./chaos_scenarios.py
-```
-
-**Chaos Mesh 통합**으로 시스템 복원력을 테스트합니다:
-- Pod Kill → 자동 복구
-- Memory Stress → OOM → 자동 수정
-- Network Delay 테스트
-- 전체 복원력 테스트
-
-자세한 내용: [CHAOS_GUIDE.md](CHAOS_GUIDE.md)
-
-### 방법 4: CLI 명령어
+### 방법 3: CLI 명령어
 
 ```bash
 # 기본 사용
@@ -66,15 +52,37 @@ python -m langgraph_agent.cli -n production
 
 # 시뮬레이션 (실제로 수정하지 않음)
 python -m langgraph_agent.cli --dry-run
+
+# 🆕 카오스 엔지니어링 (Chaos Mesh 필요)
+python -m langgraph_agent.cli --chaos pod-kill --chaos-label app=nginx
+python -m langgraph_agent.cli --chaos memory-stress --chaos-duration 2m
 ```
+
+### 방법 4: 카오스 엔지니어링 💥
+
+```bash
+# Chaos Mesh를 활용한 카오스 실험
+./examples_chaos.py
+```
+
+7가지 카오스 시나리오:
+1. Pod Kill - 파드 랜덤 삭제
+2. Memory Stress - 메모리 부하 테스트
+3. Network Delay - 네트워크 지연 주입
+4. Network Packet Loss - 패킷 손실
+5. CPU Stress - CPU 부하
+6. I/O Delay - 디스크 I/O 지연
+7. **복원력 통합 테스트** - 카오스 + 자동 복구
+
+> 📖 자세한 내용: [CHAOS_ENGINEERING.md](CHAOS_ENGINEERING.md)
 
 ## 📚 문서
 
 - **[README.md](README.md)** - 전체 프로젝트 설명
 - **[QUICKSTART.md](QUICKSTART.md)** - 5분 빠른 시작 가이드
 - **[GUIDE.md](GUIDE.md)** - Python 초보자 가이드
-- **[CHAOS_GUIDE.md](CHAOS_GUIDE.md)** - 🆕 Chaos Engineering 가이드
 - **[SUMMARY.md](SUMMARY.md)** - 프로젝트 요약
+- **[CHAOS_ENGINEERING.md](CHAOS_ENGINEERING.md)** - 🆕 카오스 엔지니어링 가이드
 
 ## 🎯 주요 기능
 
@@ -102,11 +110,11 @@ python -m langgraph_agent.cli --dry-run
 - 시뮬레이션 모드 (--dry-run)
 - 롤백 명령어 자동 제공
 
-### 5. 🆕 Chaos Engineering (Chaos Mesh 통합)
-- Pod Kill, Memory Stress, Network Delay 등
-- 시스템 복원력 테스트
-- 자동 복구 메커니즘 검증
-- 다양한 카오스 시나리오 제공
+### 5. 카오스 엔지니어링 💥 (NEW!)
+- Chaos Mesh 통합
+- 6가지 카오스 실험 타입
+- 복원력 테스트 자동화
+- CLI로 간편 실행
 
 ## 💡 사용 예제
 
