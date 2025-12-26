@@ -422,7 +422,7 @@ class ChaosExperiment:
         try:
             result = subprocess.run(
                 ["kubectl", "apply", "-f", "-"],
-                input=manifest_json.encode(),
+                input=manifest_json,
                 capture_output=True,
                 text=True
             )
