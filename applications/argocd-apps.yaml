@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: grafana
+  name: argocd-apps
   namespace: argocd
 spec:
-  project: default   # ← AppProject 안 쓰는 핵심
+  project: default # ← AppProject 안 쓰는 핵심
   sources:
     - repoURL: https://grafana.github.io/helm-charts
-      chart: grafana
-      targetRevision: 10.3.1
+      chart: alloy
+      targetRevision: 2.0.2
       helm:
         valueFiles:
-          - $values/helm-values/grafana/values.yaml
+          - $values/values/argocd-apps.yaml
 
     - repoURL: https://github.com/dr-kube/dr-kube.git
       targetRevision: main
@@ -19,7 +19,7 @@ spec:
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: monitoring
+    namespace: argocd
 
   syncPolicy:
     syncOptions:

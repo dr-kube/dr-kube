@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: chaos-mesh
+  name: prometheus 
   namespace: argocd
 spec:
-  project: default
+  project: default   # ← AppProject 안 쓰는 핵심
   sources:
-    - repoURL: https://charts.chaos-mesh.org
-      chart: chaos-mesh
-      targetRevision: 2.7.0
+    - repoURL: https://prometheus-community.github.io/helm-charts 
+      chart: prometheus
+      targetRevision: 27.50.1
       helm:
         valueFiles:
-          - $values/helm-values/chaos-mesh/values.yaml
+          - $values/values/prometheus.yaml
 
     - repoURL: https://github.com/dr-kube/dr-kube.git
       targetRevision: main
@@ -19,11 +19,8 @@ spec:
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: chaos-mesh
+    namespace: monitoring
 
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true

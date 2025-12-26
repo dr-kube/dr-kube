@@ -11,7 +11,7 @@ spec:
       targetRevision: 6.49.0
       helm:
         valueFiles:
-          - $values/helm-values/loki/values.yaml
+          - $values/values/loki.yaml
 
     - repoURL: https://github.com/dr-kube/dr-kube.git
       targetRevision: main
