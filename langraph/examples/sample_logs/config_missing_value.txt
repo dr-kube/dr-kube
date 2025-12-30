@@ -1,0 +1,4 @@
+2024-01-15 17:00:00 ERROR application/prometheus: Failed to sync: required value missing: spec.sources[0].helm.valueFiles
+2024-01-15 17:00:00 ERROR application/prometheus: Configuration error: missing required field
+2024-01-15 17:00:05 WARNING application/prometheus: Sync failed due to configuration error
+

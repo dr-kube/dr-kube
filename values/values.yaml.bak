@@ -1,4 +1,3 @@
-# https://artifacthub.io/packages/helm/grafana/grafana
 global:
   imageRegistry: null
   imagePullSecrets: []
@@ -67,23 +66,12 @@ containerSecurityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-      - ALL
+    - ALL
   seccompProfile:
     type: RuntimeDefault
 createConfigmap: true
 extraConfigmapMounts: []
-  # - name: certs-configmap
-  #   mountPath: /etc/grafana/ssl/
-  #   subPath: certificates.crt # (optional)
-  #   configMap: certs-configmap
-  #   readOnly: true
-  #   optional: false
-
 extraEmptyDirMounts: []
-  # - name: provisioning-notifiers
-  #   mountPath: /etc/grafana/provisioning/notifiers
-
-# Apply extra labels to common labels.
 extraLabels: {}
 downloadDashboardsImage:
   registry: docker.io
@@ -99,25 +87,10 @@ downloadDashboards:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-        - ALL
+      - ALL
     seccompProfile:
       type: RuntimeDefault
   envValueFrom: {}
-  #  ENV_NAME:
-  #    configMapKeyRef:
-  #      name: configmap-name
-  #      key: value_key
-
-## Pod Annotations
-# podAnnotations: {}
-
-## ConfigMap Annotations
-# configMapAnnotations: {}
-# argocd.argoproj.io/sync-options: Replace=true
-
-## Pod Labels
-# podLabels: {}
-
 podPortName: grafana
 gossipPortName: gossip
 service:
@@ -129,10 +102,7 @@ service:
   loadBalancerClass: ''
   loadBalancerSourceRanges: []
   port: 80
-  targetPort:
-    3000
-    # targetPort: 4181 To be used with a proxy extraContainer
-  ## Service annotations. Can be templated.
+  targetPort: 3000
   annotations: {}
   labels: {}
   portName: service
@@ -151,11 +121,6 @@ serviceMonitor:
   basicAuth: {}
   targetLabels: []
 extraExposePorts: []
-  # - name: keycloak
-  #   port: 8080
-  #   targetPort: 8080
-
-# overrides pod.spec.hostAliases in the grafana deployment's pods
 hostAliases: []
 ingress:
   enabled: true
@@ -185,7 +150,7 @@ route:
     additionalRules: []
 resources:
   limits:
-    memory: 1740Mi
+    memory: 1.2Gi
   requests:
     memory: 768Mi
 nodeSelector: {}
@@ -211,29 +176,7 @@ persistence:
     enabled: false
   lookupVolumeName: true
 initChownData:
-  ## If false, data ownership will not be reset at startup
-  ## This allows the grafana-server to be run with an arbitrary user
-  ##
-  enabled:
-    false ## Prometheus 설정 ㅂ반영하는것때문에변
-    #👉 99% 확률로 이 조합
-    #
-    #✔ persistence.enabled=true
-    #✔ PVC / PV (NFS, hostPath, Longhorn 등)
-    #✔ 해당 스토리지가 chown 을 허용 안 함
-    #
-    #Prometheus datasource를 추가하면서:
-    #
-    #Grafana provisioning 파일 수가 늘고
-    #
-    #/var/lib/grafana 접근 시점이 바뀌거나
-    #
-    #init container가 다시 활성화됨
-    #
-    #➡️ 잠재돼 있던 권한 문제가 드러난 것
-
-  ## initChownData container image
-  ##
+  enabled: false
   image:
     registry: docker.io
     repository: library/busybox
@@ -274,52 +217,29 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-      # Loki 설정
-      - name: Loki
-        type: loki
-        url: http://loki:3100
-        access: proxy
-      - name: Prometheus
-        type: prometheus
-        url: http://prometheus-server
-        access: proxy
-
-## Configure grafana alerting (can be templated)
-## ref: https://docs.grafana.com/alerting/set-up/provision-alerting-resources/file-provisioning/
-##
+    - name: Loki
+      type: loki
+      url: http://loki:3100
+      access: proxy
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus-server
+      access: proxy
 alerting: {}
 notifiers: {}
 dashboardProviders:
   dashboardproviders.yaml:
     apiVersion: 1
     providers:
-      - name: "default"
-        orgId: 1
-        folder: ""
-        type: file
-        disableDeletion: false
-        editable: true
-        options:
-          path: /var/lib/grafana/dashboards/default
-
-## Configure how curl fetches remote dashboards. The beginning dash is required.
-## NOTE: This sets the default short flags for all dashboards, but these
-##       defaults can be overridden individually for each dashboard by setting
-##       curlOptions. See the example dashboards section below.
-##
-## -s  - silent mode
-## -k  - allow insecure (eg: non-TLS) connections
-## -f  - fail fast
-## See the curl documentation for additional options
-##
-defaultCurlOptions: "-skf"
-
-## Configure grafana dashboard to import
-## NOTE: To use dashboards you must also enable/configure dashboardProviders
-## ref: https://grafana.com/dashboards
-##
-## dashboards per provider, use provider name as key.
-##
+    - name: default
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/default
+defaultCurlOptions: -skf
 dashboards:
   default:
     kubernetes-overview:
@@ -352,39 +272,8 @@ grafana.ini:
   grafana_net:
     url: https://grafana.net
   server:
-    domain: "{{ if (and .Values.ingress.enabled .Values.ingress.hosts) }}{{ tpl (.Values.ingress.hosts | first) . }}{{ else }}''{{ end }}"
-## grafana Authentication can be enabled with the following values on grafana.ini
-# server:
-# The full public facing url you use in browser, used for redirects and emails
-#    root_url:
-# https://grafana.com/docs/grafana/latest/auth/github/#enable-github-in-grafana
-# auth.github:
-#    enabled: false
-#    allow_sign_up: false
-#    scopes: user:email,read:org
-#    auth_url: https://github.com/login/oauth/authorize
-#    token_url: https://github.com/login/oauth/access_token
-#    api_url: https://api.github.com/user
-#    team_ids:
-#    allowed_organizations:
-#    client_id:
-#    client_secret:
-## LDAP Authentication can be enabled with the following values on grafana.ini
-## NOTE: Grafana will fail to start if the value for ldap.toml is invalid
-# auth.ldap:
-#   enabled: true
-#   allow_sign_up: true
-#   config_file: /etc/grafana/ldap.toml
-## Grafana's alerting configuration
-# unified_alerting:
-#   enabled: true
-#   rule_version_record_limit: "5"
-
-## Grafana's LDAP configuration
-## Templated by the template in _helpers.tpl
-## NOTE: To enable the grafana.ini must be configured with auth.ldap.enabled
-## ref: http://docs.grafana.org/installation/configuration/#auth-ldap
-## ref: http://docs.grafana.org/installation/ldap/#configuration
+    domain: '{{ if (and .Values.ingress.enabled .Values.ingress.hosts) }}{{ tpl (.Values.ingress.hosts
+      | first) . }}{{ else }}''''{{ end }}'
 ldap:
   enabled: false
   existingSecret: ''
@@ -402,17 +291,11 @@ sidecar:
     sha: ''
   imagePullPolicy: IfNotPresent
   resources: {}
-  #   limits:
-  #     cpu: 100m
-  #     memory: 100Mi
-  #   requests:
-  #     cpu: 50m
-  #     memory: 50Mi
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-        - ALL
+      - ALL
     seccompProfile:
       type: RuntimeDefault
   enableUniqueFilenames: false
@@ -455,11 +338,8 @@ sidecar:
     provider:
       name: sidecarProvider
       orgid: 1
-      # folder in which the dashboards should be imported in grafana
-      folder: ""
-      # <string> folder UID. will be automatically generated if not specified
-      folderUid: ""
-      # type of the provider
+      folder: ''
+      folderUid: ''
       type: file
       disableDelete: false
       allowUiUpdates: false
@@ -546,18 +426,16 @@ imageRenderer:
     seccompProfile:
       type: RuntimeDefault
     capabilities:
-      drop: ["ALL"]
+      drop:
+      - ALL
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: true
   podAnnotations: {}
   hostAliases: []
-  # image-renderer deployment priority class
-  priorityClassName: ""
+  priorityClassName: ''
   service:
     enabled: true
-    # image-renderer service port name
-    portName: "http"
-    # image-renderer service port used by both service and deployment
+    portName: http
     port: 8081
     targetPort: 8081
     appProtocol: ''
@@ -580,15 +458,6 @@ imageRenderer:
     limitEgress: false
     extraIngressSelectors: []
   resources: {}
-  #   limits:
-  #     cpu: 100m
-  #     memory: 100Mi
-  #   requests:
-  #     cpu: 50m
-  #     memory: 50Mi
-  ## Node labels for pod assignment
-  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
-  #
   nodeSelector: {}
   tolerations: []
   affinity: {}

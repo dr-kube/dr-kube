@@ -1,0 +1,4 @@
+2024-01-15 21:00:00 ERROR pod/new-app-xxx: Failed to create: resource quota exceeded: pod quota limit reached
+2024-01-15 21:00:00 WARNING namespace/default: Pod quota: 10/10 pods used (100%)
+2024-01-15 21:00:05 ERROR pod/new-app-xxx: Pod unschedulable: pod quota exceeded
+
