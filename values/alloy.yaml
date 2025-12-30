@@ -1,0 +1,52 @@
+# https://artifacthub.io/packages/helm/grafana/alloy
+
+# Grafana Alloy - Kubernetes 로그/메트릭 수집 에이전트
+# 상세 설정 문서: docs/ALLOY_CONFIG.md
+alloy:
+  # Alloy 설정을 values.yaml 안에 직접 넣는 방식 (공식 문서 방식)
+  # ref: https://grafana.com/docs/alloy/latest/configure/kubernetes/
+  configMap:
+    create: true
+    # name, key는 기본값(alloy-config, config.alloy)을 그대로 사용
+    content: |-
+      logging {
+        level  = "info"
+        format = "logfmt"
+      }
+
+      // -----------------------------
+      // 1. Kubernetes Pod 디스커버리
+      // -----------------------------
+      discovery.kubernetes "pods" {
+        role = "pod"
+
+        // DaemonSet 기준으로, 자기 노드 것만 보게 하는 공식 예제 옵션
+        selectors {
+          role  = "pod"
+          field = "spec.nodeName=" + coalesce(sys.env("HOSTNAME"), constants.hostname)
+        }
+      }
+
+      // -----------------------------
+      // 2. Pod 로그 수집 → Loki
+      // -----------------------------
+      loki.source.kubernetes "pods" {
+        targets    = discovery.kubernetes.pods.targets
+        forward_to = [loki.write.local.receiver]
+      }
+
+      // -----------------------------
+      // 3. Loki write
+      // -----------------------------
+      loki.write "local" {
+        endpoint {
+          url = sys.env("LOKI_URL")
+        }
+      }
+
+  # Alloy 컨테이너에 들어갈 환경변수 (공식 values: alloy.extraEnv)
+  # ref: values.yaml의 alloy.extraEnv
+  extraEnv:
+    - name: LOKI_URL
+      value: "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+# 참고: docs/ALLOY_CONFIG.md 참조

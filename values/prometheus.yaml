@@ -1,0 +1,182 @@
+# https://artifacthub.io/packages/helm/prometheus-community/prometheus
+# ============================================
+# Prometheus Server
+# ============================================
+server:
+  enabled: true
+
+  securityContext:
+    runAsUser: 0
+    runAsNonRoot: false
+    runAsGroup: 0
+    fsGroup: 0
+
+  service:
+    type: ClusterIP
+    port: 9090
+
+  persistentVolume:
+    enabled: true
+    storageClass: "csi-storageclass" # ← 원하는 SC로 교체
+    accessModes:
+      - ReadWriteOnce
+    size: 8Gi
+    mountPath: /data
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - prometheus.drkube.shop
+    paths:
+      - /
+    tls: [] # HTTP만 사용
+
+# ============================================
+# Alertmanager
+# ============================================
+alertmanager:
+  enabled: true
+
+  persistence:
+    enabled: true
+    storageClass: "csi-storageclass" # ← 동일 SC
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+    mountPath: /data
+
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: alert.drkube.shop
+        paths:
+          - path: /
+            pathType: Prefix
+
+# ============================================
+# Node Exporter (DaemonSet)
+# ============================================
+prometheus-nodeExporter:
+  enabled: true
+
+  service:
+    type: ClusterIP
+    port: 9100
+
+  tolerations: []
+  hostNetwork: false
+  hostPID: false
+
+  extraArgs: []
+  podLabels: {}
+  resources: {}
+
+# ============================================
+# Pushgateway (Off)
+# ============================================
+prometheus-pushgateway:
+  enabled: false
+
+# ============================================
+# Prometheus Configuration
+# ============================================
+serverFiles:
+  prometheus.yml:
+    scrape_configs:
+      # 기본 Prometheus self-scrape
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]
+      # Kube-State-Metrics 스크랩
+      - job_name: "kube-state-metrics"
+        static_configs:
+          - targets:
+              - "prometheus-kube-state-metrics.monitoring.svc.cluster.local:8080"
+
+      # Node Exporter 자동 스크랩
+      - job_name: "node-exporter"
+        kubernetes_sd_configs:
+          - role: endpoints
+
+        relabel_configs:
+          # 1) node-exporter 서비스만 골라잡기
+          #    서비스에 app.kubernetes.io/name=prometheus-node-exporter 라벨이 있다고 가정
+          - source_labels:
+              [__meta_kubernetes_service_label_app_kubernetes_io_name]
+            regex: "prometheus-node-exporter"
+            action: keep
+
+          # 2) metrics 포트만 사용 (보통 포트 이름이 metrics 또는 http-metrics)
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            regex: "metrics|http-metrics"
+            action: keep
+
+          # 3) node 이름을 라벨로 붙이고 싶으면 (옵션)
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: "node"
+
+      # 3. cAdvisor (kubelet) 통해 Pod/컨테이너 메트릭 스크랩
+      - job_name: "cadvisor"
+        scheme: https
+        metrics_path: /metrics/cadvisor
+
+        # 각 Node의 kubelet을 API 서버 proxy로 타고 가는 패턴
+        kubernetes_sd_configs:
+          - role: node
+
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+        relabel_configs:
+          # 노드 라벨을 Prometheus 라벨로 복사
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+
+          # 실제 요청은 apiserver로 보내고,
+          # metrics_path로 어느 노드인지 지정 (proxy 사용)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+  # ===========================================
+  # alert rule 설정
+  # ============================================
+  alerting_rules.yml:
+    groups:
+      - name: container-oom.rules
+        rules:
+          - alert: ContainerOOMKilled
+            expr: |
+              increase(kube_pod_container_status_restarts_total[5m]) >= 1
+              and on (namespace, pod, container)
+              max_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[5m]) == 1
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Container OOMKilled 발생"
+              description: |
+                Pod {{ $labels.namespace }}/{{ $labels.pod }}
+                컨테이너 {{ $labels.container }} 가
+                최근 5분 내 OOMKilled로 인해 재시작되었습니다.
+
+  # alerting_rules.yml:
+  #   groups:
+  #   - name: container-oom.rules
+  #     rules:
+  #       - alert: ContainerOOMKilled
+  #         expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+  #         for: 1m
+  #         labels:
+  #           severity: critical
+  #         annotations:
+  #           summary: "Container OOMKilled 발생"
+  #           description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} 컨테이너 {{ $labels.container }} 가 OOMKilled 되었습니다."

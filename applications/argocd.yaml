@@ -1,0 +1,27 @@
+# https://artifacthub.io/packages/helm/argo/argo-cd
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  project: default # ← AppProject 안 쓰는 핵심
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 9.2.1
+      helm:
+        valueFiles:
+          - $values/values/argocd.yaml
+
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
