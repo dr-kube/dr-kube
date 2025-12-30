@@ -1,0 +1,6 @@
+2024-01-15 10:30:45 ERROR pod/grafana-7d8f9c4b5-xk2m3: Container grafana was killed due to memory limit exceeded
+2024-01-15 10:30:45 ERROR pod/grafana-7d8f9c4b5-xk2m3: OOMKilled
+2024-01-15 10:30:46 INFO pod/grafana-7d8f9c4b5-xk2m3: Container restarting
+2024-01-15 10:30:50 ERROR pod/grafana-7d8f9c4b5-xk2m3: Container grafana was killed due to memory limit exceeded
+2024-01-15 10:30:55 WARNING pod/grafana-7d8f9c4b5-xk2m3: Memory usage: 512Mi/512Mi (100%)
+

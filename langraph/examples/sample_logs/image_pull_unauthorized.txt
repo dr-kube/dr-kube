@@ -1,0 +1,4 @@
+2024-01-16 01:00:00 ERROR pod/grafana-xxx: Failed to pull image "grafana/grafana:10.3.1": unauthorized: authentication required
+2024-01-16 01:00:05 ERROR pod/grafana-xxx: ImagePullBackOff: failed to pull image
+2024-01-16 01:00:10 WARNING pod/grafana-xxx: Image pull error: registry authentication failed
+

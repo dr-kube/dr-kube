@@ -1,0 +1,4 @@
+2024-01-15 18:00:00 ERROR application/loki: Failed to sync: invalid format in values.yaml: expected integer, got string
+2024-01-15 18:00:00 ERROR application/loki: Configuration validation failed: type mismatch
+2024-01-15 18:00:05 WARNING application/loki: Invalid configuration format
+

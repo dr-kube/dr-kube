@@ -1,0 +1,4 @@
+2024-01-16 03:00:00 ERROR pod/loki-xxx: Failed to pull image "grafana/loki:6.49.0": context deadline exceeded
+2024-01-16 03:00:05 ERROR pod/loki-xxx: ImagePullBackOff: pull timeout
+2024-01-16 03:00:10 WARNING pod/loki-xxx: Image pull timeout after 5 minutes
+
