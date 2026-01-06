@@ -51,18 +51,22 @@ class GitActionGenerator:
         Returns:
             GitAction 객체 리스트
         """
+        logger.debug(f"Git 액션 생성 시작: analyses={len(analyses)}개, resource_types={resource_types}")
         if resource_types is None:
             resource_types = ["all"]
         
         actions = []
         
-        for analysis in analyses:
+        for idx, analysis in enumerate(analyses, 1):
+            logger.debug(f"분석 {idx}/{len(analyses)}에 대한 액션 생성: category={analysis.category}")
             # 각 분석 결과에 대해 적절한 액션 생성
             category_actions = self._generate_actions_for_category(
                 analysis, error_summary, pod_metadata, resource_types
             )
+            logger.debug(f"분석 {idx}/{len(analyses)} 액션 생성 완료: {len(category_actions)}개")
             actions.extend(category_actions)
         
+        logger.debug(f"전체 Git 액션 생성 완료: 총 {len(actions)}개")
         logger.info(f"총 {len(actions)}개의 Git 액션 생성됨 (리소스 타입: {', '.join(resource_types)})")
         return actions
     
@@ -113,8 +117,10 @@ class GitActionGenerator:
                 actions.append(self._create_config_fix_action(analysis, resource_types))
         
         # 모든 카테고리에 대해 분석 리포트 생성 (리소스 타입 정보 포함)
+        logger.debug(f"분석 리포트 액션 생성: category={category}")
         actions.append(self._create_analysis_report_action(analysis, error_summary, pod_metadata, resource_types))
         
+        logger.debug(f"카테고리별 액션 생성 완료: category={category}, 총 {len(actions)}개 액션")
         return actions
     
     def _create_resource_patch_action(self, analysis: Any, resource_types: Optional[List[str]] = None) -> GitAction:
@@ -358,10 +364,12 @@ spec:
         Returns:
             성공 여부
         """
+        logger.debug(f"Git 액션 적용 시작: {len(actions)}개 액션, simulate={self.simulate}")
         try:
             # patches 및 reports 디렉토리 생성
             patches_dir = self.repo_path / "patches"
             reports_dir = self.repo_path / "reports"
+            logger.debug(f"디렉토리 생성: patches={patches_dir}, reports={reports_dir}")
             patches_dir.mkdir(exist_ok=True)
             reports_dir.mkdir(exist_ok=True)
             
@@ -369,10 +377,12 @@ spec:
                 logger.info("=== 시뮬레이션 모드: 파일은 생성하지만 Git 커밋은 하지 않음 ===")
             
             # 각 액션 적용
-            for action in actions:
+            for idx, action in enumerate(actions, 1):
+                logger.debug(f"액션 {idx}/{len(actions)} 적용 시작: type={action.action_type}, file={action.file_path}")
                 file_path = self.repo_path / action.file_path
                 
                 if action.action_type == "create":
+                    logger.debug(f"파일 생성: {action.file_path}, 내용 길이={len(action.content) if action.content else 0}")
                     file_path.parent.mkdir(parents=True, exist_ok=True)
                     with open(file_path, 'w', encoding='utf-8') as f:
                         f.write(action.content)
@@ -380,8 +390,10 @@ spec:
                         logger.info(f"[시뮬레이션] 파일 생성: {action.file_path}")
                     else:
                         logger.info(f"파일 생성: {action.file_path}")
+                    logger.debug(f"액션 {idx}/{len(actions)} 완료: 파일 생성 성공")
                 
                 elif action.action_type == "modify":
+                    logger.debug(f"파일 수정 시도: {action.file_path}, 존재 여부={file_path.exists()}")
                     if file_path.exists():
                         with open(file_path, 'w', encoding='utf-8') as f:
                             f.write(action.content)
@@ -389,19 +401,25 @@ spec:
                             logger.info(f"[시뮬레이션] 파일 수정: {action.file_path}")
                         else:
                             logger.info(f"파일 수정: {action.file_path}")
+                        logger.debug(f"액션 {idx}/{len(actions)} 완료: 파일 수정 성공")
                     else:
+                        logger.debug(f"액션 {idx}/{len(actions)} 실패: 파일 없음")
                         logger.warning(f"수정할 파일이 없습니다: {action.file_path}")
                 
                 elif action.action_type == "delete":
+                    logger.debug(f"파일 삭제 시도: {action.file_path}, 존재 여부={file_path.exists()}")
                     if file_path.exists():
                         file_path.unlink()
                         if self.simulate:
                             logger.info(f"[시뮬레이션] 파일 삭제: {action.file_path}")
                         else:
                             logger.info(f"파일 삭제: {action.file_path}")
+                        logger.debug(f"액션 {idx}/{len(actions)} 완료: 파일 삭제 성공")
                     else:
+                        logger.debug(f"액션 {idx}/{len(actions)} 실패: 파일 없음")
                         logger.warning(f"삭제할 파일이 없습니다: {action.file_path}")
             
+            logger.debug(f"모든 Git 액션 적용 완료: {len(actions)}개")
             if self.simulate:
                 logger.info("=== 시뮬레이션 모드: 파일은 생성되었지만 Git 커밋은 수행하지 않습니다 ===")
             
@@ -422,17 +440,21 @@ spec:
         Returns:
             성공 여부
         """
+        logger.debug(f"Git 커밋 시작: message={commit_message}, branch={branch}, simulate={self.simulate}")
         if self.simulate:
             logger.info(f"=== 시뮬레이션: 커밋 메시지 ===")
             logger.info(f"브랜치: {branch}")
             logger.info(f"메시지: {commit_message}")
+            logger.debug("시뮬레이션 모드: 실제 커밋 수행하지 않음")
             return True
         
         try:
             # Git 명령 실행
+            logger.debug(f"작업 디렉토리 변경: {self.repo_path}")
             os.chdir(self.repo_path)
             
             # 변경사항 확인
+            logger.debug("Git 상태 확인 중")
             result = subprocess.run(
                 ["git", "status", "--porcelain"],
                 capture_output=True,
@@ -440,21 +462,27 @@ spec:
                 check=True
             )
             
+            logger.debug(f"Git 상태 확인 완료: 변경사항={len(result.stdout.strip().splitlines()) if result.stdout.strip() else 0}개")
             if not result.stdout.strip():
+                logger.debug("커밋할 변경사항 없음")
                 logger.info("커밋할 변경사항이 없습니다")
                 return True
             
             # 변경사항 추가
+            logger.debug("Git add 실행 중")
             subprocess.run(
                 ["git", "add", "."],
                 check=True
             )
+            logger.debug("Git add 완료")
             
             # 커밋
+            logger.debug(f"Git commit 실행 중: message={commit_message}")
             subprocess.run(
                 ["git", "commit", "-m", commit_message],
                 check=True
             )
+            logger.debug("Git commit 완료")
             
             logger.info(f"커밋 완료: {commit_message}")
             return True

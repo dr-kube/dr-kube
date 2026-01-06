@@ -67,14 +67,14 @@ class LogAnalysisAgent:
             "interactive_mode": os.getenv("INTERACTIVE_MODE", "true").lower() == "true",
         }
     
-    def run(self, log_source: Optional[str] = None, source_type: Optional[str] = None, 
+    def run(self, log_source: Optional[Any] = None, source_type: Optional[str] = None, 
            additional_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         전체 워크플로우 실행
         
         Args:
-            log_source: 로그 소스 (파일 경로, Pod 이름, 라벨 셀렉터 등). None이면 상호작용으로 선택
-            source_type: 소스 타입 (file, directory, pod, label, stdin). None이면 상호작용으로 선택
+            log_source: 로그 소스 (파일 경로, Pod 이름, 라벨 셀렉터, 또는 로그 라인 리스트). None이면 상호작용으로 선택
+            source_type: 소스 타입 (file, directory, pod, label, stdin, list). None이면 상호작용으로 선택
             additional_context: 추가 컨텍스트 정보
             
         Returns:
@@ -106,11 +106,15 @@ class LogAnalysisAgent:
                 logger.info(f"로그 소스 선택 완료: {log_source} (타입: {source_type})")
             
             logger.info(f"로그 분석 에이전트 시작 (소스: {log_source}, 타입: {source_type})")
+            logger.debug(f"워크플로우 시작: log_source={log_source}, source_type={source_type}, additional_context={additional_context}")
             
             # 1. 로그 수집
             logger.info("=== 1단계: 로그 수집 ===")
+            logger.debug(f"로그 수집 시작: source={log_source}, type={source_type}")
             logs = self._collect_logs(log_source, source_type)
+            logger.debug(f"로그 수집 완료: {len(logs) if isinstance(logs, list) else sum(len(v) for v in logs.values())}줄")
             if not logs:
+                logger.debug("수집된 로그 없음 - ValueError 발생")
                 raise ValueError("수집된 로그가 없습니다")
             
             # Pod/서비스 메타데이터 수집
@@ -145,8 +149,10 @@ class LogAnalysisAgent:
             
             # 2. 에러 분류
             logger.info("=== 2단계: 에러 분류 ===")
+            logger.debug(f"에러 분류 시작: {len(logs)}줄 로그")
             classified_logs = self.error_classifier.classify_logs(logs)
             error_summary = self.error_classifier.get_error_summary(classified_logs)
+            logger.debug(f"에러 분류 완료: {len(classified_logs)}개 카테고리, 요약={error_summary}")
             
             result["steps"]["error_classification"] = {
                 "status": "success",
@@ -226,11 +232,14 @@ class LogAnalysisAgent:
                 "selected_resource_types": selected_resource_types,
                 "pod_metadata": pod_metadata
             })
+            logger.debug(f"근본 원인 분석 컨텍스트: selected_categories={selected_categories}, selected_resource_types={selected_resource_types}, pod_metadata={pod_metadata is not None}")
             
+            logger.debug(f"근본 원인 분석 시작: {len(classified_logs)}개 카테고리")
             analyses = self.analyzer.analyze_multiple_categories(
                 classified_logs,
                 context=analysis_context
             )
+            logger.debug(f"근본 원인 분석 완료: {len(analyses)}개 분석 결과")
             
             result["analyses"] = [
                 {
@@ -269,10 +278,12 @@ class LogAnalysisAgent:
             
             # 5. 액션 생성
             logger.info("=== 5단계: Git 액션 생성 ===")
+            logger.debug(f"Git 액션 생성 시작: analyses={len(analyses)}개, resource_types={selected_resource_types}")
             # 리소스 타입 선택 정보 전달
             actions = self.git_action_generator.generate_actions_from_analysis(
                 analyses, error_summary, pod_metadata=pod_metadata, resource_types=selected_resource_types
             )
+            logger.debug(f"Git 액션 생성 완료: {len(actions)}개 액션")
             
             result["actions"] = [
                 {
@@ -290,11 +301,15 @@ class LogAnalysisAgent:
             
             # 6. Git 커밋 (Phase 1: 시뮬레이션)
             logger.info("=== 6단계: Git 액션 적용 및 커밋 ===")
+            logger.debug(f"Git 액션 적용 시작: {len(actions)}개 액션")
             actions_applied = self.git_action_generator.apply_actions(actions)
+            logger.debug(f"Git 액션 적용 결과: {actions_applied}")
             
             if actions_applied:
                 commit_message = self._generate_commit_message(analyses, error_summary)
+                logger.debug(f"커밋 메시지 생성: {commit_message}")
                 commit_success = self.git_action_generator.commit_changes(commit_message)
+                logger.debug(f"Git 커밋 결과: {commit_success}")
                 
                 result["steps"]["git_commit"] = {
                     "status": "success" if commit_success else "failed",
@@ -334,8 +349,19 @@ class LogAnalysisAgent:
             result["error"] = str(e)
             return result
     
-    def _collect_logs(self, log_source: str, source_type: str) -> Any:
-        """로그 수집 헬퍼 메서드"""
+    def _collect_logs(self, log_source: Any, source_type: str) -> Any:
+        """
+        로그 수집 헬퍼 메서드
+        
+        Args:
+            log_source: 로그 소스 (파일 경로, Pod 이름, 라벨 셀렉터, 또는 로그 라인 리스트)
+            source_type: 소스 타입 (file, directory, pod, label, stdin, list)
+        """
+        # 리스트인 경우 직접 처리
+        if isinstance(log_source, list):
+            logger.debug(f"리스트 타입 로그 소스 감지: {len(log_source)}줄")
+            return self.log_collector.collect_from_list(log_source)
+        
         if source_type == "file":
             return self.log_collector.collect_from_file(log_source)
         elif source_type == "directory":

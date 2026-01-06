@@ -23,6 +23,7 @@ aiohttp>=3.9.0
 
 # 웹 서버 (Alertmanager Webhook Receiver용)
 flask>=3.0.0
+flask-cors>=4.0.0  # CORS 지원
 
 # 1. **로그 수집**: 로컬 파일 또는 외부 소스에서 로그 수집
 # 2. **에러 분류**: 키워드 기반 에러 카테고리 분류

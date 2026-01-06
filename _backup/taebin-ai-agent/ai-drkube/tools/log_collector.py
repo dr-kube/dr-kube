@@ -6,11 +6,19 @@
 import os
 import sys
 import re
+import subprocess
+import json
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from loguru import logger
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+    logger.warning("requests 라이브러리가 설치되지 않았습니다. API 기반 로그 수집 기능을 사용할 수 없습니다.")
 
 
 class LogCollector:
@@ -53,19 +61,25 @@ class LogCollector:
         Returns:
             로그 라인 리스트
         """
+        logger.debug(f"파일에서 로그 수집 시작: {file_path}")
         try:
             path = Path(file_path)
             if not path.exists():
+                logger.debug(f"파일 존재하지 않음: {file_path}")
                 logger.error(f"파일을 찾을 수 없습니다: {file_path}")
                 return []
             
+            logger.debug(f"파일 열기: {file_path}")
             with open(path, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
             
-            logger.info(f"파일에서 {len(lines)}줄의 로그를 수집했습니다: {file_path}")
-            return [line.strip() for line in lines if line.strip()]
+            cleaned_lines = [line.strip() for line in lines if line.strip()]
+            logger.debug(f"파일 읽기 완료: 원본 {len(lines)}줄 -> 정리 후 {len(cleaned_lines)}줄")
+            logger.info(f"파일에서 {len(cleaned_lines)}줄의 로그를 수집했습니다: {file_path}")
+            return cleaned_lines
         
         except Exception as e:
+            logger.debug(f"파일 읽기 예외: {type(e).__name__}: {e}")
             logger.error(f"파일 읽기 오류: {e}")
             return []
     
@@ -80,22 +94,31 @@ class LogCollector:
         Returns:
             파일명을 키로 하는 로그 딕셔너리
         """
+        logger.debug(f"디렉토리에서 로그 수집 시작: {dir_path}, pattern={pattern}")
         logs = {}
         try:
             path = Path(dir_path)
             if not path.exists() or not path.is_dir():
+                logger.debug(f"디렉토리 존재하지 않음 또는 디렉토리가 아님: {dir_path}")
                 logger.error(f"디렉토리를 찾을 수 없습니다: {dir_path}")
                 return logs
             
-            for log_file in path.glob(pattern):
+            matching_files = list(path.glob(pattern))
+            logger.debug(f"패턴 매칭 파일 수: {len(matching_files)}개")
+            
+            for log_file in matching_files:
+                logger.debug(f"파일 처리 중: {log_file.name}")
                 file_logs = self.collect_from_file(str(log_file))
                 if file_logs:
                     logs[log_file.name] = file_logs
+                    logger.debug(f"파일 수집 완료: {log_file.name} ({len(file_logs)}줄)")
             
+            logger.debug(f"디렉토리 수집 완료: {len(logs)}개 파일, 총 {sum(len(v) for v in logs.values())}줄")
             logger.info(f"디렉토리에서 {len(logs)}개의 파일을 수집했습니다: {dir_path}")
             return logs
         
         except Exception as e:
+            logger.debug(f"디렉토리 읽기 예외: {type(e).__name__}: {e}")
             logger.error(f"디렉토리 읽기 오류: {e}")
             return {}
     
@@ -113,23 +136,32 @@ class LogCollector:
         Returns:
             로그 라인 리스트
         """
+        logger.debug(f"Pod에서 로그 수집 시작: {namespace}/{pod_name}, container={container}, tail_lines={tail_lines}")
         if not self.k8s_client:
+            logger.debug("Kubernetes 클라이언트 미초기화")
             logger.error("Kubernetes 클라이언트가 초기화되지 않았습니다")
             return []
         
         try:
             # Pod 정보 조회
+            logger.debug(f"Pod 정보 조회: {namespace}/{pod_name}")
             pod = self.k8s_client.read_namespaced_pod(pod_name, namespace)
+            logger.debug(f"Pod 정보 조회 완료: phase={pod.status.phase}")
             
             # 컨테이너 이름 결정
             if not container:
                 if pod.spec.containers:
                     container = pod.spec.containers[0].name
+                    logger.debug(f"컨테이너 자동 선택: {container} (총 {len(pod.spec.containers)}개)")
                 else:
+                    logger.debug(f"Pod에 컨테이너 없음: {pod_name}")
                     logger.error(f"Pod에 컨테이너가 없습니다: {pod_name}")
                     return []
+            else:
+                logger.debug(f"지정된 컨테이너 사용: {container}")
             
             # 로그 수집
+            logger.debug(f"Pod 로그 API 호출: {namespace}/{pod_name}/{container}")
             logs = self.k8s_client.read_namespaced_pod_log(
                 name=pod_name,
                 namespace=namespace,
@@ -139,13 +171,17 @@ class LogCollector:
             )
             
             log_lines = logs.split('\n') if logs else []
-            logger.info(f"Pod에서 {len(log_lines)}줄의 로그를 수집했습니다: {pod_name}/{container}")
-            return [line.strip() for line in log_lines if line.strip()]
+            cleaned_lines = [line.strip() for line in log_lines if line.strip()]
+            logger.debug(f"Pod 로그 수집 완료: 원본 {len(log_lines)}줄 -> 정리 후 {len(cleaned_lines)}줄")
+            logger.info(f"Pod에서 {len(cleaned_lines)}줄의 로그를 수집했습니다: {pod_name}/{container}")
+            return cleaned_lines
         
         except ApiException as e:
+            logger.debug(f"Kubernetes API 예외: status={e.status}, reason={e.reason}")
             logger.error(f"Kubernetes API 오류: {e}")
             return []
         except Exception as e:
+            logger.debug(f"Pod 로그 수집 예외: {type(e).__name__}: {e}")
             logger.error(f"Pod 로그 수집 오류: {e}")
             return []
     
@@ -307,19 +343,24 @@ class LogCollector:
         Returns:
             Pod 이름을 키로 하는 로그 딕셔너리
         """
+        logger.debug(f"라벨 셀렉터로 Pod 로그 수집 시작: {namespace}, selector={label_selector}")
         if not self.k8s_client:
+            logger.debug("Kubernetes 클라이언트 미초기화")
             logger.error("Kubernetes 클라이언트가 초기화되지 않았습니다")
             return {}
         
         logs = {}
         try:
             # 라벨로 Pod 목록 조회
+            logger.debug(f"라벨 셀렉터로 Pod 목록 조회: {label_selector}")
             pods = self.k8s_client.list_namespaced_pod(
                 namespace=namespace,
                 label_selector=label_selector
             )
+            logger.debug(f"Pod 목록 조회 완료: {len(pods.items)}개 Pod 발견")
             
-            for pod in pods.items:
+            for idx, pod in enumerate(pods.items, 1):
+                logger.debug(f"Pod {idx}/{len(pods.items)} 로그 수집: {pod.metadata.name}")
                 pod_logs = self.collect_from_pod(
                     pod.metadata.name,
                     namespace,
@@ -328,7 +369,9 @@ class LogCollector:
                 )
                 if pod_logs:
                     logs[pod.metadata.name] = pod_logs
+                    logger.debug(f"Pod {idx}/{len(pods.items)} 수집 완료: {pod.metadata.name} ({len(pod_logs)}줄)")
             
+            logger.debug(f"라벨 셀렉터 수집 완료: {len(logs)}개 Pod, 총 {sum(len(v) for v in logs.values())}줄")
             logger.info(f"라벨 셀렉터로 {len(logs)}개의 Pod에서 로그를 수집했습니다: {label_selector}")
             return logs
         
@@ -354,4 +397,25 @@ class LogCollector:
             return [line for line in lines if line.strip()]
         except Exception as e:
             logger.error(f"표준 입력 읽기 오류: {e}")
+            return []
+    
+    def collect_from_list(self, log_lines: List[str]) -> List[str]:
+        """
+        리스트에서 로그 수집 (메모리 내 로그 처리)
+        
+        Args:
+            log_lines: 로그 라인 리스트
+            
+        Returns:
+            정리된 로그 라인 리스트
+        """
+        logger.debug(f"리스트에서 로그 수집 시작: {len(log_lines)}줄")
+        try:
+            cleaned_lines = [line.strip() for line in log_lines if line and line.strip()]
+            logger.debug(f"리스트 로그 수집 완료: 원본 {len(log_lines)}줄 -> 정리 후 {len(cleaned_lines)}줄")
+            logger.info(f"리스트에서 {len(cleaned_lines)}줄의 로그를 수집했습니다")
+            return cleaned_lines
+        except Exception as e:
+            logger.debug(f"리스트 로그 수집 예외: {type(e).__name__}: {e}")
+            logger.error(f"리스트 로그 수집 오류: {e}")
             return []

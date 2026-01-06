@@ -138,9 +138,12 @@ class ErrorClassifier:
         Returns:
             카테고리 이름을 키로 하는 로그 딕셔너리
         """
+        logger.debug(f"로그 분류 시작: 총 {len(logs)}줄")
         classified = {category.name: [] for category in self.ERROR_CATEGORIES}
         
-        for log_line in logs:
+        for idx, log_line in enumerate(logs):
+            if idx < 5 or (idx % 100 == 0 and idx > 0):  # 처음 5개와 100개마다
+                logger.debug(f"로그 라인 {idx+1}/{len(logs)} 분류 중: {log_line[:80]}...")
             category = self.classify_error(log_line)
             if category:
                 classified[category.name].append(log_line)
@@ -148,6 +151,8 @@ class ErrorClassifier:
         # 빈 카테고리 제거
         classified = {k: v for k, v in classified.items() if v}
         
+        category_counts = {k: len(v) for k, v in classified.items()}
+        logger.debug(f"로그 분류 완료: {len(classified)}개 카테고리, 카테고리별 로그 수: {category_counts}")
         logger.info(f"로그 분류 완료: {len(classified)}개 카테고리, 총 {len(logs)}줄")
         return classified
     

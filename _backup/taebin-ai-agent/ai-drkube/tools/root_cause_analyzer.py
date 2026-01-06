@@ -50,10 +50,12 @@ class RootCauseAnalyzer:
         Returns:
             RootCauseAnalysis 객체
         """
+        logger.debug(f"근본 원인 분석 시작: category={category}, error_logs={len(error_logs)}줄")
         # 분석용 프롬프트 구성
         logs_sample = "\n".join(error_logs[:20])  # 최대 20개 로그만 사용
         if len(error_logs) > 20:
             logs_sample += f"\n... (총 {len(error_logs)}개 로그 중 20개만 표시)"
+        logger.debug(f"로그 샘플 구성 완료: {len(logs_sample)} 문자 (원본 {len(error_logs)}줄 중 20개 사용)")
         
         # 컨텍스트 정보 구성
         context_parts = []
@@ -113,7 +115,9 @@ class RootCauseAnalyzer:
         context_str = ""
         if context_parts:
             context_str = "\n\n추가 컨텍스트 정보:\n" + "\n".join(f"- {part}" for part in context_parts) + "\n"
+        logger.debug(f"컨텍스트 정보 구성 완료: {len(context_parts)}개 항목")
         
+        logger.debug(f"LLM 프롬프트 생성 완료, LLM API 호출 시작")
         prompt = f"""당신은 Kubernetes 전문가입니다.
 다음 에러 카테고리와 로그를 분석하여 근본 원인을 파악하고 해결 방안을 제시해주세요.
 
@@ -139,13 +143,17 @@ class RootCauseAnalyzer:
 분석 결과:"""
         
         try:
+            logger.debug(f"LLM API 호출: category={category}, prompt 길이={len(prompt)}")
             response = self.llm.invoke(prompt)
             analysis_text = response.content
+            logger.debug(f"LLM API 응답 수신: 응답 길이={len(analysis_text)}")
             
             # 응답 파싱
+            logger.debug(f"LLM 응답 파싱 시작: category={category}")
             analysis = self._parse_analysis_response(
                 category, error_logs, analysis_text
             )
+            logger.debug(f"응답 파싱 완료: root_cause 길이={len(analysis.root_cause)}, confidence={analysis.confidence}, severity={analysis.severity}, actions={len(analysis.suggested_actions)}")
             
             logger.info(f"근본 원인 분석 완료: {category} (신뢰도: {analysis.confidence:.2f})")
             return analysis
@@ -174,17 +182,23 @@ class RootCauseAnalyzer:
         Returns:
             RootCauseAnalysis 객체 리스트
         """
+        logger.debug(f"다중 카테고리 분석 시작: {len(classified_logs)}개 카테고리")
         analyses = []
         
-        for category, logs in classified_logs.items():
+        for idx, (category, logs) in enumerate(classified_logs.items(), 1):
             if not logs:
+                logger.debug(f"카테고리 {idx}/{len(classified_logs)} '{category}' 로그 없음, 건너뜀")
                 continue
             
+            logger.debug(f"카테고리 {idx}/{len(classified_logs)} 분석 시작: {category} ({len(logs)}줄)")
             analysis = self.analyze_category(category, logs, context)
             analyses.append(analysis)
+            logger.debug(f"카테고리 {idx}/{len(classified_logs)} 분석 완료: {category}")
         
         # 신뢰도 순으로 정렬 (높은 순)
+        logger.debug(f"분석 결과 정렬 시작: {len(analyses)}개")
         analyses.sort(key=lambda x: x.confidence, reverse=True)
+        logger.debug(f"분석 결과 정렬 완료: 신뢰도 순위={[(a.category, f'{a.confidence:.2f}') for a in analyses]}")
         
         logger.info(f"총 {len(analyses)}개 카테고리에 대한 근본 원인 분석 완료")
         return analyses
