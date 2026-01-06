@@ -1,3 +1,6 @@
+# Python 3.11.14 required
+# See docs/SETUP.md for installation instructions
+
 # LangGraph 및 LangChain
 langgraph>=0.2.0
 langchain>=0.3.0
