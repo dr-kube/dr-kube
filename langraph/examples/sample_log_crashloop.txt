@@ -1,6 +1,0 @@
-2024-01-15 11:15:20 ERROR pod/prometheus-abc123: Container exited with code 1
-2024-01-15 11:15:25 INFO pod/prometheus-abc123: Back-off restarting failed container
-2024-01-15 11:15:30 ERROR pod/prometheus-abc123: Container exited with code 1
-2024-01-15 11:15:35 INFO pod/prometheus-abc123: Back-off restarting failed container
-2024-01-15 11:15:40 ERROR pod/prometheus-abc123: CrashLoopBackOff
-

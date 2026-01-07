@@ -1,6 +1,0 @@
-2024-01-15 14:10:15 ERROR pod/grafana-xyz789: Container exited with code 1
-2024-01-15 14:10:15 ERROR pod/grafana-xyz789: Error: failed to start grafana: database connection failed
-2024-01-15 14:10:20 INFO pod/grafana-xyz789: Back-off restarting failed container
-2024-01-15 14:10:25 ERROR pod/grafana-xyz789: Container exited with code 1
-2024-01-15 14:10:30 ERROR pod/grafana-xyz789: CrashLoopBackOff
-

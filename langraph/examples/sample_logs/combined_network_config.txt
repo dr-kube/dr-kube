@@ -1,5 +1,0 @@
-2024-01-16 08:00:00 ERROR pod/prometheus-xxx: Connection refused: cannot connect to alertmanager:9093
-2024-01-16 08:00:05 ERROR pod/prometheus-xxx: Network error: service endpoint not found
-2024-01-16 08:00:10 ERROR application/prometheus: Configuration error: invalid alertmanager URL in prometheus.yml
-2024-01-16 08:00:15 WARNING pod/prometheus-xxx: Both network and configuration issues detected
-

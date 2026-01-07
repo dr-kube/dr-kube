@@ -1,4 +1,0 @@
-2024-01-16 00:00:00 ERROR pod/loki-xxx: DNS resolution failed: cannot resolve loki-gateway.monitoring.svc.cluster.local
-2024-01-16 00:00:05 ERROR pod/loki-xxx: Network error: DNS lookup failed for loki-gateway
-2024-01-16 00:00:10 WARNING pod/loki-xxx: DNS query failed, retrying...
-
