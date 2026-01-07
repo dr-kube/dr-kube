@@ -150,10 +150,10 @@ def register_routes(app: Flask, agent, log_buffer: List[str], log_buffer_lock: t
                 "detail": str(e) if app.debug else None
             }), 500
     
-    @app.route('/loki/api/v1/logs', methods=['POST'])
+    @app.route('/loki/api/v1/push', methods=['POST'])
     def loki_push():
         """Loki Push API 엔드포인트 - Grafana Alloy에서 로그를 받음"""
-        logger.debug("POST /loki/api/v1/logs 요청 수신")
+        logger.debug("POST /loki/api/v1/push 요청 수신")
         try:
             data = request.get_json()
             if not data:
