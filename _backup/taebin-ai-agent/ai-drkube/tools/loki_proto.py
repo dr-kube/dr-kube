@@ -162,6 +162,10 @@ def _get_push_request_class(timestamp_as_int64: bool):
     field.type = field.TYPE_MESSAGE
     field.type_name = ".logproto.Stream"
 
-    desc = pool.Add(file_proto)
-    factory = message_factory.MessageFactory(pool)
-    return factory.GetPrototype(desc.message_types_by_name["PushRequest"])
+    pool.Add(file_proto)
+    desc = pool.FindMessageTypeByName("logproto.PushRequest")
+    try:
+        return message_factory.GetMessageClass(desc)
+    except AttributeError:
+        factory = message_factory.MessageFactory(pool)
+        return factory.GetPrototype(desc)
