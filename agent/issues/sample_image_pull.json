@@ -1,0 +1,13 @@
+{
+  "id": "issue-002",
+  "type": "pod_pending",
+  "namespace": "staging",
+  "resource": "web-frontend-abc123",
+  "error_message": "ImagePullBackOff",
+  "logs": [
+    "2026-01-07T11:00:00Z Failed to pull image 'myregistry.io/app:v1.2.3'",
+    "2026-01-07T11:00:00Z Error: unauthorized: authentication required",
+    "2026-01-07T10:59:50Z Pulling image myregistry.io/app:v1.2.3"
+  ],
+  "timestamp": "2026-01-07T11:00:00Z"
+}

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dr-kube"
+version = "0.1.0"
+description = "K8s issue analyzer agent prototype"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-google-genai>=2.0.0",
+    "langchain-ollama>=0.2.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+dr-kube = "cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

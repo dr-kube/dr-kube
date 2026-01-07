@@ -1,0 +1,14 @@
+{
+  "id": "issue-001",
+  "type": "pod_crash",
+  "namespace": "production",
+  "resource": "api-server-7d4f8b9c5-xyz",
+  "error_message": "CrashLoopBackOff",
+  "logs": [
+    "2026-01-07T10:00:00Z Error: OOMKilled",
+    "2026-01-07T10:00:00Z Container exceeded memory limit",
+    "2026-01-07T09:59:55Z Memory usage: 512Mi/512Mi (100%)",
+    "2026-01-07T09:59:50Z Warning: Memory pressure detected"
+  ],
+  "timestamp": "2026-01-07T10:00:00Z"
+}

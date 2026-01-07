@@ -1,0 +1,14 @@
+{
+  "id": "issue-003",
+  "type": "resource_issue",
+  "namespace": "default",
+  "resource": "worker-job-5678",
+  "error_message": "CPU Throttling",
+  "logs": [
+    "2026-01-07T12:00:00Z CPU throttling detected",
+    "2026-01-07T12:00:00Z Container cpu usage: 1000m/500m (200%)",
+    "2026-01-07T11:59:55Z Request processing latency increased",
+    "2026-01-07T11:59:50Z Warning: CPU limit exceeded"
+  ],
+  "timestamp": "2026-01-07T12:00:00Z"
+}
