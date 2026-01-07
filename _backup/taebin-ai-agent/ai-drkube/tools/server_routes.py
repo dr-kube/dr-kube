@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Dict, Any, List
 from flask import Flask, request, jsonify
 from loguru import logger
+from tools.loki_proto import decode_loki_push_request
 
 
 def register_routes(app: Flask, agent, log_buffer: List[str], log_buffer_lock: threading.Lock):
@@ -155,37 +156,8 @@ def register_routes(app: Flask, agent, log_buffer: List[str], log_buffer_lock: t
         """Loki Push API 엔드포인트 - Grafana Alloy에서 로그를 받음"""
         logger.debug("POST /loki/api/v1/push 요청 수신")
         try:
-            data = request.get_json()
-            if not data:
-                logger.warning("Loki Push 요청에 JSON 데이터가 없습니다")
-                return jsonify({"error": "JSON 데이터가 필요합니다"}), 400
-            
-            logger.debug(f"Loki Push 요청 데이터: {data}")
-            
-            # Loki Push API 형식 파싱
-            streams = data.get("streams", [])
-            if not streams:
-                logger.warning("Loki Push 요청에 'streams' 필드가 없습니다")
-                return jsonify({"error": "streams 필드가 필요합니다"}), 400
-            
-            # 로그 추출
-            log_lines = []
-            metadata = {}
-            
-            for stream in streams:
-                # 라벨에서 메타데이터 추출
-                labels = stream.get("stream", {})
-                metadata.update(labels)
-                logger.debug(f"Loki stream 라벨: {labels}")
-                
-                # 로그 엔트리 추출
-                values = stream.get("values", [])
-                for entry in values:
-                    if len(entry) >= 2:
-                        timestamp = entry[0]  # 타임스탬프는 현재 사용하지 않음
-                        log_line = entry[1]
-                        log_lines.append(log_line)
-                        logger.debug(f"Loki log entry: {log_line}")
+            log_lines, metadata = decode_loki_push_request(request)
+            logger.debug(f"Loki Push 수신 로그 수: {len(log_lines)}")
             
             if not log_lines:
                 logger.info("Loki Push 요청에 로그가 없습니다")
@@ -223,6 +195,9 @@ def register_routes(app: Flask, agent, log_buffer: List[str], log_buffer_lock: t
                 "auto_analyze": auto_analyze
             }), 200
             
+        except ValueError as e:
+            logger.warning(f"Loki Push 요청 파싱 실패: {e}")
+            return jsonify({"error": str(e)}), 400
         except Exception as e:
             logger.error(f"Loki Push API 처리 중 오류 발생: {e}", exc_info=True)
             return jsonify({

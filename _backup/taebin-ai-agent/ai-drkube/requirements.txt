@@ -25,6 +25,10 @@ aiohttp>=3.9.0
 flask>=3.0.0
 flask-cors>=4.0.0  # CORS 지원
 
+# Loki protobuf decode
+protobuf>=4.25.0
+python-snappy>=0.6.1
+
 # 1. **로그 수집**: 로컬 파일 또는 외부 소스에서 로그 수집
 # 2. **에러 분류**: 키워드 기반 에러 카테고리 분류
 # 3. **근본 원인 분석**: 에러 카테고리 기반 원인 분석
