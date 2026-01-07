@@ -14,14 +14,14 @@ Kubernetes 환경의 장애를 자동으로 분석하고 조치하는 AI Agent�
 
 ```bash
 # pyenv로 Python 3.10+ 설치 (이미 설치되어 있다면 생략)
-pyenv install 3.11.0  # 또는 원하는 버전
+pyenv install 3.11.14  # 또는 원하는 버전
 
 # 프로젝트 디렉토리에서 Python 버전 설정
 cd ai-drkube
-pyenv local 3.11.0
+pyenv local 3.11.14
 
 # pyenv-virtualenv로 가상환경 생성
-pyenv virtualenv 3.11.0 ai-drkube
+pyenv virtualenv 3.11.14 ai-drkube
 pyenv activate ai-drkube
 
 # 또는 pyenv-virtualenv가 없다면

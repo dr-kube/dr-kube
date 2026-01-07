@@ -44,10 +44,6 @@ env/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Logs
-*.log
-logs/
-
 # Testing
 .pytest_cache/
 .coverage
