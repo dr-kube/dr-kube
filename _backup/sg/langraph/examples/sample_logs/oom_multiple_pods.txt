@@ -1,0 +1,5 @@
+2024-01-15 12:00:10 ERROR pod/grafana-xxx: Container grafana was killed due to memory limit exceeded
+2024-01-15 12:00:12 ERROR pod/loki-xxx: Container loki was killed due to memory limit exceeded
+2024-01-15 12:00:15 WARNING node/worker-1: Memory pressure detected
+2024-01-15 12:00:20 ERROR pod/prometheus-xxx: Container prometheus was killed due to memory limit exceeded
+

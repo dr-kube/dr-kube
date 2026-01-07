@@ -1,0 +1,6 @@
+2024-01-15 15:05:00 ERROR pod/loki-123: Container exited with code 1
+2024-01-15 15:05:00 ERROR pod/loki-123: Error: cannot connect to storage backend: connection refused
+2024-01-15 15:05:05 INFO pod/loki-123: Back-off restarting failed container
+2024-01-15 15:05:10 ERROR pod/loki-123: Container exited with code 1
+2024-01-15 15:05:15 ERROR pod/loki-123: CrashLoopBackOff
+

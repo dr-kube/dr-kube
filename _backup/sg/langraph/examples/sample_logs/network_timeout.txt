@@ -1,0 +1,4 @@
+2024-01-15 23:00:00 ERROR pod/prometheus-xxx: Request timeout: connection to prometheus:9090 timed out after 30s
+2024-01-15 23:00:05 ERROR pod/prometheus-xxx: Network error: timeout connecting to prometheus-server.monitoring.svc.cluster.local
+2024-01-15 23:00:10 WARNING pod/prometheus-xxx: Service endpoint not responding
+

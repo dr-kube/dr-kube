@@ -1,0 +1,4 @@
+2024-01-16 04:00:00 ERROR pod/grafana-xxx: 0/3 nodes are available: 3 InsufficientMemory
+2024-01-16 04:00:05 WARNING pod/grafana-xxx: Pod unschedulable: no nodes available with sufficient resources
+2024-01-16 04:00:10 ERROR pod/grafana-xxx: Scheduling failed: insufficient memory on all nodes
+

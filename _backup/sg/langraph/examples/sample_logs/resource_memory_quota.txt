@@ -1,0 +1,4 @@
+2024-01-15 20:00:00 ERROR pod/prometheus-xxx: Failed to create: resource quota exceeded: memory quota limit reached
+2024-01-15 20:00:00 WARNING namespace/monitoring: Memory quota: 8Gi/8Gi used (100%)
+2024-01-15 20:00:05 ERROR pod/prometheus-xxx: Pod unschedulable: insufficient memory quota
+

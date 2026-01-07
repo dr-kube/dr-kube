@@ -59,11 +59,6 @@ dmypy.json
 kubeconfig
 *.kubeconfig
 
-# Backup files
-_backup/
-*.bak
-*.backup
-
 # Reports and patches (generated files)
 reports/
 patches/

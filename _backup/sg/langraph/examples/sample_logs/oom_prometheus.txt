@@ -1,0 +1,5 @@
+2024-01-15 11:15:20 ERROR pod/prometheus-server-abc123: Container prometheus was killed due to memory limit exceeded
+2024-01-15 11:15:20 ERROR pod/prometheus-server-abc123: OOMKilled
+2024-01-15 11:15:25 INFO pod/prometheus-server-abc123: Memory limit: 1Gi, Current usage: 1.2Gi
+2024-01-15 11:15:30 ERROR pod/prometheus-server-abc123: Container prometheus was killed due to memory limit exceeded
+

@@ -1,0 +1,4 @@
+2024-01-16 02:00:00 ERROR pod/prometheus-xxx: Failed to pull image "prometheus/prometheus:999.0.0": manifest unknown: manifest not found
+2024-01-16 02:00:05 ERROR pod/prometheus-xxx: ImagePullBackOff: image not found
+2024-01-16 02:00:10 WARNING pod/prometheus-xxx: Image tag does not exist in registry
+

@@ -1,0 +1,28 @@
+# Python 3.11.14 required
+# See docs/SETUP.md for installation instructions
+
+# LangGraph 및 LangChain
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-anthropic>=0.2.0
+
+# 설정 관리
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Git 작업
+GitPython>=3.1.40
+
+# Kubernetes 클라이언트
+kubernetes>=28.1.0
+
+# HTTP 클라이언트
+requests>=2.31.0
+
+# YAML 처리
+PyYAML>=6.0
+
+# 유틸리티
+python-dotenv>=1.0.0
+
