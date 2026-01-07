@@ -6,7 +6,10 @@
       "Bash(source venv/bin/activate)",
       "Bash(/usr/local/bin/python3.11 -m venv:*)",
       "Bash(pip install:*)",
-      "Bash(cat .env)"
+      "Bash(cat .env)",
+      "Bash(git check-ignore:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)"
     ]
   }
 }
