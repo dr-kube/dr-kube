@@ -98,6 +98,22 @@ python -m src.cli --loki \
   --resource-name my-pod
 ```
 
+### 전체 네임스페이스에서 조회
+
+```bash
+# 모든 namespace에서 특정 Pod 조회
+python -m src.cli --log-file /path/to/logfile.txt \
+  --all-namespaces \
+  --resource-type Pod \
+  --resource-name my-pod
+
+# 모든 namespace에서 특정 Deployment 조회
+python -m src.cli --log-file /path/to/logfile.txt \
+  --all-namespaces \
+  --resource-type Deployment \
+  --resource-name my-deployment
+```
+
 ### 시뮬레이션 모드 (실제 Git 커밋 안 함)
 
 ```bash

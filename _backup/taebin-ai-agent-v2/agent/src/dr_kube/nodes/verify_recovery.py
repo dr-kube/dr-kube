@@ -27,6 +27,7 @@ def verify_recovery(state: AgentState) -> AgentState:
         
         # Phase 1: 시뮬레이션 모드
         suggested_actions = state.get("suggested_actions", [])
+        all_namespaces = state.get("all_namespaces", False)
         namespace = state.get("namespace", "default")
         resource_type = state.get("resource_type", "unknown")
         resource_name = state.get("resource_name", "unknown")
@@ -35,11 +36,27 @@ def verify_recovery(state: AgentState) -> AgentState:
         resource_status = ""
         try:
             k8s_client = KubernetesClient()
-            resource_status = k8s_client.get_resource_status(
-                namespace=namespace,
-                resource_type=resource_type,
-                resource_name=resource_name
-            )
+            
+            # 전체 namespace 조회 지원
+            if all_namespaces:
+                logger.info("전체 namespace에서 리소스 상태 조회")
+                resource_status_dict = k8s_client.get_resource_status_all_namespaces(
+                    resource_type=resource_type,
+                    resource_name=resource_name
+                )
+                if resource_status_dict:
+                    resource_status = "\n".join([
+                        f"[{ns}] {status}"
+                        for ns, status in resource_status_dict.items()
+                    ])
+                else:
+                    resource_status = "전체 namespace에서 리소스를 찾을 수 없습니다"
+            else:
+                resource_status = k8s_client.get_resource_status(
+                    namespace=namespace,
+                    resource_type=resource_type,
+                    resource_name=resource_name
+                )
         except Exception as e:
             logger.warning(f"리소스 상태 확인 실패: {str(e)}")
             resource_status = f"상태 확인 실패: {str(e)}"

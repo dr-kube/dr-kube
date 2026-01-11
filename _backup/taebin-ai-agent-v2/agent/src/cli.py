@@ -60,6 +60,12 @@ def main():
     )
     
     parser.add_argument(
+        "--all-namespaces",
+        action="store_true",
+        help="모든 네임스페이스에서 조회 (--namespace 옵션 무시)"
+    )
+    
+    parser.add_argument(
         "--resource-type",
         type=str,
         help="리소스 타입 (Pod, Deployment 등)"
@@ -99,7 +105,8 @@ def main():
         "recovery_status": None,
         "user_feedback": None,
         "user_approved": True,  # Phase 1: 자동 승인
-        "namespace": args.namespace,
+        "namespace": None if args.all_namespaces else args.namespace,
+        "all_namespaces": args.all_namespaces,
         "resource_name": args.resource_name,
         "resource_type": args.resource_type,
         "error": None,

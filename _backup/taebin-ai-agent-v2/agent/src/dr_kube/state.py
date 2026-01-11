@@ -29,6 +29,7 @@ class AgentState(TypedDict):
     
     # 메타데이터
     namespace: Optional[str]  # Kubernetes 네임스페이스
+    all_namespaces: bool  # 전체 namespace 조회 여부
     resource_name: Optional[str]  # 리소스 이름
     resource_type: Optional[str]  # 리소스 타입 (Pod, Deployment 등)
     
