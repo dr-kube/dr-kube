@@ -1,5 +1,5 @@
 """LLM 프로바이더 - Ollama/Gemini 선택"""
-import osagent/src
+import os
 from dotenv import load_dotenv
 from langchain_core.language_models import BaseChatModel
 

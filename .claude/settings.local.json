@@ -2,26 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(kubectl get:*)",
-      "Bash(kubectl logs:*)",
-      "Bash(kubectl describe:*)",
-      "Bash(argocd:*)",
-      "Bash(helm:*)",
+      "Bash(helm list:*)",
       "Bash(source venv/bin/activate)",
-      "Bash(source ../venv/bin/activate)",
-      "Bash(python -m venv:*)",
+      "Bash(/usr/local/bin/python3.11 -m venv:*)",
       "Bash(pip install:*)",
-      "Bash(pip freeze:*)",
-      "Bash(python -m cli:*)",
-      "Bash(python -m pytest:*)",
       "Bash(cat .env)",
-      "Bash(git:*)"
-    ],
-    "block": [
-      "Bash(kubectl delete:*)",
-      "Bash(kubectl create:*)",
-      "Bash(kubectl apply:*)",
-      "Bash(kubectl edit:*)",
-      "Bash(kubectl patch:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)"
     ]
   }
 }

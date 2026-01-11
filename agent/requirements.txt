@@ -1,0 +1,25 @@
+# LangGraph 및 LangChain
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-google-genai>=2.0.0
+
+# Kubernetes 클라이언트
+kubernetes>=28.0.0
+
+# 환경 변수 관리
+python-dotenv>=1.0.0
+
+# 데이터 검증
+pydantic>=2.0.0
+
+# YAML 파싱
+pyyaml>=6.0
+
+# 로깅
+loguru>=0.7.0
+
+# 비동기 HTTP (선택사항)
+aiohttp>=3.9.0
+
+# 웹 서버 (Alertmanager Webhook Receiver용)
+flask>=3.0.0
