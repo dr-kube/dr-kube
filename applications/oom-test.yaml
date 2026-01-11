@@ -1,0 +1,25 @@
+# OOM 테스트를 위한 Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oom-test
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      path: manifests
+      directory:
+        include: oom-test.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
