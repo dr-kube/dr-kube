@@ -1,0 +1,26 @@
+# OOM 테스트 애플리케이션
+# 메모리 제한을 초과하여 OOMKilled를 발생시키는 테스트 앱
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oom-test
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      path: manifests
+      directory:
+        include: oom-test.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
