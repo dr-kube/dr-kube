@@ -10,7 +10,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: argocd.drkube.shop
+    - host: argocd.drkube.kro.kr
       http:
         paths:
           - path: /
