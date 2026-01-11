@@ -157,17 +157,17 @@ extraExposePorts: []
 
 # overrides pod.spec.hostAliases in the grafana deployment's pods
 hostAliases: []
-ingress:
-  enabled: true
-  ingressClassName: nginx
-  annotations: {}
-  labels: {}
-  path: /
-  pathType: Prefix
-  hosts:
-  - grafana.drkube.shop
-  extraPaths: []
-  tls: []
+# ingress:
+#   enabled: true
+#   ingressClassName: nginx
+#   annotations: {}
+#   labels: {}
+#   path: /
+#   pathType: Prefix
+#   hosts:
+#   - grafana.drkube.shop
+#   extraPaths: []
+#   tls: []
 route:
   main:
     enabled: false
