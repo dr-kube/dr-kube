@@ -168,21 +168,21 @@ ingress:
   - grafana.drkube.shop
   extraPaths: []
   tls: []
-# route:
-#   main:
-#     enabled: false
-#     apiVersion: gateway.networking.k8s.io/v1
-#     kind: HTTPRoute
-#     annotations: {}
-#     labels: {}
-#     hostnames: []
-#     parentRefs: []
-#     matches:
-#     - path:
-#         type: PathPrefix
-#         value: /
-#     filters: []
-#     additionalRules: []
+route:
+  main:
+    enabled: false
+    apiVersion: gateway.networking.k8s.io/v1
+    kind: HTTPRoute
+    annotations: {}
+    labels: {}
+    hostnames: []
+    parentRefs: []
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+    filters: []
+    additionalRules: []
 resources:
   limits:
     memory: 1740Mi
