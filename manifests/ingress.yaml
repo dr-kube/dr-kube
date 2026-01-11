@@ -1,25 +1,25 @@
-# ArgoCD Ingress
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: argocd
-  namespace: argocd
-  annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: HTTP
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: argocd.drkube.shop
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: argo-cd-argocd-server
-                port:
-                  number: 80
+# # ArgoCD Ingress
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: argocd
+#   namespace: argocd
+#   annotations:
+#     nginx.ingress.kubernetes.io/backend-protocol: HTTP
+#     nginx.ingress.kubernetes.io/proxy-body-size: "0"
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#     - host: argocd.drkube.shop
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: argo-cd-argocd-server
+#                 port:
+#                   number: 80
 ---
 # Demo Nginx Ingress
 apiVersion: networking.k8s.io/v1
