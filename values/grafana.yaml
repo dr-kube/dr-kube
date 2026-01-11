@@ -39,7 +39,7 @@ dashboards:
       datasource: Prometheus
     kubernetes-cluster-monitoring:
       gnetId: 7249
-      revision: 1gi t
+      revision: 1
       datasource: Prometheus
     kubernetes-pods:
       gnetId: 6417
