@@ -100,42 +100,82 @@ dr-kube/
 
 - Kubernetes 클러스터 (1.25+)
 - ArgoCD 설치
-- Python 3.10+
+- **Docker & Docker Compose** (로컬 개발 환경)
 - Git
 
-### 1. ArgoCD App of Apps 배포
+### 1. Docker 개발 환경 설정 (권장)
+
+모든 팀원이 동일한 환경에서 개발할 수 있도록 Docker Compose를 사용합니다.
+
+```bash
+# 환경 변수 설정 (agent/.env 파일 생성)
+cp agent/src/.env.example agent/src/.env
+# .env 파일을 열어서 LLM 설정 수정
+
+# Docker 이미지 빌드 및 컨테이너 시작
+make build
+make up
+
+# Ollama 모델 다운로드 (최초 1회, 시간 소요)
+make ollama-pull
+
+# agent 컨테이너 접속
+make shell
+```
+
+**Docker 환경의 장점:**
+- Python 3.11, kubectl, argocd CLI, helm이 모두 설치됨
+- 팀원 간 동일한 개발 환경 보장
+- 로컬 kubeconfig 자동 마운트
+
+### 2. ArgoCD App of Apps 배포
 
 ```bash
 # Root Application 배포 (모든 앱 자동 배포)
 kubectl apply -f manifests/application-root.yaml
 ```
 
-### 2. LangGraph 에이전트 설정
-
-```bash
-# langraph 디렉토리로 이동
-cd langraph
-
-# 가상환경 생성 및 활성화
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-
-# 의존성 설치
-pip install -r requirements.txt
-
-# 환경 변수 설정
-cp .env.example .env
-# .env 파일 편집
-```
-
 ### 3. 장애 대응 에이전트 실행
 
 ```bash
-# Dry-run 모드로 테스트 (권장)
-python -m cli.main --log-file examples/sample_log_oom.txt --dry-run
+# Docker 컨테이너 내에서 실행
+make shell
 
-# 실제 실행 (Git 커밋 포함)
-python -m cli.main --log-file examples/sample_log_oom.txt --repo-root ..
+# 컨테이너 내부에서
+cd agent
+python -m cli analyze issues/sample_oom.json
+
+# 또는 외부에서 직접 실행
+make analyze
+```
+
+### 4. 자주 사용하는 명령어
+
+```bash
+make help           # 사용 가능한 명령어 목록
+make shell          # agent 컨테이너 셸 접속
+make logs           # 컨테이너 로그 확인
+make test           # pytest 실행
+make k8s-status     # K8s 클러스터 상태 확인
+make argocd-status  # ArgoCD 상태 확인
+make down           # 컨테이너 중지
+make clean          # 전체 삭제 (볼륨 포함)
+```
+
+### 로컬 개발 환경 (Docker 미사용)
+
+Docker를 사용하지 않는 경우 다음과 같이 설정:
+
+```bash
+# Python 가상환경 생성
+python -m venv venv
+source venv/bin/activate
+
+# 의존성 설치
+cd agent
+pip install -r src/requirements.txt
+
+# kubectl, argocd CLI, helm 별도 설치 필요
 ```
 
 ## 🔧 지원하는 장애 유형
