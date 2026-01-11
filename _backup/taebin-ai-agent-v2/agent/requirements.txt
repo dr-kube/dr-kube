@@ -1,0 +1,31 @@
+# LangGraph 및 AI 관련
+langgraph>=0.0.40
+langchain>=0.1.0
+langchain-google-genai>=0.0.6
+google-generativeai>=0.3.0
+
+# Kubernetes
+kubernetes>=28.1.0
+
+# Git 작업
+GitPython>=3.1.40
+pyyaml>=6.0.1
+
+# HTTP 클라이언트
+httpx>=0.25.0
+requests>=2.31.0
+
+# 환경 변수 관리
+python-dotenv>=1.0.0
+
+# 로깅
+structlog>=23.2.0
+
+# 타입 체크
+mypy>=1.7.0
+types-requests>=2.31.0
+
+# 테스트
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.12.0
