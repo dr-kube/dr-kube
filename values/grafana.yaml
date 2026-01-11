@@ -24,6 +24,9 @@ datasources:
         url: http://prometheus-server
         access: proxy
 
+initChownData:
+  enabled: false
+
 dashboards:
   default:
     kubernetes-overview:
