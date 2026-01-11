@@ -43,12 +43,14 @@ LangGraph를 사용하여 Kubernetes 환경에서 다양한 장애 상황을 감
 
 ```bash
 # 가상환경 생성
-python -m venv venv
+cd ./dr-kube/_backup/taebin-ai-agent-v2
+python3 -m venv venv
 source venv/bin/activate  # Linux/Mac
 # 또는
 venv\Scripts\activate  # Windows
 
 # 패키지 설치
+cd ./agent
 pip install -r requirements.txt
 ```
 
