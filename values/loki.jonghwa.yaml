@@ -293,11 +293,6 @@ alloy:
 
 controller:
   type: daemonset
-  tolerations:
-    - key: node-group-type
-      operator: Equal
-      value: mall-v4-batch
-      effect: NoSchedule
 
 rbac:
   create: true
