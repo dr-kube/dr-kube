@@ -10,18 +10,54 @@ Kubernetes 환경의 장애를 자동으로 분석하고 조치하는 AI Agent�
 
 ## 빠른 시작
 
-### Windows 사용자
+### Windows 사용자 (3단계)
 
-**간편 설정 (권장)**
+**1단계: 환경 설정**
+```cmd
+.\setup.bat
+```
 
-1. `setup.bat` 실행 (가상환경 생성 및 패키지 설치)
-2. `.env` 파일 확인 (이미 설정되어 있음)
-3. 샘플 데이터로 테스트:
-   ```cmd
-   run.bat issues\sample_oom.json
-   ```
+**2단계: 실행**
+```cmd
+.\run.bat issues\sample_oom.json
+```
 
-자세한 내용은 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)를 참고하세요.
+**3단계: 결과 확인**
+```
+============================================================
+  DR-Kube 분석 결과
+============================================================
+
+📋 이슈: CrashLoopBackOff
+🔴 심각도: CRITICAL
+
+🔍 근본 원인:
+   컨테이너가 메모리 제한 초과로 강제 종료
+
+💡 해결책:
+   1. 메모리 Limit을 1Gi로 증설
+   2. 메모리 누수 여부 확인
+   3. 알람 설정
+
+⚡ 실행 계획:
+  kubectl patch deployment api-server -n production ...
+
+📝 YAML 수정 (Diff):
+❌ -     memory: 512Mi
+✅ +     memory: 1Gi
+============================================================
+```
+
+완료! 🎉
+
+**더 많은 예시:**
+```cmd
+.\run.bat issues\sample_rbac_permission.json
+.\run.bat issues\sample_dns_resolution.json
+.\run.bat issues\sample_configmap_missing.json
+```
+
+자세한 내용은 [README_KR.md](./README_KR.md) 또는 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)를 참고하세요.
 
 ### Linux/macOS 사용자
 
