@@ -1,0 +1,15 @@
+{
+  "id": "issue-011",
+  "type": "pod_crash",
+  "namespace": "production",
+  "resource": "payment-service-9j0k1l-qrst",
+  "error_message": "CrashLoopBackOff",
+  "logs": [
+    "2026-01-24T17:00:00Z panic: runtime error: invalid memory address or nil pointer dereference",
+    "2026-01-24T17:00:00Z [signal SIGSEGV: segmentation violation code=0x1 addr=0x0 pc=0x4a1b3c]",
+    "2026-01-24T16:59:58Z Error: failed to connect to database: connection refused",
+    "2026-01-24T16:59:55Z Fatal: DATABASE_URL environment variable not set",
+    "2026-01-24T16:59:50Z Container exited with code 1"
+  ],
+  "timestamp": "2026-01-24T17:00:00Z"
+}

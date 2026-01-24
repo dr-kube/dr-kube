@@ -1,0 +1,14 @@
+{
+  "id": "issue-005",
+  "type": "volume_issue",
+  "namespace": "staging",
+  "resource": "database-statefulset-0",
+  "error_message": "PersistentVolumeClaim Pending",
+  "logs": [
+    "2026-01-24T11:00:00Z Warning: FailedScheduling - pod has unbound immediate PersistentVolumeClaims",
+    "2026-01-24T11:00:00Z Error: no persistent volumes available for this claim and no storage class is set",
+    "2026-01-24T10:59:55Z PVC \"data-db-0\" is in Pending state",
+    "2026-01-24T10:59:50Z StorageClass \"fast-ssd\" not found"
+  ],
+  "timestamp": "2026-01-24T11:00:00Z"
+}

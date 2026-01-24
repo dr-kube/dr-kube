@@ -1,0 +1,14 @@
+{
+  "id": "issue-009",
+  "type": "permission_issue",
+  "namespace": "production",
+  "resource": "cronjob-backup-runner-xyz",
+  "error_message": "Forbidden: insufficient permissions",
+  "logs": [
+    "2026-01-24T15:00:00Z Error: pods is forbidden: User \"system:serviceaccount:production:backup-sa\" cannot create resource \"pods\" in API group \"\" in the namespace \"production\"",
+    "2026-01-24T15:00:00Z Failed to create backup job",
+    "2026-01-24T14:59:55Z Warning: ServiceAccount \"backup-sa\" lacks necessary RBAC permissions",
+    "2026-01-24T14:59:50Z Required: pods/create, pods/delete in namespace production"
+  ],
+  "timestamp": "2026-01-24T15:00:00Z"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "issue-007",
+  "type": "network_issue",
+  "namespace": "production",
+  "resource": "frontend-app-6c8d9f-asdf",
+  "error_message": "Service Connection Timeout",
+  "logs": [
+    "2026-01-24T13:00:00Z Error: failed to connect to backend-service.production.svc.cluster.local:8080",
+    "2026-01-24T13:00:00Z dial tcp 10.96.10.20:8080: i/o timeout",
+    "2026-01-24T12:59:55Z Connection attempt 5 failed",
+    "2026-01-24T12:59:50Z Warning: All backend endpoints are unreachable",
+    "2026-01-24T12:59:45Z NetworkPolicy \"deny-all\" is blocking traffic"
+  ],
+  "timestamp": "2026-01-24T13:00:00Z"
+}

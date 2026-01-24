@@ -1,0 +1,13 @@
+{
+  "id": "issue-004",
+  "type": "pod_crash",
+  "namespace": "production",
+  "resource": "web-app-5d9c7f8b-qwer",
+  "error_message": "CreateContainerConfigError",
+  "logs": [
+    "2026-01-24T10:30:00Z Error: configmap \"app-config\" not found",
+    "2026-01-24T10:30:00Z Failed to create container: configmap \"app-config\" not found in namespace \"production\"",
+    "2026-01-24T10:29:55Z Warning: Back-off restarting failed container"
+  ],
+  "timestamp": "2026-01-24T10:30:00Z"
+}

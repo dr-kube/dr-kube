@@ -8,17 +8,14 @@ load_dotenv()
 
 def get_llm() -> BaseChatModel:
     """환경변수에 따라 LLM 인스턴스 반환"""
-    provider = os.getenv("LLM_PROVIDER", "ollama").lower()
+    # GOOGLE_API_KEY가 설정되어 있으면 Gemini 사용
+    api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 
-    if provider == "gemini":
+    if api_key:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY 환경변수가 필요합니다")
-
         return ChatGoogleGenerativeAI(
-            model=os.getenv("GEMINI_MODEL", "gemini-pro"),
+            model=os.getenv("MODEL_NAME") or os.getenv("GEMINI_MODEL", "gemini-pro"),
             google_api_key=api_key,
             temperature=0.3,
         )

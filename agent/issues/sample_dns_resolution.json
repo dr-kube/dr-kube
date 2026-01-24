@@ -1,0 +1,15 @@
+{
+  "id": "issue-010",
+  "type": "dns_issue",
+  "namespace": "staging",
+  "resource": "backend-service-7g8h9i-mnop",
+  "error_message": "Name resolution failed",
+  "logs": [
+    "2026-01-24T16:00:00Z Error: lookup database.staging.svc.cluster.local on 10.96.0.10:53: no such host",
+    "2026-01-24T16:00:00Z Failed to resolve DNS name: database.staging.svc.cluster.local",
+    "2026-01-24T15:59:55Z Warning: CoreDNS pods are not ready in kube-system namespace",
+    "2026-01-24T15:59:50Z DNS query timeout after 5 seconds",
+    "2026-01-24T15:59:45Z kube-dns service endpoint is empty"
+  ],
+  "timestamp": "2026-01-24T16:00:00Z"
+}

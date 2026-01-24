@@ -16,6 +16,8 @@ class IssueState(TypedDict, total=False):
 
     # 해결책
     suggestions: list[str]
+    action_plan: str  # kubectl 명령어 등 실행 계획
+    yaml_diff: str  # YAML 수정 diff
 
     # 메타
     status: str  # pending, analyzed, done

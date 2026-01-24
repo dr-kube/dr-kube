@@ -1,0 +1,14 @@
+{
+  "id": "issue-008",
+  "type": "scheduling_issue",
+  "namespace": "production",
+  "resource": "worker-pod-8e9f0a-hjkl",
+  "error_message": "Pod stuck in Pending state",
+  "logs": [
+    "2026-01-24T14:00:00Z Warning: FailedScheduling - 0/5 nodes are available: 3 node(s) had taint {node-role.kubernetes.io/master: }, that the pod didn't tolerate, 2 node(s) were unschedulable.",
+    "2026-01-24T14:00:00Z Node \"worker-node-02\" is NotReady: kubelet stopped posting node status",
+    "2026-01-24T13:59:55Z Node \"worker-node-03\" has insufficient memory",
+    "2026-01-24T13:59:50Z All available nodes have exceeded resource quotas"
+  ],
+  "timestamp": "2026-01-24T14:00:00Z"
+}

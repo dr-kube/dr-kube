@@ -1,0 +1,14 @@
+{
+  "id": "issue-006",
+  "type": "pod_unhealthy",
+  "namespace": "production",
+  "resource": "api-gateway-7f8d9c-zxcv",
+  "error_message": "Liveness probe failed",
+  "logs": [
+    "2026-01-24T12:00:00Z Liveness probe failed: HTTP probe failed with statuscode: 503",
+    "2026-01-24T12:00:00Z Container will be restarted",
+    "2026-01-24T11:59:55Z Warning: Unhealthy - Liveness probe failed: Get \"http://10.1.2.3:8080/healthz\": dial tcp 10.1.2.3:8080: connect: connection refused",
+    "2026-01-24T11:59:50Z Application startup time exceeded liveness probe initial delay"
+  ],
+  "timestamp": "2026-01-24T12:00:00Z"
+}
