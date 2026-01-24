@@ -70,6 +70,7 @@ dr-kube/
 │   ├── grafana.yaml         # Grafana Dashboard
 │   ├── loki.yaml            # Loki (로그 저장)
 │   ├── nginx-ingress.yaml   # Nginx Ingress Controller
+│   ├── oom-test.yaml        # OOM 테스트용 Application
 │   └── prometheus.yaml      # Prometheus (메트릭)
 ├── values/                   # Helm Values 파일
 │   ├── alloy.yaml
@@ -81,17 +82,42 @@ dr-kube/
 │   └── prometheus.yaml
 ├── manifests/                # Kubernetes 매니페스트
 │   ├── application-root.yaml # Root Application (App of Apps)
-│   └── ingress.yaml         # Ingress 설정
-├── langraph/                 # LangGraph 장애 대응 에이전트
-│   ├── agents/              # LangGraph 노드 및 그래프
-│   ├── cli/                 # CLI 인터페이스
-│   ├── config/              # 설정 파일
-│   ├── models/              # 데이터 모델
-│   ├── services/            # 서비스 레이어
-│   └── examples/            # 예시 로그 파일
-└── docs/                     # 문서
-    ├── ALLOY_CONFIG.md      # Alloy 설정 가이드
-    └── CHAOS_MESH_TOKEN.md  # Chaos Mesh 토큰 관리
+│   ├── ingress.yaml         # Ingress 설정
+│   └── oom-test.yaml        # OOM 테스트용 매니페스트
+├── agent/                    # LangGraph 장애 대응 에이전트
+│   ├── src/                 # 소스 코드
+│   │   ├── cli.py           # CLI 인터페이스
+│   │   ├── dr_kube/         # DR-Kube 메인 모듈
+│   │   │   ├── graph.py     # LangGraph 그래프 정의
+│   │   │   ├── llm.py       # LLM 설정
+│   │   │   ├── prompts.py   # 프롬프트 템플릿
+│   │   │   └── state.py     # 상태 모델
+│   │   ├── .env.example     # 환경 변수 예시
+│   │   ├── pyproject.toml   # 프로젝트 설정
+│   │   └── requirements.txt # Python 의존성
+│   ├── tools/               # 유틸리티 도구
+│   │   ├── log_collector.py        # 로그 수집기
+│   │   ├── error_classifier.py     # 에러 분류기
+│   │   ├── root_cause_analyzer.py  # 근본 원인 분석기
+│   │   ├── git_action.py           # Git 액션
+│   │   ├── log_analysis_agent.py   # 로그 분석 에이전트
+│   │   └── alert_webhook_server.py # 알림 웹훅 서버
+│   ├── issues/              # 샘플 이슈 파일
+│   │   ├── sample_oom.json
+│   │   ├── sample_image_pull.json
+│   │   └── sample_cpu_throttle.json
+│   ├── env.sample           # 환경 변수 샘플
+│   ├── requirements.txt     # 의존성 (루트)
+│   └── README.md            # Agent 문서
+├── docs/                     # 문서
+│   ├── ALLOY_CONFIG.md      # Alloy 설정 가이드
+│   ├── CHAOS_MESH_TOKEN.md  # Chaos Mesh 토큰 관리
+│   ├── IMPROVEMENTS.md      # 개선 사항
+│   └── SETUP.md             # 설정 가이드
+├── docker-compose.yml        # Docker Compose 설정
+├── Dockerfile.dev            # 개발용 Dockerfile
+├── Makefile                  # 빌드/실행 명령어
+└── .python-version           # Python 버전 지정
 ```
 
 ## 🚀 빠른 시작
@@ -108,7 +134,7 @@ dr-kube/
 모든 팀원이 동일한 환경에서 개발할 수 있도록 Docker Compose를 사용합니다.
 
 ```bash
-# 환경 변수 설정 (agent/.env 파일 생성)
+# 환경 변수 설정 (agent/src/.env 파일 생성)
 cp agent/src/.env.example agent/src/.env
 # .env 파일을 열어서 LLM 설정 수정
 
@@ -142,8 +168,8 @@ kubectl apply -f manifests/application-root.yaml
 make shell
 
 # 컨테이너 내부에서
-cd agent
-python -m cli analyze issues/sample_oom.json
+cd agent/src
+python cli.py analyze ../issues/sample_oom.json
 
 # 또는 외부에서 직접 실행
 make analyze
@@ -235,8 +261,8 @@ kubectl create secret generic chaos-dashboard-token -n chaos-mesh \
 
 - [Alloy 설정 가이드](./docs/ALLOY_CONFIG.md)
 - [Chaos Mesh 토큰 관리](./docs/CHAOS_MESH_TOKEN.md)
-- [LangGraph 상세 계획](./langraph/PLAN.md)
-- [지속적 모니터링 계획](./langraph/PLAN_CONTINUOUS_MONITORING.md)
+- [설정 가이드](./docs/SETUP.md)
+- [개선 사항](./docs/IMPROVEMENTS.md)
 
 ## 🛠️ 기술 스택
 
