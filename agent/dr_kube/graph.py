@@ -10,8 +10,8 @@ from dr_kube.prompts import ANALYZE_PROMPT, GENERATE_FIX_PROMPT
 from dr_kube.github import GitHubClient, generate_branch_name, generate_pr_body
 
 
-# 프로젝트 루트 경로
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+# 프로젝트 루트 경로 (agent/dr_kube/graph.py → dr-kube/)
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
 def load_issue(state: IssueState) -> IssueState:
@@ -152,13 +152,14 @@ def generate_fix(state: IssueState) -> IssueState:
         return state
 
     issue = state.get("issue_data", {})
+    issue_type = issue.get("type", "unknown")
+    namespace = issue.get("namespace", "default")
 
     # 이슈에 values_file이 명시되어 있으면 사용
     if issue.get("values_file"):
         target_file = issue.get("values_file")
     else:
         # 이슈 타입에 따라 대상 파일 결정 (기본 매핑)
-        issue_type = issue.get("type", "unknown")
         target_file_map = {
             "oom": "values/oom-test.yaml",
             "cpu_throttle": "values/oom-test.yaml",
@@ -167,7 +168,6 @@ def generate_fix(state: IssueState) -> IssueState:
         }
         target_file = target_file_map.get(issue_type, target_file_map["default"])
 
-    namespace = issue.get("namespace", "default")
     target_path = PROJECT_ROOT / target_file
 
     # 파일이 없으면 스킵
