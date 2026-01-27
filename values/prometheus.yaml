@@ -17,7 +17,7 @@ server:
 
   persistentVolume:
     enabled: true
-    storageClass: "csi-storageclass" # ← 원하는 SC로 교체
+    storageClass: "standard"
     accessModes:
       - ReadWriteOnce
     size: 8Gi
@@ -40,7 +40,7 @@ alertmanager:
 
   persistence:
     enabled: true
-    storageClass: "csi-storageclass" # ← 동일 SC
+    storageClass: "standard"
     accessModes:
       - ReadWriteOnce
     size: 2Gi

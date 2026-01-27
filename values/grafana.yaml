@@ -6,7 +6,7 @@ service:
 
 persistence:
   enabled: true
-  storageClassName: csi-storageclass
+  storageClassName: standard
   size: 10Gi
 
 datasources:

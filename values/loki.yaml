@@ -48,7 +48,7 @@ singleBinary:
   persistence:
     enabled: true
     size: 10Gi
-    storageClass: csi-storageclass
+    storageClass: standard
 
 resultsCache:
   enabled: false
@@ -60,7 +60,7 @@ chunksCache:
     enabled: true
     # -- Size of persistent disk, must be in G or Gi
     storageSize: 10Gi
-    storageClass: csi-storageclass
+    storageClass: standard
 
 write:
   replicas: 0
