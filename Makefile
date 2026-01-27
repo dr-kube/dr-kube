@@ -1,66 +1,49 @@
-.PHONY: help build up down shell logs clean test analyze k8s-status argocd-status
+.PHONY: help agent-setup agent-run agent-clean
 
-# 기본 타겟 (help 출력)
-help:
-	@echo "DR-Kube 개발 환경 명령어"
+# bash 사용 (source 명령 지원)
+SHELL := /bin/bash
+
+# 기본 타겟
+.DEFAULT_GOAL := help
+
+# 변수
+AGENT_DIR := agent
+AGENT_VENV := $(AGENT_DIR)/.venv
+AGENT_PYTHON := $(AGENT_VENV)/bin/python
+ISSUE ?= issues/sample_oom.json
+
+help: ## 도움말 표시
+	@echo "DR-Kube 명령어"
 	@echo ""
-	@echo "사용 가능한 명령어:"
-	@echo "  make build          - Docker 이미지 빌드"
-	@echo "  make up             - 컨테이너 시작 (백그라운드)"
-	@echo "  make down           - 컨테이너 중지 및 삭제"
-	@echo "  make shell          - agent 컨테이너 셸 접속"
-	@echo "  make logs           - 컨테이너 로그 확인"
-	@echo "  make clean          - 볼륨 포함 전체 삭제"
-	@echo "  make test           - pytest 실행"
-	@echo "  make analyze        - 샘플 이슈 분석 (OOM 예제)"
-	@echo "  make k8s-status     - K8s 클러스터 상태 확인"
-	@echo "  make argocd-status  - ArgoCD 상태 확인"
-	@echo "  make ollama-pull    - Ollama 모델 다운로드"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# Docker 이미지 빌드
-build:
-	docker-compose build
+# =============================================================================
+# Agent 명령어
+# =============================================================================
 
-# 컨테이너 시작
-up:
-	docker-compose up -d
-	@echo "컨테이너가 시작되었습니다."
-	@echo "agent 컨테이너 접속: make shell"
+agent-setup: ## 에이전트 환경 설정
+	@./scripts/setup-agent.sh
 
-# 컨테이너 중지
-down:
-	docker-compose down
+agent-run: ## 에이전트 실행 (ISSUE=파일경로)
+	@cd $(AGENT_DIR) && .venv/bin/python -m cli analyze $(ISSUE)
 
-# agent 컨테이너 셸 접속
-shell:
-	docker-compose exec agent bash
+agent-run-all: ## 모든 샘플 이슈 분석
+	@cd $(AGENT_DIR) && for f in issues/*.json; do \
+		echo "\n=== $$f ==="; \
+		.venv/bin/python -m cli analyze $$f; \
+	done
 
-# 로그 확인
-logs:
-	docker-compose logs -f
+agent-clean: ## 에이전트 가상환경 삭제
+	rm -rf $(AGENT_VENV)
 
-# 전체 삭제 (볼륨 포함)
-clean:
-	docker-compose down -v
-	@echo "모든 컨테이너와 볼륨이 삭제되었습니다."
+agent-reinstall: agent-clean agent-setup ## 에이전트 재설치
 
-# pytest 실행
-test:
-	docker-compose exec agent bash -c "cd agent && pytest"
+# 샘플 이슈 단축 명령
+agent-oom: ## OOM 이슈 분석
+	@$(MAKE) agent-run ISSUE=issues/sample_oom.json
 
-# 샘플 이슈 분석 (OOM)
-analyze:
-	docker-compose exec agent bash -c "cd agent && python -m cli analyze issues/sample_oom.json"
+agent-cpu: ## CPU Throttle 이슈 분석
+	@$(MAKE) agent-run ISSUE=issues/sample_cpu_throttle.json
 
-# K8s 클러스터 상태 확인
-k8s-status:
-	docker-compose exec agent kubectl get pods -A
-
-# ArgoCD 상태 확인
-argocd-status:
-	docker-compose exec agent argocd app list
-
-# Ollama 모델 다운로드
-ollama-pull:
-	docker-compose exec ollama ollama pull qwen2.5:14b
-	@echo "모델 다운로드 완료. .env 파일의 OLLAMA_MODEL과 일치하는지 확인하세요."
+agent-image: ## Image Pull 이슈 분석
+	@$(MAKE) agent-run ISSUE=issues/sample_image_pull.json
