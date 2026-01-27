@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -15,7 +15,27 @@ ISSUE ?= issues/sample_oom.json
 help: ## 도움말 표시
 	@echo "DR-Kube 명령어"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "  [클러스터]"
+	@grep -E '^(setup|teardown|port-forward).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  [에이전트]"
+	@grep -E '^agent-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# =============================================================================
+# 클러스터 명령어
+# =============================================================================
+
+setup: ## Kind 클러스터 + ArgoCD 설치
+	@./scripts/setup.sh
+
+teardown: ## 클러스터 삭제
+	@./scripts/teardown.sh
+
+port-forward: ## 포트포워딩 시작 (ArgoCD, Grafana)
+	@./scripts/setup.sh port-forward
+
+port-forward-stop: ## 포트포워딩 종료
+	@./scripts/setup.sh port-stop
 
 # =============================================================================
 # Agent 명령어

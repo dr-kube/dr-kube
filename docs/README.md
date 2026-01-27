@@ -1,186 +1,157 @@
-# AI DrKube - Kubernetes 장애 분석/조치 AI Agent
+# AI DrKube - Kubernetes 장애 분석 AI Agent
 
-Kubernetes 환경의 장애를 자동으로 분석하고 조치하는 AI Agent입니다.
+Kubernetes 환경의 장애를 자동으로 분석하고 조치 방안을 제시하는 AI Agent입니다.
 
-## 기술 스택
+## 🚀 빠른 시작 (3단계)
 
-- **LLM**: Google Gemini
-- **프레임워크**: LangGraph
-- **언어**: Python 3.10+
-
-## 빠른 시작
-
-### Windows 사용자 (3단계)
-
-**1단계: 환경 설정**
+### 1단계: 환경 설정
 ```cmd
+cd agent
 .\setup.bat
 ```
 
-**2단계: 실행**
+### 2단계: 실행
 ```cmd
 .\run.bat issues\sample_oom.json
 ```
 
-**3단계: 결과 확인**
+### 3단계: 결과 확인
 ```
 ============================================================
   DR-Kube 분석 결과
 ============================================================
 
 📋 이슈: CrashLoopBackOff
+📦 리소스: api-server-7d4f8b9c5-xyz
 🔴 심각도: CRITICAL
 
 🔍 근본 원인:
-   컨테이너가 메모리 제한 초과로 강제 종료
+   컨테이너가 메모리 제한 초과로 강제 종료되었습니다.
 
 💡 해결책:
-   1. 메모리 Limit을 1Gi로 증설
-   2. 메모리 누수 여부 확인
-   3. 알람 설정
+   1. Deployment의 메모리 Limit을 1Gi로 상향 조정
+   2. 메모리 프로파일링을 통해 누수 여부 확인
+   3. 메모리 사용률 80% 초과 시 알람 설정
 
 ⚡ 실행 계획:
-  kubectl patch deployment api-server -n production ...
+------------------------------------------------------------
+  kubectl patch deployment api-server -n production \
+    --type='json' \
+    -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory", "value":"1Gi"}]'
+------------------------------------------------------------
 
 📝 YAML 수정 (Diff):
-❌ -     memory: 512Mi
-✅ +     memory: 1Gi
-============================================================
+------------------------------------------------------------
+     spec:
+       resources:
+         limits:
+  ❌ -     memory: 512Mi
+  ✅ +     memory: 1Gi
+------------------------------------------------------------
 ```
 
 완료! 🎉
 
-**더 많은 예시:**
+---
+
+## 📋 사용 가능한 샘플 이슈
+
+### 리소스 관련
+```cmd
+.\run.bat issues\sample_oom.json
+.\run.bat issues\sample_cpu_throttle.json
+```
+
+### 설정/구성 관련
+```cmd
+.\run.bat issues\sample_image_pull.json
+.\run.bat issues\sample_configmap_missing.json
+.\run.bat issues\sample_pvc_pending.json
+```
+
+### 헬스체크 관련
+```cmd
+.\run.bat issues\sample_liveness_probe_fail.json
+```
+
+### 네트워크 관련
+```cmd
+.\run.bat issues\sample_network_policy.json
+.\run.bat issues\sample_dns_resolution.json
+```
+
+### 스케줄링/권한 관련
+```cmd
+.\run.bat issues\sample_node_not_ready.json
+.\run.bat issues\sample_rbac_permission.json
+```
+
+### 애플리케이션 관련
+```cmd
+.\run.bat issues\sample_app_crash.json
+```
+
+---
+
+## 💡 실행 예시
+
+### 예시 1: OOM (Out of Memory) 분석
+```cmd
+.\run.bat issues\sample_oom.json
+```
+
+**출력:**
+- 📋 이슈: CrashLoopBackOff
+- 🔴 심각도: CRITICAL
+- 🔍 근본 원인: 메모리 512Mi 초과
+- 💡 해결책: 메모리 1Gi로 증설
+- ⚡ kubectl patch 명령어 제공
+- 📝 YAML diff 제공
+
+### 예시 2: RBAC 권한 부족
 ```cmd
 .\run.bat issues\sample_rbac_permission.json
-.\run.bat issues\sample_dns_resolution.json
-.\run.bat issues\sample_configmap_missing.json
 ```
 
-자세한 내용은 [README_KR.md](./README_KR.md) 또는 [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)를 참고하세요.
+**출력:**
+- 📋 이슈: Forbidden: insufficient permissions
+- 🟠 심각도: HIGH
+- 🔍 근본 원인: ServiceAccount에 pods 권한 없음
+- 💡 해결책: Role 및 RoleBinding 생성
+- ⚡ kubectl create role/rolebinding 명령어
+- 📝 Role YAML diff
 
-### Linux/macOS 사용자
-
-```bash
-# pyenv로 Python 3.10+ 설치 (이미 설치되어 있다면 생략)
-pyenv install 3.11.14  # 또는 원하는 버전
-
-# 프로젝트 디렉토리에서 Python 버전 설정
-cd ai-drkube
-pyenv local 3.11.14
-
-# pyenv-virtualenv로 가상환경 생성
-pyenv virtualenv 3.11.14 ai-drkube
-pyenv activate ai-drkube
-
-# 패키지 설치
-pip install -r src/requirements.txt
-
-# 환경 변수 설정
-cp env.sample .env
-# .env 파일을 열어서 GOOGLE_API_KEY를 설정하세요
-```
-
-### 2. Gemini API 키 발급
-
-1. [Google AI Studio](https://makersuite.google.com/app/apikey) 접속
-2. API 키 생성
-3. `.env` 파일에 `GOOGLE_API_KEY` 설정
-
-### 3. Kubernetes 접근 설정
-
-```bash
-# kubectl이 설치되어 있고 kubeconfig가 설정되어 있는지 확인
-kubectl get nodes
-
-# 필요시 kubeconfig 경로를 .env에 설정
-# KUBECONFIG_PATH=/path/to/kubeconfig
-```
-
-### 4. 실행
-
-**Windows:**
+### 예시 3: DNS 해석 실패
 ```cmd
-run.bat issues\sample_oom.json
+.\run.bat issues\sample_dns_resolution.json
 ```
 
-**Linux/macOS:**
+**출력:**
+- 📋 이슈: Name resolution failed
+- 🔴 심각도: CRITICAL
+- 🔍 근본 원인: CoreDNS Pod 비정상
+- 💡 해결책: CoreDNS 재시작 및 메모리 증설
+- ⚡ kubectl rollout restart 명령어
+- 📝 CoreDNS 메모리 YAML diff
+
+---
+
+## 🎯 주요 기능
+
+### 1. 간결한 3단계 해결책
+- **즉시 조치**: 지금 바로 실행
+- **근본 해결**: 재발 방지
+- **모니터링**: 예방 조치
+
+### 2. ⚡ 실행 계획
 ```bash
-cd src
-python -m cli analyze ../issues/sample_oom.json
-```
-
-## 프로젝트 구조
-
-```
-agent/
-├── setup.bat                 # Windows 설정 스크립트
-├── run.bat                   # Windows 실행 스크립트
-├── run_tools.bat             # Windows 도구 실행 스크립트
-├── requirements.txt          # Python 패키지 의존성
-├── .env                      # 환경 변수 (API 키 등)
-├── env.sample                # 환경 변수 예시
-├── WINDOWS_SETUP.md          # Windows 설정 가이드
-├── src/                      # 소스 코드
-│   ├── cli.py               # CLI 엔트리포인트
-│   ├── requirements.txt     # 실제 패키지 의존성
-│   └── dr_kube/             # 메인 패키지
-│       ├── graph.py         # LangGraph 구현
-│       ├── llm.py           # LLM 설정
-│       ├── prompts.py       # 프롬프트 템플릿
-│       └── state.py         # 상태 관리
-├── tools/                    # 분석 도구
-│   ├── log_analysis_agent.py
-│   ├── error_classifier.py
-│   ├── root_cause_analyzer.py
-│   └── alert_webhook_server.py
-└── issues/                   # 샘플 이슈 파일
-    ├── sample_oom.json
-    ├── sample_image_pull.json
-    └── sample_cpu_throttle.json
-```
-
-## 작동 방식
-
-```
-이슈 파일 (JSON)
-      ↓
- [1. 이슈 로드]
-      ↓
- [2. AI 분석]  ← Google Gemini
-      ↓
- [3. 결과 출력]
-      ↓
-   📋 결과
-```
-
-**3단계 워크플로우**:
-1. **Load**: JSON 파일에서 K8s 이슈 읽기
-2. **Analyze**: Gemini AI로 근본 원인 및 해결책 분석
-3. **Suggest**: 간결하고 실행 가능한 결과 출력
-
-자세한 내용은 [ARCHITECTURE.md](./ARCHITECTURE.md)를 참고하세요.
-
-## 주요 기능
-
-1. **장애 감지**: Kubernetes 리소스 상태 모니터링
-2. **장애 분석**: LLM을 통한 근본 원인 분석
-3. **조치 제안**: 3단계 해결책 제시 (즉시/근본/모니터링)
-4. **⚡ 실행 계획**: 즉시 적용 가능한 kubectl 명령어 생성
-5. **📝 YAML Diff**: 변경이 필요한 설정을 diff 형식으로 표시
-6. **조치 실행**: (선택적) 자동 조치 수행
-
-### ✨ 새로운 기능 (v1.1.0)
-
-#### ⚡ 실행 계획
-```bash
-# 즉시 실행 가능한 kubectl 명령어
+# 복사해서 바로 실행 가능한 kubectl 명령어
 kubectl patch deployment api-server -n production \
   --type='json' \
   -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory", "value":"1Gi"}]'
 ```
 
-#### 📝 YAML 수정 (Diff)
+### 3. 📝 YAML 수정 (Diff)
 ```yaml
 spec:
   resources:
@@ -189,20 +160,192 @@ spec:
 ✅ +     memory: 1Gi     # After
 ```
 
-## 보안 주의사항
+---
 
-⚠️ **프로덕션 환경에서는 자동 조치를 비활성화하세요!**
+## 🛠️ 설치 요구사항
 
-- `.env` 파일의 `AUTO_REMEDIATION=false` 설정 권장
+### 필수
+- **Python 3.10+** - [다운로드](https://www.python.org/downloads/)
+- **Google Gemini API 키** - [발급](https://makersuite.google.com/app/apikey)
+
+### 선택 (K8S 연동 시)
+- kubectl
+- kubeconfig
+
+---
+
+## ⚙️ 환경 설정
+
+### .env 파일
+```env
+# 필수
+GOOGLE_API_KEY=your-api-key-here
+
+# 선택
+MODEL_NAME=gemini-3-flash-preview
+VERBOSE=false
+AUTO_APPROVE=false
+```
+
+---
+
+## 📚 사용 방법
+
+### 기본 사용
+```cmd
+.\run.bat issues\sample_oom.json
+```
+
+### 상세 출력 (Verbose)
+```cmd
+.\run.bat issues\sample_oom.json -v
+```
+
+### 샘플 목록 보기
+```cmd
+.\run.bat
+```
+
+---
+
+## 🎓 기술 스택
+
+- **LLM**: Google Gemini (gemini-3-flash-preview)
+- **프레임워크**: LangGraph
+- **언어**: Python 3.10+
+- **라이브러리**: LangChain, python-dotenv, pydantic
+
+---
+
+## 📊 분석 가능한 이슈 유형
+
+| 카테고리 | 이슈 유형 | 샘플 파일 |
+|---------|----------|-----------|
+| 리소스 | OOM, CPU Throttle | sample_oom.json, sample_cpu_throttle.json |
+| 설정 | Image Pull, ConfigMap, PVC | sample_image_pull.json, sample_configmap_missing.json, sample_pvc_pending.json |
+| 헬스체크 | Liveness Probe | sample_liveness_probe_fail.json |
+| 네트워크 | Network Policy, DNS | sample_network_policy.json, sample_dns_resolution.json |
+| 스케줄링 | Node NotReady, RBAC | sample_node_not_ready.json, sample_rbac_permission.json |
+| 애플리케이션 | Crash | sample_app_crash.json |
+
+---
+
+## 📁 프로젝트 구조
+
+```
+agent/
+├── run.bat                   # 실행 스크립트
+├── setup.bat                 # 환경 설정
+├── .env                      # 환경 변수
+│
+├── issues/                   # 샘플 이슈
+│   ├── sample_oom.json
+│   ├── sample_rbac_permission.json
+│   └── ... (11개)
+│
+├── src/                      # 소스 코드
+│   ├── cli.py
+│   └── dr_kube/
+│
+└── docs/                     # 문서
+    ├── QUICKSTART_KR.md
+    ├── ARCHITECTURE.md
+    └── ...
+```
+
+---
+
+## 🔧 문제 해결
+
+### Python을 찾을 수 없습니다
+```cmd
+# Python PATH 설정 확인
+python --version
+```
+
+### 가상환경 오류
+```cmd
+# 수동 설치
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r src\requirements.txt
+```
+
+### API 키 오류
+```cmd
+# .env 파일 확인
+notepad .env
+```
+
+---
+
+## 📖 추가 문서
+
+| 문서 | 설명 |
+|------|------|
+| [QUICKSTART_KR.md](./QUICKSTART_KR.md) | 빠른 시작 가이드 |
+| [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) | Windows 상세 설정 |
+| [USAGE.md](./USAGE.md) | 사용 방법 및 옵션 |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | 아키텍처 및 작동 원리 |
+| [CHANGELOG.md](./CHANGELOG.md) | 변경 이력 |
+
+---
+
+## 🎯 실전 예시
+
+### 상황 1: 프로덕션 Pod가 계속 재시작됨
+```cmd
+.\run.bat issues\sample_oom.json
+```
+→ AI 분석: 메모리 부족
+→ 해결: `kubectl patch`로 메모리 1Gi 증설
+
+### 상황 2: CronJob이 실행 안 됨
+```cmd
+.\run.bat issues\sample_rbac_permission.json
+```
+→ AI 분석: RBAC 권한 부족
+→ 해결: Role/RoleBinding 생성 명령어 제공
+
+### 상황 3: 서비스 간 통신 안 됨
+```cmd
+.\run.bat issues\sample_dns_resolution.json
+```
+→ AI 분석: CoreDNS 문제
+→ 해결: CoreDNS 재시작 및 리소스 증설
+
+---
+
+## 🚀 다음 단계
+
+### 현재 (K8S 없이)
+- ✅ 샘플 데이터로 AI 분석 테스트
+- ✅ kubectl 명령어 학습
+- ✅ YAML 수정 방법 학습
+
+### 향후 (K8S 연동)
+- 🔄 실시간 클러스터 모니터링
+- 🔄 자동 조치 실행
+- 🔄 Alertmanager 연동
+
+---
+
+## ⚠️ 보안 주의사항
+
+**프로덕션 환경에서는:**
+- `AUTO_REMEDIATION=false` 설정 필수
 - 모든 조치는 수동 승인 후 실행
 - 최소 권한 원칙 적용
 
-## 📚 문서
+---
 
-- **[QUICKSTART_KR.md](./QUICKSTART_KR.md)** - 빠른 시작 가이드 (한글)
-- **[WINDOWS_SETUP.md](./WINDOWS_SETUP.md)** - Windows 상세 설정
-- **[USAGE.md](./USAGE.md)** - 사용 방법 및 예제
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - 아키텍처 및 작동 원리
-- **[CHANGELOG.md](./CHANGELOG.md)** - 변경 이력
-- **[SUMMARY.md](./SUMMARY.md)** - 전체 요약
+## 💬 도움말
 
+문제가 발생하면:
+1. [WINDOWS_SETUP.md](./WINDOWS_SETUP.md) 확인
+2. [USAGE.md](./USAGE.md) 참고
+3. `-v` 옵션으로 상세 로그 확인
+
+---
+
+**Made with ❤️ using Google Gemini AI**

@@ -31,8 +31,8 @@ load_issue → analyze → generate_fix → create_pr → notify
 ## Phase 1: 환경 + PR 생성 (Week 1-2)
 
 ### 로컬 환경
-- [ ] `scripts/setup.sh` - Kind + ArgoCD 설치
-- [ ] `scripts/teardown.sh` - 정리
+- [x] `scripts/setup.sh` - Kind + ArgoCD 설치
+- [x] `scripts/teardown.sh` - 정리
 
 ### 노드 구현
 - [ ] `generate_fix` - YAML 수정안 생성
