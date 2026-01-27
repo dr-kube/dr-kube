@@ -1,14 +1,16 @@
 {
   "id": "issue-001",
-  "type": "pod_crash",
-  "namespace": "production",
-  "resource": "api-server-7d4f8b9c5-xyz",
-  "error_message": "CrashLoopBackOff",
+  "type": "oom",
+  "namespace": "default",
+  "resource": "oom-test",
+  "error_message": "OOMKilled",
   "logs": [
-    "2026-01-07T10:00:00Z Error: OOMKilled",
-    "2026-01-07T10:00:00Z Container exceeded memory limit",
-    "2026-01-07T09:59:55Z Memory usage: 512Mi/512Mi (100%)",
-    "2026-01-07T09:59:50Z Warning: Memory pressure detected"
+    "2026-01-27T10:00:00Z Error: OOMKilled",
+    "2026-01-27T10:00:00Z Container exceeded memory limit (128Mi)",
+    "2026-01-27T09:59:55Z Memory usage: 128Mi/128Mi (100%)",
+    "2026-01-27T09:59:50Z Warning: Memory pressure detected",
+    "2026-01-27T09:59:45Z stress: info: [1] dispatching hogs: 0 cpu, 0 io, 1 vm, 0 hdd"
   ],
-  "timestamp": "2026-01-07T10:00:00Z"
+  "timestamp": "2026-01-27T10:00:00Z",
+  "values_file": "values/oom-test.yaml"
 }

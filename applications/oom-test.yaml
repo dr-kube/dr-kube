@@ -1,4 +1,4 @@
-# OOM 테스트를 위한 Application
+# OOM 테스트를 위한 Application (Helm 기반)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -7,11 +7,18 @@ metadata:
 spec:
   project: default
   sources:
+    # Helm 차트 소스
     - repoURL: https://github.com/dr-kube/dr-kube.git
       targetRevision: main
-      path: manifests
-      directory:
-        include: oom-test.yaml
+      path: charts/dr-kube-test
+      helm:
+        valueFiles:
+          - $values/values/oom-test.yaml
+
+    # Values 파일 참조
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      ref: values
 
   destination:
     server: https://kubernetes.default.svc

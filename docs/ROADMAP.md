@@ -35,8 +35,8 @@ load_issue → analyze → generate_fix → create_pr → notify
 - [x] `scripts/teardown.sh` - 정리
 
 ### 노드 구현
-- [ ] `generate_fix` - YAML 수정안 생성
-- [ ] `create_pr` - GitHub PR 생성
+- [x] `generate_fix` - YAML 수정안 생성
+- [x] `create_pr` - GitHub PR 생성
 
 **체크포인트**: 샘플 이슈 → PR 생성 확인
 

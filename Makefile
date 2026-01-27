@@ -47,6 +47,9 @@ agent-setup: ## 에이전트 환경 설정
 agent-run: ## 에이전트 실행 (ISSUE=파일경로)
 	@cd $(AGENT_DIR) && .venv/bin/python -m cli analyze $(ISSUE)
 
+agent-fix: ## 이슈 분석 + PR 생성 (ISSUE=파일경로)
+	@cd $(AGENT_DIR) && .venv/bin/python -m cli fix $(ISSUE)
+
 agent-run-all: ## 모든 샘플 이슈 분석
 	@cd $(AGENT_DIR) && for f in issues/*.json; do \
 		echo "\n=== $$f ==="; \
@@ -61,6 +64,9 @@ agent-reinstall: agent-clean agent-setup ## 에이전트 재설치
 # 샘플 이슈 단축 명령
 agent-oom: ## OOM 이슈 분석
 	@$(MAKE) agent-run ISSUE=issues/sample_oom.json
+
+agent-oom-fix: ## OOM 이슈 분석 + PR 생성
+	@$(MAKE) agent-fix ISSUE=issues/sample_oom.json
 
 agent-cpu: ## CPU Throttle 이슈 분석
 	@$(MAKE) agent-run ISSUE=issues/sample_cpu_throttle.json
