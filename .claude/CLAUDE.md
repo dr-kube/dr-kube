@@ -133,23 +133,10 @@ Chaos Mesh를 사용해 의도적으로 이슈를 발생시켜 에이전트 테�
 
 ### 사전 요구사항
 
-**macOS**
+**macOS / Windows + WSL2** 모두 동일:
 ```bash
-brew install docker kind kubectl helm
-```
-
-**Windows + WSL2**
-```bash
-# WSL2 내부에서 실행
-sudo apt update && sudo apt install -y docker.io
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-chmod +x ./kind && sudo mv ./kind /usr/local/bin/
-```
-
-**Linux**
-```bash
-sudo apt install -y docker.io
-# kind, kubectl, helm 설치 (스크립트가 자동 처리)
+# 설정 스크립트가 Homebrew, make, uv를 자동 설치
+./scripts/setup-agent.sh
 ```
 
 ### 에이전트 환경 설정
