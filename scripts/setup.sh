@@ -190,8 +190,8 @@ start_port_forward() {
     pkill -f "kubectl port-forward.*grafana" 2>/dev/null || true
 
     # ArgoCD 포트포워딩 (백그라운드)
-    kubectl port-forward svc/argocd-server -n argocd 8080:443 &>/dev/null &
-    log_success "ArgoCD: https://localhost:8080"
+    kubectl port-forward svc/argocd-server -n argocd 8080:80 &>/dev/null &
+    log_success "ArgoCD: http://localhost:8080"
 
     # Grafana 포트포워딩 (백그라운드) - grafana가 배포된 경우
     if kubectl get svc grafana -n monitoring &>/dev/null; then

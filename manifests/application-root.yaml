@@ -17,6 +17,9 @@ spec:
     repoURL: https://github.com/dr-kube/dr-kube.git
     targetRevision: main
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground
