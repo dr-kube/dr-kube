@@ -1,5 +1,5 @@
 # DR-Kube CPU Throttle 테스트용 애플리케이션
-# CPU limit을 낮게 설정하여 throttling 유발
+# CPU limit을 워크로드 요구량에 맞게 수정하여 throttling 해결
 
 app:
   name: cpu-test
@@ -18,14 +18,14 @@ app:
     resources:
       requests:
         memory: "64Mi"
-        cpu: "50m"
+        cpu: "2000m"  # 워커 수(2개)에 맞춰 CPU 할당량 상향 조정
       limits:
         memory: "256Mi"
-        cpu: "100m"  # 낮게 설정하여 CPU throttling 유발
+        cpu: "2000m"  # Throttling 방지를 위해 limit을 실제 워크로드 요구량(2 Core)에 맞게 수정
 
     args:
       - "--cpu"
-      - "2"         # CPU 워커 2개 (100m limit 초과)
+      - "2"         # CPU 워커 2개
       - "--timeout"
       - "3600"      # 1시간 실행
 
