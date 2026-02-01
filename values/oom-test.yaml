@@ -23,6 +23,10 @@ app:
         memory: "128Mi"  # 낮게 설정하여 OOM 유발
         cpu: "100m"
 
+    # stress 명령어
+    command:
+      - "stress"
+
     # stress 명령어 인자
     args:
       - "--vm"

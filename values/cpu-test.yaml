@@ -12,6 +12,9 @@ app:
     image: polinux/stress
     tag: latest
 
+    command:
+      - "stress"
+
     resources:
       requests:
         memory: "64Mi"
