@@ -55,11 +55,8 @@ alertmanager:
           - path: /
             pathType: Prefix
 
-# ============================================
-# Alertmanager Configuration
-# ============================================
-alertmanagerFiles:
-  alertmanager.yml:
+  # Alertmanager webhook 설정
+  config:
     global:
       resolve_timeout: 5m
     route:
