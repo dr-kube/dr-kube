@@ -17,10 +17,10 @@ app:
     # 리소스 설정 (에이전트가 수정할 대상)
     resources:
       requests:
-        memory: "64Mi"
+        memory: "256Mi"
         cpu: "50m"
       limits:
-        memory: "128Mi"  # 낮게 설정하여 OOM 유발
+        memory: "512Mi"  # 실제 사용량(256M)보다 높게 설정하여 OOM 방지
         cpu: "100m"
 
     # stress 명령어
