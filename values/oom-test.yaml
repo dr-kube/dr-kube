@@ -17,11 +17,11 @@ app:
     # 리소스 설정 (에이전트가 수정할 대상)
     resources:
       requests:
-        memory: "64Mi"
-        cpu: "50m"
+        memory: "256Mi"
+        cpu: "200m"
       limits:
-        memory: "128Mi"  # 낮게 설정하여 OOM 유발
-        cpu: "100m"
+        memory: "512Mi"  # 워크로드(256M)를 수용할 수 있도록 증설하여 OOM 방지
+        cpu: "500m"      # CPU Throttling을 방지하기 위해 Limit 상향 조정
 
     # stress 명령어
     command:
