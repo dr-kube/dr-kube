@@ -1,0 +1,30 @@
+# DR-Kube CrashLoopBackOff 테스트용 애플리케이션
+# 존재하지 않는 명령어를 실행하여 즉시 크래시 유발
+
+app:
+  name: crash-test
+  namespace: default
+
+  replicas: 1
+
+  container:
+    name: crash-app
+    image: busybox
+    tag: latest
+
+    command:
+      - "sh"
+      - "-c"
+      - "echo 'Starting app...' && exit 1"  # 즉시 크래시
+
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "50m"
+      limits:
+        memory: "64Mi"
+        cpu: "100m"
+
+  labels:
+    scenario: crash-loop
+    managed-by: dr-kube

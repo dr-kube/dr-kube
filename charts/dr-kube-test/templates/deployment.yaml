@@ -24,8 +24,14 @@ spec:
       containers:
         - name: {{ .Values.app.container.name }}
           image: "{{ .Values.app.container.image }}:{{ .Values.app.container.tag }}"
+          {{- if .Values.app.container.command }}
+          command:
+            {{- toYaml .Values.app.container.command | nindent 12 }}
+          {{- end }}
+          {{- if .Values.app.container.args }}
           args:
             {{- toYaml .Values.app.container.args | nindent 12 }}
+          {{- end }}
           resources:
             requests:
               memory: {{ .Values.app.container.resources.requests.memory | quote }}

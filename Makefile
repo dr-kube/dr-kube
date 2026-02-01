@@ -56,6 +56,12 @@ agent-run-all: ## 모든 샘플 이슈 분석
 		.venv/bin/python -m cli analyze $$f; \
 	done
 
+agent-webhook: ## 웹훅 서버 시작 (Alertmanager 수신)
+	@cd $(AGENT_DIR) && .venv/bin/python -m dr_kube.webhook
+
+agent-webhook-pr: ## 웹훅 서버 (자동 PR 생성 모드)
+	@cd $(AGENT_DIR) && AUTO_PR=true .venv/bin/python -m dr_kube.webhook
+
 agent-clean: ## 에이전트 가상환경 삭제
 	rm -rf $(AGENT_VENV)
 

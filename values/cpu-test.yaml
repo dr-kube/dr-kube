@@ -1,0 +1,31 @@
+# DR-Kube CPU Throttle 테스트용 애플리케이션
+# CPU limit을 낮게 설정하여 throttling 유발
+
+app:
+  name: cpu-test
+  namespace: default
+
+  replicas: 1
+
+  container:
+    name: cpu-stress
+    image: polinux/stress
+    tag: latest
+
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "100m"  # 낮게 설정하여 CPU throttling 유발
+
+    args:
+      - "--cpu"
+      - "2"         # CPU 워커 2개 (100m limit 초과)
+      - "--timeout"
+      - "0"         # 무제한 실행
+
+  labels:
+    scenario: cpu-throttle
+    managed-by: dr-kube

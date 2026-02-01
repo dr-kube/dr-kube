@@ -56,6 +56,25 @@ alertmanager:
             pathType: Prefix
 
 # ============================================
+# Alertmanager Configuration
+# ============================================
+alertmanagerFiles:
+  alertmanager.yml:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: "dr-kube-webhook"
+      group_by: ["alertname", "namespace", "pod"]
+      group_wait: 10s
+      group_interval: 30s
+      repeat_interval: 1h
+    receivers:
+      - name: "dr-kube-webhook"
+        webhook_configs:
+          - url: "http://host.docker.internal:8080/webhook/alertmanager"
+            send_resolved: false
+
+# ============================================
 # Node Exporter (DaemonSet)
 # ============================================
 prometheus-nodeExporter:
@@ -167,6 +186,37 @@ serverFiles:
                 Pod {{ $labels.namespace }}/{{ $labels.pod }}
                 컨테이너 {{ $labels.container }} 가
                 최근 5분 내 OOMKilled로 인해 재시작되었습니다.
+
+      - name: container-cpu.rules
+        rules:
+          - alert: CPUThrottling
+            expr: |
+              rate(container_cpu_cfs_throttled_periods_total[5m])
+              / rate(container_cpu_cfs_periods_total[5m]) > 0.5
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "CPU Throttling 발생"
+              description: |
+                Pod {{ $labels.namespace }}/{{ $labels.pod }}
+                컨테이너 {{ $labels.container }} 가
+                CPU throttling 비율 50% 이상입니다.
+
+      - name: container-crash.rules
+        rules:
+          - alert: PodCrashLooping
+            expr: |
+              increase(kube_pod_container_status_restarts_total[10m]) >= 3
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod CrashLoopBackOff 발생"
+              description: |
+                Pod {{ $labels.namespace }}/{{ $labels.pod }}
+                컨테이너 {{ $labels.container }} 가
+                최근 10분 내 3회 이상 재시작되었습니다.
 
   # alerting_rules.yml:
   #   groups:

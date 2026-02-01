@@ -15,7 +15,9 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
 def load_issue(state: IssueState) -> IssueState:
-    """이슈 파일 로드"""
+    """이슈 파일 로드 (파일 경로 또는 직접 데이터)"""
+    if state.get("issue_data"):
+        return {"status": "loaded"}
     try:
         with open(state["issue_file"], "r", encoding="utf-8") as f:
             issue_data = json.load(f)
