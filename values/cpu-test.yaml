@@ -17,15 +17,15 @@ app:
 
     resources:
       requests:
-        memory: "64Mi"
-        cpu: "50m"
+        memory: "128Mi"
+        cpu: "2000m"
       limits:
-        memory: "256Mi"
-        cpu: "100m"  # 낮게 설정하여 CPU throttling 유발
+        memory: "512Mi"
+        cpu: "2000m"  # stress 워커 수(2개)에 맞춰 CPU limit을 상향 조정하여 throttling 해결
 
     args:
       - "--cpu"
-      - "2"         # CPU 워커 2개 (100m limit 초과)
+      - "2"         # CPU 워커 2개 (2000m 사용)
       - "--timeout"
       - "3600"      # 1시간 실행
 
