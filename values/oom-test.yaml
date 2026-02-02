@@ -18,10 +18,10 @@ app:
     resources:
       requests:
         memory: "256Mi"
-        cpu: "500m"
+        cpu: "1000m"     # 스케줄링 안정성을 위해 CPU Request 상향 조정
       limits:
         memory: "512Mi"  # OOM 방지를 위해 실제 사용량(256M)보다 높게 설정
-        cpu: "1000m"     # CPU Throttling 방지를 위해 Limit 상향 조정
+        cpu: "2000m"     # CPU Throttling 방지를 위해 Limit을 기존 1000m에서 2000m으로 상향 조정
 
     # stress 명령어
     command:
