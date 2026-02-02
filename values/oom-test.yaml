@@ -17,10 +17,10 @@ app:
     # 리소스 설정 (에이전트가 수정할 대상)
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "500m"
       limits:
-        memory: "512Mi"  # OOM 방지를 위해 실제 사용량(256M)보다 높게 설정
+        memory: "1Gi"  # OOM 방지를 위해 실제 사용량(256M) 및 오버헤드를 고려하여 1Gi로 상향 조정
         cpu: "1000m"     # CPU Throttling 방지를 위해 Limit 상향 조정
 
     # stress 명령어
