@@ -18,14 +18,14 @@ app:
     resources:
       requests:
         memory: "64Mi"
-        cpu: "50m"
+        cpu: "1000m"  # 워크로드 안정성을 위해 request 상향 조정
       limits:
         memory: "256Mi"
-        cpu: "100m"  # 낮게 설정하여 CPU throttling 유발
+        cpu: "2000m"  # 2개의 CPU 워커(args: --cpu 2)를 충분히 수용할 수 있도록 2000m로 상향 조정
 
     args:
       - "--cpu"
-      - "2"         # CPU 워커 2개 (100m limit 초과)
+      - "2"         # CPU 워커 2개 (2000m limit에 부합)
       - "--timeout"
       - "3600"      # 1시간 실행
 
