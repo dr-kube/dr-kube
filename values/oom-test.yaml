@@ -17,10 +17,10 @@ app:
     # 리소스 설정 (에이전트가 수정할 대상)
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"  # 실제 사용량(256M)을 안정적으로 수용하기 위해 상향 조정
         cpu: "500m"
       limits:
-        memory: "512Mi"  # OOM 방지를 위해 실제 사용량(256M)보다 높게 설정
+        memory: "1Gi"    # OOM 방지를 위해 실제 사용량보다 충분히 높은 값으로 설정
         cpu: "1000m"     # CPU Throttling 방지를 위해 Limit 상향 조정
 
     # stress 명령어
@@ -32,7 +32,7 @@ app:
       - "--vm"
       - "1"
       - "--vm-bytes"
-      - "256M"  # 128Mi limit보다 큰 값으로 OOM 유발
+      - "256M"  # 128Mi limit보다 큰 값으로 OOM 유발 (현재는 리소스 상향으로 해결됨)
       - "--vm-hang"
       - "1"
 
