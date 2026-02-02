@@ -18,14 +18,14 @@ app:
     resources:
       requests:
         memory: "64Mi"
-        cpu: "50m"
+        cpu: "2000m"  # stress 워커 수(2개)에 맞춰 CPU 할당량 상향 조정
       limits:
         memory: "256Mi"
-        cpu: "100m"  # 낮게 설정하여 CPU throttling 유발
+        cpu: "2000m"  # CPU Throttling 해결을 위해 워커 수와 동일하게 limit 상향 조정
 
     args:
       - "--cpu"
-      - "2"         # CPU 워커 2개 (100m limit 초과)
+      - "2"         # CPU 워커 2개 (2000m 사용)
       - "--timeout"
       - "3600"      # 1시간 실행
 
