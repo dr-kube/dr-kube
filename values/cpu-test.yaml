@@ -18,10 +18,10 @@ app:
     resources:
       requests:
         memory: "64Mi"
-        cpu: "50m"
+        cpu: "2000m"
       limits:
         memory: "256Mi"
-        cpu: "100m"  # 낮게 설정하여 CPU throttling 유발
+        cpu: "2000m"  # 워크로드 요구량(2 CPU)에 맞춰 상향 조정하여 Throttling 해결
 
     args:
       - "--cpu"
