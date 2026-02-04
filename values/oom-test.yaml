@@ -17,10 +17,10 @@ app:
     # 리소스 설정 (에이전트가 수정할 대상)
     resources:
       requests:
-        memory: "64Mi"
+        memory: "256Mi" # OOMKilled 방지를 위해 요청 메모리 증가
         cpu: "50m"
       limits:
-        memory: "128Mi"  # 낮게 설정하여 OOM 유발
+        memory: "256Mi" # 컨테이너가 요청하는 256M에 맞춰 메모리 제한 증가
         cpu: "100m"
 
     # stress 명령어
