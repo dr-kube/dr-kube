@@ -1,18 +1,29 @@
 {
   "permissions": {
     "allow": [
-      "Bash(kubectl get:*)",
-      "Bash(helm list:*)",
-      "Bash(source venv/bin/activate)",
-      "Bash(/usr/local/bin/python3.11 -m venv:*)",
-      "Bash(pip install:*)",
-      "Bash(cat .env)",
-      "Bash(git check-ignore:*)",
-      "Bash(find:*)",
-      "Bash(cat:*)",
+      "Bash(*)",
+      "Bash(gh label create:*)"
+    ],
+    "deny": [
+      "Bash(kubectl apply:*)",
+      "Bash(kubectl create:*)",
+      "Bash(kubectl delete:*)",
+      "Bash(kubectl patch:*)",
+      "Bash(kubectl edit:*)",
+      "Bash(kubectl replace:*)",
+      "Bash(kubectl set:*)",
+      "Bash(helm install:*)",
+      "Bash(helm upgrade:*)",
+      "Bash(helm uninstall:*)",
+      "Bash(helm rollback:*)",
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -f:*)",
       "Bash(curl:*)",
-      "Bash(lsof:*)",
-      "Bash(pkill:*)"
-    ]
+      "Bash(wget:*)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }

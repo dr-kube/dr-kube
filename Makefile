@@ -57,9 +57,17 @@ agent-run-all: ## 모든 샘플 이슈 분석
 	done
 
 agent-webhook: ## 웹훅 서버 시작 (Alertmanager 수신)
+	@echo ""
+	@echo "⚠️  경고: 이 서버는 LLM API를 호출하여 토큰 비용이 발생합니다!"
+	@echo "⚠️  사용하지 않을 때는 반드시 Ctrl+C로 종료하세요!"
+	@echo ""
 	@cd $(AGENT_DIR) && .venv/bin/python -m dr_kube.webhook
 
 agent-webhook-pr: ## 웹훅 서버 (자동 PR 생성 모드)
+	@echo ""
+	@echo "⚠️  경고: 이 서버는 LLM API를 호출하여 토큰 비용이 발생합니다!"
+	@echo "⚠️  사용하지 않을 때는 반드시 Ctrl+C로 종료하세요!"
+	@echo ""
 	@cd $(AGENT_DIR) && AUTO_PR=true .venv/bin/python -m dr_kube.webhook
 
 agent-clean: ## 에이전트 가상환경 삭제
