@@ -12,7 +12,7 @@ spec:
   sources:
     - repoURL: oci://us-docker.pkg.dev/online-boutique-ci/charts/onlineboutique
       chart: onlineboutique
-      targetRevision: "0.6.2" # 최신 안정 버전
+      targetRevision: "0.10.4" # 최신 안정 버전
       helm:
         valueFiles:
           - $values/values/online-boutique.yaml
