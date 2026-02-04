@@ -64,10 +64,10 @@ alloy:
         }
         // version/env 라벨은 제외 (요청사항)
 
-        // 시스템 namespace 제외
+        // 시스템 namespace 제외 (kube-system, kube-public, kube-node-lease만)
         rule {
           source_labels = ["__meta_kubernetes_namespace"]
-          regex         = "kube-system|kube-public|kube-node-lease|argocd|monitoring|external-secrets"
+          regex         = "kube-system|kube-public|kube-node-lease"
           action        = "drop"
         }
       }
