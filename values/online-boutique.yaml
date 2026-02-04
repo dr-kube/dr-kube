@@ -1,0 +1,196 @@
+# Google Online Boutique 데모 앱
+# https://github.com/GoogleCloudPlatform/microservices-demo
+# OCI Helm Chart: oci://us-docker.pkg.dev/online-boutique-ci/charts/onlineboutique
+
+# ============================================
+# Frontend
+# ============================================
+frontend:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi # ← 에이전트가 수정할 대상 (OOMKilled 유발)
+  service:
+    type: LoadBalancer
+    port: 80
+
+# ============================================
+# Cart Service (Redis 기반인거 같음)
+# ============================================
+cartservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 7070
+
+# ============================================
+# Product Catalog Service
+# ============================================
+productcatalogservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 3550
+
+# ============================================
+# Currency Service
+# ============================================
+currencyservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 7000
+
+# ============================================
+# Payment Service
+# ============================================
+paymentservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 8081
+
+# ============================================
+# Shipping Service
+# ============================================
+shippingservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 50051
+
+# ============================================
+# Email Service
+# ============================================
+emailservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 5000
+
+# ============================================
+# Checkout Service
+# ============================================
+checkoutservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 5050
+
+# ============================================
+# Recommendation Service
+# ============================================
+recommendationservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 8080
+
+# ============================================
+# Ad Service
+# ============================================
+adservice:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 9555
+
+# ============================================
+# Redis (Cart 캐시)
+# ============================================
+redis:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 6379
+
+# ============================================
+# LoadGenerator (비활성화 - 수동 테스트)
+# ============================================
+loadgenerator:
+  enabled: false # ← 수동 테스트를 위해 비활성화

@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -17,6 +17,9 @@ help: ## 도움말 표시
 	@echo ""
 	@echo "  [클러스터]"
 	@grep -E '^(setup|teardown|port-forward).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  [Online Boutique]"
+	@grep -E '^(port-forward-boutique|boutique-open).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [에이전트]"
 	@grep -E '^agent-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -38,7 +41,19 @@ port-forward-stop: ## 포트포워딩 종료
 	@./scripts/setup.sh port-stop
 
 # =============================================================================
-# Agent 명령어
+# Online Boutique 데모 앱
+# =============================================================================
+
+port-forward-boutique: ## Online Boutique 포트포워딩 (8081)
+	@echo "📦 Online Boutique 포트포워딩 시작..."
+	@echo "   Frontend: http://localhost:8081"
+	@echo ""
+	@echo "   Ctrl+C로 종료"
+	@kubectl port-forward -n online-boutique svc/frontend 8081:80
+
+boutique-open: ## Online Boutique 브라우저 열기
+	@open http://localhost:8081 || echo "직접 http://localhost:8081 접속하세요"
+
 # =============================================================================
 
 agent-setup: ## 에이전트 환경 설정

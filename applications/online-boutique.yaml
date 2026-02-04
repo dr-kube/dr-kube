@@ -1,0 +1,42 @@
+# ArgoCD Application: Online Boutique
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: online-boutique
+  namespace: argocd
+  # finalizers 제거 시 ArgoCD가 헬스체크 건너뜀
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: oci://us-docker.pkg.dev/online-boutique-ci/charts/onlineboutique
+      chart: onlineboutique
+      targetRevision: "0.6.2" # 최신 안정 버전
+      helm:
+        valueFiles:
+          - $values/values/online-boutique.yaml
+
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: online-boutique
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
+
+    # 동기화 주기: 3분
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
