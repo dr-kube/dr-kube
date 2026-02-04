@@ -51,7 +51,7 @@ alloy:
           target_label  = "node"
         }
 
-        // 커스텀 라벨 매핑 (app, version, env)
+        // 커스텀 라벨 매핑 (app만 유지)
         rule {
           source_labels = ["__meta_kubernetes_pod_label_app"]
           target_label  = "app"
@@ -62,14 +62,7 @@ alloy:
           action        = "replace"
           regex         = "(.+)"
         }
-        rule {
-          source_labels = ["__meta_kubernetes_pod_label_version"]
-          target_label  = "version"
-        }
-        rule {
-          source_labels = ["__meta_kubernetes_pod_label_env"]
-          target_label  = "env"
-        }
+        // version/env 라벨은 제외 (요청사항)
 
         // 시스템 namespace 제외
         rule {
