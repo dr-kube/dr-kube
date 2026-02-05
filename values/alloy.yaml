@@ -14,39 +14,247 @@ alloy:
         format = "logfmt"
       }
 
-      // -----------------------------
-      // 1. Kubernetes Pod 디스커버리
-      // -----------------------------
+      // ============================================================
+      // 1. Discovery - Kubernetes Pod 자동 탐지
+      // ============================================================
       discovery.kubernetes "pods" {
         role = "pod"
 
-        // DaemonSet 기준으로, 자기 노드 것만 보게 하는 공식 예제 옵션
+        // DaemonSet 기준: 자기 노드 것만 보게 하는 공식 예제 옵션
         selectors {
           role  = "pod"
           field = "spec.nodeName=" + coalesce(sys.env("HOSTNAME"), constants.hostname)
         }
       }
 
-      // -----------------------------
-      // 2. Pod 로그 수집 → Loki
-      // -----------------------------
-      loki.source.kubernetes "pods" {
-        targets    = discovery.kubernetes.pods.targets
-        forward_to = [loki.write.local.receiver]
+      // ============================================================
+      // 2. Relabel - 메타 라벨을 실제 라벨로 변환
+      // ============================================================
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        // 기본 라벨 매핑
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+
+        // 커스텀 라벨 매핑 (app만 유지)
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app"]
+          target_label  = "app"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app"
+          action        = "replace"
+          regex         = "(.+)"
+        }
+        // version/env 라벨은 제외 (요청사항)
+
+        // 시스템 namespace 제외 (kube-system, kube-public, kube-node-lease만)
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          regex         = "kube-system|kube-public|kube-node-lease"
+          action        = "drop"
+        }
       }
 
-      // -----------------------------
-      // 3. Loki write
-      // -----------------------------
+      // ============================================================
+      // 3. Loki - 로그 전송 대상 설정
+      // ============================================================
       loki.write "local" {
         endpoint {
           url = sys.env("LOKI_URL")
         }
       }
 
+      // ============================================================
+      // 4. Source - Pod 로그 수집
+      // ============================================================
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [loki.process.pod_logs.receiver]
+      }
+
+      // ============================================================
+      // 5. Process - 로그 처리 파이프라인
+      // ============================================================
+      loki.process "pod_logs" {
+        // --- 5.1 Docker 로그 파싱 ---
+        stage.docker {}
+
+        // --- 5.2 JSON 로그 파싱 (구조화된 로그) ---
+        stage.json {
+          expressions = {
+            level      = "level",
+            msg        = "msg",
+            message    = "message",
+            timestamp  = "timestamp",
+            time       = "time",
+            caller     = "caller",
+            error      = "error",
+            err        = "err",
+            trace_id   = "trace_id",
+            span_id    = "span_id",
+            request_id = "request_id",
+            user_id    = "user_id",
+            method     = "method",
+            path       = "path",
+            status     = "status",
+            duration   = "duration",
+            latency    = "latency",
+          }
+        }
+
+        // --- 5.3 Non-JSON 로그 파싱 (일반 텍스트 로그) ---
+        stage.regex {
+          expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}\\.\\d+)\\s+(?P<log_level>\\w+)\\s+\\[.*?\\]\\s+(?P<log_message>.*)"
+        }
+        stage.regex {
+          expression = "\\[(?P<django_timestamp>.*?)\\]\\s+(?P<django_level>\\w+)\\s+(?P<django_message>.*)"
+        }
+
+        // --- 5.4 Level 라벨 추출 및 정규화 ---
+        stage.labels {
+          values = { level = "level" }
+        }
+        stage.labels {
+          values = { level = "log_level" }
+        }
+        stage.labels {
+          values = { level = "django_level" }
+        }
+        stage.regex {
+          expression = "(?i)(?P<extracted_level>trace|debug|info|warn|warning|error|err|fatal|panic)"
+        }
+        stage.labels {
+          values = { level = "extracted_level" }
+        }
+        stage.replace {
+          expression = "(?i)^(warn)$"
+          source     = "level"
+          replace    = "warning"
+        }
+        stage.replace {
+          expression = "(?i)^(err)$"
+          source     = "level"
+          replace    = "error"
+        }
+        stage.replace {
+          expression = "(?i)^(debug|info|warning|error|fatal|panic)$"
+          source     = "level"
+          replace    = "$1"
+        }
+
+        // --- 5.5 시스템 컨테이너 로그 제외 ---
+        stage.match {
+          selector = "{container=~\"loki|alloy|kube-proxy|aws-node|coredns\"}"
+          action   = "drop"
+        }
+
+        // --- 5.6 노이즈 로그 필터링 (JSON/Non-JSON 모두 적용) ---
+        stage.drop {
+          expression          = "(?i)(GET|POST|HEAD).*(health|healthz|readiness|liveness|ready|live|ping|favicon)"
+          drop_counter_reason = "health_check"
+        }
+        stage.drop {
+          expression          = "(kube-probe|Go-http-client)"
+          drop_counter_reason = "kube_probe"
+        }
+        stage.drop {
+          expression          = "(GET|POST).*/metrics"
+          drop_counter_reason = "metrics_endpoint"
+        }
+        stage.drop {
+          expression          = "\\bGET\\s+/\\s*$"
+          drop_counter_reason = "root_path_health_check"
+        }
+        stage.drop {
+          expression          = "\\bGET\\s+/$"
+          drop_counter_reason = "root_path_get_only"
+        }
+        stage.drop {
+          expression          = "(?i)Returned\\s+(200|201|204)\\s+in\\s+\\d+\\s*ms"
+          drop_counter_reason = "success_response_log"
+        }
+        stage.drop {
+          expression          = "(?i)(ELB-HealthChecker|Amazon-Route53-Health-Check-Service)"
+          drop_counter_reason = "alb_health_check"
+        }
+        stage.drop {
+          expression          = "(?i)Scheduler: Sending due task"
+          drop_counter_reason = "celery_scheduler_routine"
+        }
+        stage.drop {
+          expression          = "(?i)(celerybeat|beat):.*(Scheduler|Writing entries|waking up)"
+          drop_counter_reason = "celery_beat_routine"
+        }
+        stage.drop {
+          expression          = "(?i)(connection pool|pool size|idle connections)"
+          drop_counter_reason = "db_pool_routine"
+        }
+        stage.drop {
+          expression          = "(?i)(connected to|connection (established|successful|alive)|heartbeat|keepalive)"
+          drop_counter_reason = "connection_routine"
+        }
+        stage.drop {
+          expression          = "(?i)(worker.*ready|worker.*started|shutting down gracefully)"
+          drop_counter_reason = "worker_lifecycle"
+        }
+        stage.drop {
+          expression          = "^\\s*$"
+          drop_counter_reason = "empty_line"
+        }
+        stage.drop {
+          expression          = "(?i)(GET|POST).*/static/"
+          drop_counter_reason = "static_files"
+        }
+        stage.drop {
+          expression          = "(?i)Sent auto-creation request for Set\\(__consumer_offsets\\)"
+          drop_counter_reason = "kafka_auto_creation"
+        }
+        stage.drop {
+          expression          = "(?i)kafka\\.server\\.(DefaultAutoTopicCreationManager|ReplicaManager|GroupCoordinator)"
+          drop_counter_reason = "kafka_internal_operations"
+        }
+        stage.drop {
+          expression          = "(?i)(Fetching metadata|Updated partition metadata|Successfully fetched metadata)"
+          drop_counter_reason = "kafka_metadata_routine"
+        }
+        stage.drop {
+          expression          = "(?i)(Group coordinator|Rebalance (started|completed)|Syncing group state)"
+          drop_counter_reason = "kafka_rebalance_routine"
+        }
+        stage.drop {
+          expression          = "(?i)(Offset commit|Committing offsets|Successfully committed)"
+          drop_counter_reason = "kafka_offset_commit_routine"
+        }
+
+        // --- 5.7 Rate Limiting (과도한 로그 발생 방지) ---
+        stage.limit {
+          rate  = 1000
+          burst = 2000
+        }
+
+        forward_to = [loki.write.local.receiver]
+      }
+
   # Alloy 컨테이너에 들어갈 환경변수 (공식 values: alloy.extraEnv)
   # ref: values.yaml의 alloy.extraEnv
   extraEnv:
     - name: LOKI_URL
-      value: "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+      value: "http://loki:3100/loki/api/v1/push"
 # 참고: docs/ALLOY_CONFIG.md 참조
