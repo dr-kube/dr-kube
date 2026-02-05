@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-cpu chaos-pod-kill chaos-network chaos-stop chaos-status
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -20,6 +20,9 @@ help: ## 도움말 표시
 	@echo ""
 	@echo "  [Online Boutique]"
 	@grep -E '^(port-forward-boutique|boutique-open).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  [Chaos 실험]"
+	@grep -E '^(chaos-memory|chaos-cpu|chaos-pod-kill|chaos-network|chaos-stop|chaos-status).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [에이전트]"
 	@grep -E '^agent-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -102,3 +105,38 @@ agent-cpu: ## CPU Throttle 이슈 분석
 
 agent-image: ## Image Pull 이슈 분석
 	@$(MAKE) agent-run ISSUE=issues/sample_image_pull.json
+# =============================================================================
+# Chaos Mesh 실험 (Online Boutique)
+# =============================================================================
+
+chaos-memory: ## Frontend OOM 실험
+	@echo "🔥 Frontend OOM 실험 시작..."
+	@kubectl apply -f chaos/boutique-memory-stress.yaml
+	@echo "✓ 3분 동안 실행 (OOMKilled 유발)"
+
+chaos-cpu: ## CartService CPU 스트레스 실험
+	@echo "🔥 CartService CPU 스트레스 실험 시작..."
+	@kubectl apply -f chaos/boutique-cpu-stress.yaml
+	@echo "✓ 3분 동안 실행"
+
+chaos-pod-kill: ## CheckoutService Pod 강제 종료 실험
+	@echo "🔥 CheckoutService Pod 강제 종료 실험 시작..."
+	@kubectl apply -f chaos/boutique-pod-kill.yaml
+	@echo "✓ 1분 동안 실행"
+
+chaos-network: ## ProductCatalog 네트워크 지연 실험
+	@echo "🔥 ProductCatalog 네트워크 지연 실험 시작..."
+	@kubectl apply -f chaos/boutique-network-delay.yaml
+	@echo "✓ 3분 동안 실행 (500ms 지연)"
+
+chaos-stop: ## 모든 Chaos 실험 중지
+	@echo "⏹️  모든 Chaos 실험 중지..."
+	@kubectl delete -n chaos-mesh stresschaos,podchaos,networkchaos --all 2>/dev/null || true
+	@echo "✓ 완료"
+
+chaos-status: ## Chaos 실험 상태 확인
+	@echo "📊 Chaos 실험 상태:"
+	@kubectl get stresschaos,podchaos,networkchaos -n chaos-mesh -o wide || echo "실험 없음"
+	@echo ""
+	@echo "📊 영향받는 Pod 상태:"
+	@kubectl get pods -n online-boutique -l "app in (frontend,cartservice,checkoutservice,productcatalogservice)" -o wide
