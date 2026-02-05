@@ -15,7 +15,5 @@ spec:
       app: frontend
   stressors:
     memory:
-      workers: 2
-      size: 512M  # 512MB 메모리 할당
-      options:
-        - "--aggressive"  # 더 공격적인 메모리 할당
+      workers: 4
+      size: 256M  # 256MB x 4 workers = 1GB 이상 메모리 할당 (limit: 128Mi)
