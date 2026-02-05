@@ -21,6 +21,9 @@ wheels/
 *.egg
 MANIFEST
 
+# Backup and temporary directories
+_backup/
+
 # Virtual environments
 venv/
 ENV/

@@ -1,4 +1,0 @@
-2024-01-16 05:00:00 ERROR pod/prometheus-xxx: 0/3 nodes are available: 3 node(s) had taint {key: dedicated, value: monitoring, effect: NoSchedule}
-2024-01-16 05:00:05 WARNING pod/prometheus-xxx: Pod unschedulable: no nodes match pod tolerations
-2024-01-16 05:00:10 ERROR pod/prometheus-xxx: Scheduling failed: taint mismatch
-

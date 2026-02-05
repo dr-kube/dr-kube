@@ -1,4 +1,0 @@
-2024-01-15 16:00:00 ERROR application/grafana: Failed to sync: error validating Application spec: yaml: line 15: found character that cannot start any token
-2024-01-15 16:00:00 ERROR application/grafana: Invalid YAML syntax in Application.yaml
-2024-01-15 16:00:05 WARNING application/grafana: Sync failed, retrying...
-

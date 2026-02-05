@@ -1,7 +1,0 @@
-2024-01-16 07:00:00 ERROR pod/grafana-xxx: Container grafana was killed due to memory limit exceeded
-2024-01-16 07:00:00 ERROR pod/grafana-xxx: OOMKilled
-2024-01-16 07:00:05 INFO pod/grafana-xxx: Container restarting
-2024-01-16 07:00:10 ERROR pod/grafana-xxx: Container exited with code 1
-2024-01-16 07:00:15 ERROR pod/grafana-xxx: CrashLoopBackOff
-2024-01-16 07:00:20 WARNING pod/grafana-xxx: Memory limit too low, causing repeated crashes
-

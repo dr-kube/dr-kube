@@ -1,4 +1,0 @@
-2024-01-15 22:00:00 ERROR pod/grafana-xxx: Connection refused: cannot connect to loki:3100
-2024-01-15 22:00:05 ERROR pod/grafana-xxx: Network error: connection refused to loki-gateway.monitoring.svc.cluster.local
-2024-01-15 22:00:10 WARNING pod/grafana-xxx: Retrying connection to loki service
-

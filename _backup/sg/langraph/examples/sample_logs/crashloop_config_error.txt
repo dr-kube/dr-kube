@@ -1,6 +1,0 @@
-2024-01-15 13:20:30 ERROR pod/prometheus-abc123: Container exited with code 1
-2024-01-15 13:20:30 ERROR pod/prometheus-abc123: Error: invalid configuration file: prometheus.yml: line 42: syntax error
-2024-01-15 13:20:35 INFO pod/prometheus-abc123: Back-off restarting failed container
-2024-01-15 13:20:40 ERROR pod/prometheus-abc123: Container exited with code 1
-2024-01-15 13:20:45 ERROR pod/prometheus-abc123: CrashLoopBackOff
-
