@@ -21,7 +21,7 @@ datasources:
       # Prometheus 설정
       - name: Prometheus
         type: prometheus
-        url: http://prometheus-server
+        url: http://prom-prometheus-server
         access: proxy
 
 initChownData:
@@ -199,7 +199,7 @@ dashboards:
                 "overrides": []
               },
               "gridPos": {
-                "h": 8,
+                "h": 10,
                 "w": 12,
                 "x": 6,
                 "y": 0
@@ -273,7 +273,7 @@ dashboards:
               },
               "targets": [
                 {
-                  "expr": "sum(increase(kube_pod_container_status_restarts_total{reason=\"OOMKilled\"}[24h]))",
+                  "expr": "sum(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\"})",
                   "refId": "A"
                 }
               ],
@@ -418,7 +418,7 @@ dashboards:
               },
               "targets": [
                 {
-                  "expr": "kube_deployment_status_available_replicas / kube_deployment_spec_replicas",
+                  "expr": "kube_deployment_status_replicas_available / kube_deployment_spec_replicas",
                   "format": "table",
                   "instant": true,
                   "refId": "A"
