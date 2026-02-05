@@ -46,6 +46,9 @@ env/
 *~
 .DS_Store
 
+# local secrets
+_secrets/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

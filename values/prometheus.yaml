@@ -60,16 +60,19 @@ alertmanager:
     global:
       resolve_timeout: 5m
     route:
-      receiver: "dr-kube-webhook"
+      receiver: "slack-notifications"
       group_by: ["alertname", "namespace", "pod"]
       group_wait: 10s
       group_interval: 30s
       repeat_interval: 1h
     receivers:
-      - name: "dr-kube-webhook"
-        webhook_configs:
-          - url: "http://host.docker.internal:8080/webhook/alertmanager"
-            send_resolved: false
+      - name: slack-notifications
+        slack_configs:
+          - api_url: "<SLACK_WEBHOOK_URL>"   # 별도 파일에서 관리
+            channel: "#alert"
+            send_resolved: true
+            title: "{{ .CommonAnnotations.summary }}"
+            text: "{{ .CommonAnnotations.description }}"
 
 # ============================================
 # Node Exporter (DaemonSet)
@@ -214,6 +217,84 @@ serverFiles:
                 Pod {{ $labels.namespace }}/{{ $labels.pod }}
                 컨테이너 {{ $labels.container }} 가
                 최근 10분 내 3회 이상 재시작되었습니다.
+      - name: container-memory.rules
+        rules:
+          - alert: HighMemoryUsage
+            expr: |
+              (
+                container_memory_working_set_bytes
+                / container_spec_memory_limit_bytes
+              ) > 0.85
+              and on (namespace, pod, container)
+              container_spec_memory_limit_bytes > 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "메모리 사용량 임계치 초과"
+              description: |
+                Pod {{ $labels.namespace }}/{{ $labels.pod }}
+                컨테이너 {{ $labels.container }} 의
+                메모리 사용률이 85%를 초과했습니다.
+
+      - name: pod-ready.rules
+        rules:
+          - alert: PodNotReady
+            expr: |
+              kube_pod_status_ready{condition="true"} == 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Pod Ready 상태 아님"
+              description: |
+                Pod {{ $labels.namespace }}/{{ $labels.pod }} 가
+                Ready 상태가 아닙니다.
+
+      - name: container-waiting.rules
+        rules:
+          - alert: ContainerWaiting
+            expr: |
+              kube_pod_container_status_waiting_reason{reason!="ContainerCreating"} > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "컨테이너 대기 상태 감지"
+              description: |
+                Pod {{ $labels.namespace }}/{{ $labels.pod }}
+                컨테이너 {{ $labels.container }} 가
+                대기 상태입니다. (reason={{ $labels.reason }})
+
+      - name: deployment-replicas.rules
+        rules:
+          - alert: DeploymentReplicasMismatch
+            expr: |
+              kube_deployment_spec_replicas
+              !=
+              kube_deployment_status_replicas_available
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Deployment 레플리카 불일치"
+              description: |
+                Deployment {{ $labels.namespace }}/{{ $labels.deployment }} 의
+                spec_replicas 와 available_replicas 가 일치하지 않습니다.
+
+      - name: node-cpu.rules
+        rules:
+          - alert: NodeHighCPU
+            expr: |
+              100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "노드 CPU 사용률 높음"
+              description: |
+                노드 {{ $labels.instance }} 의
+                CPU 사용률이 80%를 초과했습니다.
 
   # alerting_rules.yml:
   #   groups:
