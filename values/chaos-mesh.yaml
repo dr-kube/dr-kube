@@ -41,6 +41,7 @@ controllerManager:
 # Dashboard 설정
 dashboard:
   create: true
+  securityMode: false
 
   ingress:
     enabled: true
@@ -146,8 +147,8 @@ timezone: Asia/Seoul
 # enableGCPChaos: false
 # enableAzureChaos: false
 
-# 보안 모드 (production 권장)
-securityMode: false
+# 보안 모드
+# securityMode는 dashboard 하위에 설정 (dashboard.securityMode)
 # PVC 설정 (실험 기록 저장)
 # persistentVolume:
 #   enabled: false
