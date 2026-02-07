@@ -147,7 +147,7 @@ timezone: Asia/Seoul
 # enableAzureChaos: false
 
 # 보안 모드 (production 권장)
-securityMode: true
+securityMode: false
 # PVC 설정 (실험 기록 저장)
 # persistentVolume:
 #   enabled: false
