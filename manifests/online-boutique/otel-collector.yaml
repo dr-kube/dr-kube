@@ -1,4 +1,4 @@
-# Jaeger로 트레이스를 포워딩하는 OTel Collector
+# Jaeger로 트레이스를 포워딩하고, span 메트릭을 생성하는 OTel Collector
 # chart의 Service(opentelemetrycollector)가 app: opentelemetrycollector 라벨을 셀렉트하므로
 # 같은 라벨을 사용하여 트래픽을 받음 (chart의 GCP collector는 Kind에서 crash)
 apiVersion: v1
@@ -13,16 +13,32 @@ data:
         protocols:
           grpc:
             endpoint: 0.0.0.0:4317
+    connectors:
+      spanmetrics:
+        histogram:
+          explicit:
+            buckets: [2ms, 5ms, 10ms, 50ms, 100ms, 250ms, 500ms, 1s, 5s, 10s]
+        dimensions:
+          - name: service.name
+          - name: span.kind
+          - name: status.code
+        dimensions_cache_size: 1000
+        metrics_flush_interval: 15s
     exporters:
       otlp/jaeger:
         endpoint: jaeger-collector.monitoring:4317
         tls:
           insecure: true
+      prometheus:
+        endpoint: 0.0.0.0:9464
     service:
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [otlp/jaeger]
+          exporters: [otlp/jaeger, spanmetrics]
+        metrics/spanmetrics:
+          receivers: [spanmetrics]
+          exporters: [prometheus]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -40,21 +56,29 @@ spec:
       labels:
         app: opentelemetrycollector
         component: jaeger-forwarder
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: otel-collector
-          image: otel/opentelemetry-collector:0.96.0
+          image: otel/opentelemetry-collector-contrib:0.96.0
           args: ["--config=/etc/otel/config.yaml"]
           ports:
             - containerPort: 4317
               protocol: TCP
+              name: otlp-grpc
+            - containerPort: 9464
+              protocol: TCP
+              name: metrics
           resources:
             requests:
               cpu: 10m
-              memory: 32Mi
+              memory: 64Mi
             limits:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 200m
+              memory: 256Mi
           volumeMounts:
             - name: config
               mountPath: /etc/otel
@@ -62,3 +86,19 @@ spec:
         - name: config
           configMap:
             name: otel-jaeger-config
+---
+# span 메트릭 Prometheus 스크래핑용 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-jaeger-forwarder
+  namespace: online-boutique
+spec:
+  selector:
+    app: opentelemetrycollector
+    component: jaeger-forwarder
+  ports:
+    - name: metrics
+      port: 9464
+      targetPort: 9464
+      protocol: TCP

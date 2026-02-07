@@ -31,13 +31,13 @@ server:
       nginx.ingress.kubernetes.io/ssl-redirect: "false"
     hosts:
       - prometheus.drkube.local
-      - prometheus.drkube.huik.site
+      - prometheus-drkube.huik.site
     paths:
       - /
     tls:
       - secretName: prometheus-tls
         hosts:
-          - prometheus.drkube.huik.site
+          - prometheus-drkube.huik.site
 
 # ============================================
 # Alertmanager
@@ -64,14 +64,14 @@ alertmanager:
         paths:
           - path: /
             pathType: Prefix
-      - host: alert.drkube.huik.site
+      - host: alert-drkube.huik.site
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: alertmanager-tls
         hosts:
-          - alert.drkube.huik.site
+          - alert-drkube.huik.site
 
   # Slack webhook Secret 마운트
   extraSecretMounts:
@@ -194,6 +194,13 @@ serverFiles:
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
+
+      # OTel Collector span 메트릭 (Grafana Drilldown Traces 용)
+      - job_name: "otel-spanmetrics"
+        scrape_interval: 15s
+        static_configs:
+          - targets:
+              - "otel-jaeger-forwarder.online-boutique.svc.cluster.local:9464"
   # ===========================================
   # alert rule 설정
   # ============================================
