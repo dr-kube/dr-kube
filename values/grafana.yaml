@@ -35,6 +35,8 @@ datasources:
         orgId: 1
       - name: Jaeger
         orgId: 1
+      - name: Tempo
+        orgId: 1
     datasources:
       # Loki 설정
       - name: Loki
@@ -48,11 +50,11 @@ datasources:
         uid: prometheus-uid
         url: http://prometheus-server
         access: proxy
-      # Jaeger 설정
-      - name: Jaeger
-        type: jaeger
-        uid: jaeger-uid
-        url: http://jaeger-query:16686
+      # Tempo 설정 (Jaeger 대체, Grafana Drilldown 네이티브 지원)
+      - name: Tempo
+        type: tempo
+        uid: tempo-uid
+        url: http://tempo:3100
         access: proxy
         jsonData:
           tracesToLogsV2:
@@ -76,6 +78,8 @@ datasources:
                 query: "sum(rate(container_cpu_usage_seconds_total{namespace=\"online-boutique\", pod=~\"$$__tags.*\"}[5m]))"
               - name: Memory Usage
                 query: "sum(container_memory_working_set_bytes{namespace=\"online-boutique\", pod=~\"$$__tags.*\"})"
+          serviceMap:
+            datasourceUid: prometheus-uid
           nodeGraph:
             enabled: true
 

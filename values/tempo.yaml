@@ -1,0 +1,29 @@
+# Grafana Tempo (Jaeger 대체, Grafana Drilldown 네이티브 지원)
+# https://github.com/grafana/helm-charts/tree/main/charts/tempo
+tempo:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+# in-memory 스토리지 (로컬 개발 환경)
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+
+persistence:
+  enabled: true
+  storageClassName: standard
+  size: 5Gi
