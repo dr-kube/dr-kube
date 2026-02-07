@@ -1,9 +1,10 @@
-# OpenTelemetry Collector → Jaeger 포워딩
-# Online Boutique 서비스가 COLLECTOR_SERVICE_ADDR=opentelemetrycollector:4317 로 트레이스 전송
+# Jaeger로 트레이스를 포워딩하는 OTel Collector
+# chart의 Service(opentelemetrycollector)가 app: opentelemetrycollector 라벨을 셀렉트하므로
+# 같은 라벨을 사용하여 트래픽을 받음 (chart의 GCP collector는 Kind에서 crash)
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: otel-collector-config
+  name: otel-jaeger-config
   namespace: online-boutique
 data:
   config.yaml: |
@@ -26,17 +27,19 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: opentelemetrycollector
+  name: otel-jaeger-forwarder
   namespace: online-boutique
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: opentelemetrycollector
+      component: jaeger-forwarder
   template:
     metadata:
       labels:
         app: opentelemetrycollector
+        component: jaeger-forwarder
     spec:
       containers:
         - name: otel-collector
@@ -58,18 +61,4 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: otel-collector-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: opentelemetrycollector
-  namespace: online-boutique
-spec:
-  selector:
-    app: opentelemetrycollector
-  ports:
-    - name: grpc-otlp
-      port: 4317
-      targetPort: 4317
-      protocol: TCP
+            name: otel-jaeger-config
