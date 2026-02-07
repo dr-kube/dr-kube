@@ -19,7 +19,6 @@ data:
           explicit:
             buckets: [2ms, 5ms, 10ms, 50ms, 100ms, 250ms, 500ms, 1s, 5s, 10s]
         dimensions:
-          - name: service.name
           - name: span.kind
           - name: status.code
         dimensions_cache_size: 1000
