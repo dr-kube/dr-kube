@@ -18,9 +18,6 @@ data:
         histogram:
           explicit:
             buckets: [2ms, 5ms, 10ms, 50ms, 100ms, 250ms, 500ms, 1s, 5s, 10s]
-        dimensions:
-          - name: span.kind
-          - name: status.code
         dimensions_cache_size: 1000
         metrics_flush_interval: 15s
     exporters:
