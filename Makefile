@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-cpu chaos-pod-kill chaos-network chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-cpu chaos-pod-kill chaos-network chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -16,7 +16,7 @@ help: ## 도움말 표시
 	@echo "DR-Kube 명령어"
 	@echo ""
 	@echo "  [클러스터]"
-	@grep -E '^(setup|teardown|hosts|tls|port-forward).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(setup|teardown|hosts|tls|secrets|port-forward).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [Online Boutique]"
 	@grep -E '^(port-forward-boutique|boutique-open).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -51,6 +51,24 @@ tls: ## Let's Encrypt TLS 설정 (Cloudflare 토큰 필요)
 
 tls-status: ## TLS 인증서 상태 확인
 	@./scripts/setup-tls.sh status
+
+secrets-init: ## 시크릿 키 생성 (팀 리더, 최초 1회)
+	@./scripts/setup-secrets.sh init
+
+secrets-import: ## 시크릿 키 가져오기 (팀원, KEY=파일경로)
+	@./scripts/setup-secrets.sh import $(KEY)
+
+secrets-encrypt: ## 시크릿 암호화 (Git 커밋 가능)
+	@./scripts/setup-secrets.sh encrypt
+
+secrets-decrypt: ## 시크릿 복호화
+	@./scripts/setup-secrets.sh decrypt
+
+secrets-apply: ## K8s Secret 생성 + agent/.env 동기화
+	@./scripts/setup-secrets.sh apply
+
+secrets-status: ## 시크릿 상태 확인
+	@./scripts/setup-secrets.sh status
 
 port-forward: ## 포트포워딩 시작 (ArgoCD, Grafana)
 	@./scripts/setup.sh port-forward

@@ -48,6 +48,8 @@ env/
 
 # local secrets
 _secrets/
+secrets/secrets.yaml
+secrets/age.key
 
 # Jupyter Notebook
 .ipynb_checkpoints

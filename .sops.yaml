@@ -1,0 +1,5 @@
+# SOPS 설정
+# age 공개키는 make secrets-init 실행 시 자동으로 채워짐
+creation_rules:
+  - path_regex: secrets/secrets\.yaml$
+    age: "<AGE_PUBLIC_KEY>"
