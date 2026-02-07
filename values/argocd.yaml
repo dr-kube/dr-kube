@@ -60,9 +60,15 @@ server:
     enabled: true
     ingressClassName: nginx
     hostname: argocd.drkube.local
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
     extraHosts:
       - name: argocd.drkube.huik.site
         path: /
+    extraTls:
+      - secretName: argocd-tls
+        hosts:
+          - argocd.drkube.huik.site
   resources:
     limits:
       cpu: 200m

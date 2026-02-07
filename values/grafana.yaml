@@ -7,11 +7,17 @@ service:
 ingress:
   enabled: true
   ingressClassName: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
     - grafana.drkube.local
     - grafana.drkube.huik.site
   path: /
   pathType: Prefix
+  tls:
+    - secretName: grafana-tls
+      hosts:
+        - grafana.drkube.huik.site
 
 persistence:
   enabled: true
