@@ -21,6 +21,10 @@ spec:
       targetRevision: main
       ref: values
 
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      path: manifests/online-boutique
+
   destination:
     server: https://kubernetes.default.svc
     namespace: online-boutique
