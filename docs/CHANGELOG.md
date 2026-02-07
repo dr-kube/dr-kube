@@ -1,5 +1,119 @@
 # DR-Kube 변경 이력
 
+## 2026-02-07 - 모니터링 고도화 및 인프라 확장
+
+### 🌐 Ingress 통합 관리
+
+#### Online Boutique Ingress
+- `manifests/online-boutique/ingress.yaml` 생성 (차트에 Ingress 템플릿 없어 raw manifest 사용)
+- `applications/online-boutique.yaml`에 3rd source 추가 (manifests 디렉토리)
+- `values/online-boutique.yaml` - frontend를 LoadBalancer → ClusterIP로 변경
+
+#### Chaos Mesh Dashboard Ingress
+- `values/chaos-mesh.yaml`에 dashboard ingress 추가
+- `dashboard.securityMode: false` 설정 (로컬 개발용, 토큰 로그인 비활성화)
+
+#### 등록된 도메인
+| 서비스 | 로컬 | 외부 |
+|--------|------|------|
+| Grafana | grafana.drkube.local | grafana.drkube.huik.site |
+| Prometheus | prometheus.drkube.local | prometheus.drkube.huik.site |
+| Alertmanager | alert.drkube.local | alert.drkube.huik.site |
+| ArgoCD | argocd.drkube.local | argocd.drkube.huik.site |
+| Online Boutique | boutique.drkube.local | boutique.drkube.huik.site |
+| Chaos Mesh | chaos.drkube.local | chaos.drkube.huik.site |
+| Jaeger | jaeger.drkube.local | jaeger.drkube.huik.site |
+
+---
+
+### 📊 모니터링 확장
+
+#### metrics-server 설치
+- `values/metrics-server.yaml` 생성 (`--kubelet-insecure-tls` Kind 환경용)
+- `applications/metrics-server.yaml` 생성 (kube-system 네임스페이스)
+- `kubectl top nodes/pods` 실시간 리소스 모니터링 가능
+
+#### Grafana 데이터소스 수정
+- Prometheus URL 수정: `http://prom-prometheus-server` → `http://prometheus-server`
+- "No data" 문제 해결
+
+#### Grafana 커스텀 대시보드
+- **Pod Resources (Real-time)** 대시보드 추가 (10초 자동 갱신)
+  - CPU Usage by Pod, CPU Usage vs Limit, CPU Throttle Rate
+  - Memory Usage by Pod, Memory Usage vs Limit, Memory Usage % (게이지)
+  - Pod Restarts, OOMKilled Events
+  - namespace/pod 템플릿 변수로 필터링
+
+---
+
+### 🔔 Slack 알림 연동
+
+#### Alertmanager Slack 통합
+- `values/prometheus.yaml`에 Slack receiver 설정
+- K8s Secret 방식으로 webhook URL 보안 처리
+  - `extraSecretMounts`로 Secret 파일 마운트
+  - `slack_api_url_file`로 파일에서 URL 읽기
+- 알림 템플릿: firing/resolved 상태 구분, 네임스페이스/Pod 정보 포함
+
+#### 시크릿 관리 스크립트
+- `scripts/setup-slack.sh` 생성 (Slack webhook Secret 수동 생성용)
+
+---
+
+### 🔍 Jaeger APM 설치
+
+#### Jaeger All-in-One 배포
+- `values/jaeger.yaml` 생성 (in-memory 저장, 로컬 개발용)
+- `applications/jaeger.yaml` 생성 (jaegertracing/helm-charts v3.4.1)
+- Ingress 설정 (jaeger.drkube.local / jaeger.drkube.huik.site)
+
+#### Grafana 연동
+- Jaeger 데이터소스 추가 (`uid: jaeger-uid`)
+- Loki → Jaeger: `derivedFields`로 traceID 연결
+- Jaeger → Loki: `tracesToLogsV2` 설정
+- Jaeger → Prometheus: `tracesToMetrics` (Request Rate, Duration)
+- `nodeGraph` 활성화
+
+---
+
+### 🔐 시크릿 관리 (SOPS + age)
+
+#### 구축된 시스템
+- `.sops.yaml` - SOPS 설정 (age 공개키)
+- `secrets/secrets.yaml` - 평문 시크릿 (.gitignore)
+- `secrets/secrets.enc.yaml` - 암호화된 시크릿 (Git 커밋 안전)
+- `secrets/age.key` - 비밀키 (.gitignore, 오프라인 공유)
+
+#### 관리되는 시크릿
+| 시크릿 | 용도 | K8s 네임스페이스 |
+|--------|------|-----------------|
+| slack_webhook_url | Alertmanager 슬랙 알림 | monitoring |
+| cloudflare_api_token | cert-manager DNS-01 | cert-manager |
+| gemini_api_key | LLM API | agent/.env |
+
+#### Makefile 명령어
+```bash
+make secrets-init      # 키 생성 (팀 리더)
+make secrets-import    # 키 가져오기 (팀원)
+make secrets-encrypt   # 암호화
+make secrets-decrypt   # 복호화
+make secrets-apply     # K8s Secret 생성
+make secrets-status    # 상태 확인
+```
+
+---
+
+### 🔧 버그 수정
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| Chaos Mesh 토큰 로그인 | `securityMode`가 top-level에 위치 | `dashboard.securityMode: false`로 이동 |
+| Chaos Mesh CRD sync 실패 | annotation 262144 bytes 초과 | `Replace=true` 제거, `ServerSideApply=true` 유지 |
+| Grafana "No data" | Prometheus URL 오류 | `prometheus-server`로 수정 |
+| Alertmanager Pending | PVC storageClass 불일치 | PVC 삭제 후 재생성 |
+
+---
+
 ## 2026-01-27 (Day 1) - 프로젝트 기반 구축
 
 ### 📋 프로젝트 정리 및 문서화
