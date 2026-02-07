@@ -17,6 +17,14 @@ tempo:
   metricsGenerator:
     enabled: true
     remoteWriteUrl: "http://prometheus-server.monitoring:80/api/v1/write"
+    # processor별 설정 (local_blocks 필수!)
+    processor:
+      local_blocks: {}
+      service_graphs:
+        wait: 10s
+        max_items: 10000
+      span_metrics:
+        enable_target_info: true
   # local-blocks 프로세서 활성화 (Drilldown 서버사이드 메트릭)
   overrides:
     defaults:
