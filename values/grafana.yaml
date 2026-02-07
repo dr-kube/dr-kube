@@ -82,6 +82,175 @@ dashboards:
       revision: 1
       datasource: Prometheus
   dr-kube:
+    pod-resources:
+      json: |
+        {
+          "annotations": {"list": []},
+          "editable": true,
+          "panels": [
+            {
+              "datasource": "Prometheus",
+              "title": "CPU Usage by Pod",
+              "type": "timeseries",
+              "gridPos": {"h": 10, "w": 24, "x": 0, "y": 0},
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never", "stacking": {"mode": "none"}}
+                }
+              },
+              "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean","max","last"]}, "tooltip": {"mode": "multi"}},
+              "targets": [
+                {"expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}[2m]))", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}
+              ]
+            },
+            {
+              "datasource": "Prometheus",
+              "title": "CPU Usage vs Limit",
+              "type": "timeseries",
+              "gridPos": {"h": 10, "w": 12, "x": 0, "y": 10},
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never"}
+                }
+              },
+              "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["last"]}, "tooltip": {"mode": "multi"}},
+              "targets": [
+                {"expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}[2m]))", "legendFormat": "{{pod}} usage", "refId": "A"},
+                {"expr": "sum by (namespace, pod) (kube_pod_container_resource_limits{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"cpu\"})", "legendFormat": "{{pod}} limit", "refId": "B"}
+              ]
+            },
+            {
+              "datasource": "Prometheus",
+              "title": "CPU Throttle Rate",
+              "type": "timeseries",
+              "gridPos": {"h": 10, "w": 12, "x": 12, "y": 10},
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "max": 1,
+                  "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never"},
+                  "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.25}, {"color": "red", "value": 0.5}]}
+                }
+              },
+              "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean","max"]}, "tooltip": {"mode": "multi"}},
+              "targets": [
+                {"expr": "sum by (namespace, pod) (rate(container_cpu_cfs_throttled_periods_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\"}[5m])) / sum by (namespace, pod) (rate(container_cpu_cfs_periods_total{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\"}[5m]))", "legendFormat": "{{pod}}", "refId": "A"}
+              ]
+            },
+            {
+              "datasource": "Prometheus",
+              "title": "Memory Usage by Pod",
+              "type": "timeseries",
+              "gridPos": {"h": 10, "w": 24, "x": 0, "y": 20},
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "bytes",
+                  "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never", "stacking": {"mode": "none"}}
+                }
+              },
+              "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean","max","last"]}, "tooltip": {"mode": "multi"}},
+              "targets": [
+                {"expr": "sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"})", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}
+              ]
+            },
+            {
+              "datasource": "Prometheus",
+              "title": "Memory Usage vs Limit",
+              "type": "timeseries",
+              "gridPos": {"h": 10, "w": 12, "x": 0, "y": 30},
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "bytes",
+                  "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never"}
+                }
+              },
+              "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["last"]}, "tooltip": {"mode": "multi"}},
+              "targets": [
+                {"expr": "sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"})", "legendFormat": "{{pod}} usage", "refId": "A"},
+                {"expr": "sum by (namespace, pod) (kube_pod_container_resource_limits{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"memory\"})", "legendFormat": "{{pod}} limit", "refId": "B"}
+              ]
+            },
+            {
+              "datasource": "Prometheus",
+              "title": "Memory Usage % of Limit",
+              "type": "gauge",
+              "gridPos": {"h": 10, "w": 12, "x": 12, "y": 30},
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "min": 0, "max": 1,
+                  "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.7}, {"color": "red", "value": 0.9}]}
+                }
+              },
+              "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "showThresholdMarkers": true},
+              "targets": [
+                {"expr": "sum by (pod) (container_memory_working_set_bytes{namespace=~\"$namespace\", pod=~\"$pod\", container!=\"\", container!=\"POD\"}) / sum by (pod) (kube_pod_container_resource_limits{namespace=~\"$namespace\", pod=~\"$pod\", resource=\"memory\"})", "legendFormat": "{{pod}}", "refId": "A"}
+              ]
+            },
+            {
+              "datasource": "Prometheus",
+              "title": "Pod Restarts",
+              "type": "timeseries",
+              "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+              "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "bars", "fillOpacity": 50, "lineWidth": 1}}},
+              "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+              "targets": [
+                {"expr": "increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\", pod=~\"$pod\"}[5m])", "legendFormat": "{{pod}}", "refId": "A"}
+              ]
+            },
+            {
+              "datasource": "Prometheus",
+              "title": "OOMKilled Events",
+              "type": "stat",
+              "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}
+                }
+              },
+              "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+              "targets": [
+                {"expr": "kube_pod_container_status_last_terminated_reason{namespace=~\"$namespace\", pod=~\"$pod\", reason=\"OOMKilled\"}", "legendFormat": "{{pod}}/{{container}}", "refId": "A"}
+              ]
+            }
+          ],
+          "refresh": "10s",
+          "schemaVersion": 38,
+          "tags": ["dr-kube", "resources", "pods"],
+          "templating": {
+            "list": [
+              {
+                "current": {"selected": true, "text": "online-boutique", "value": "online-boutique"},
+                "datasource": "Prometheus",
+                "definition": "label_values(kube_pod_info, namespace)",
+                "name": "namespace",
+                "query": "label_values(kube_pod_info, namespace)",
+                "refresh": 2,
+                "type": "query",
+                "multi": true,
+                "includeAll": true
+              },
+              {
+                "current": {"selected": true, "text": "All", "value": "$__all"},
+                "datasource": "Prometheus",
+                "definition": "label_values(kube_pod_info{namespace=~\"$namespace\"}, pod)",
+                "name": "pod",
+                "query": "label_values(kube_pod_info{namespace=~\"$namespace\"}, pod)",
+                "refresh": 2,
+                "type": "query",
+                "multi": true,
+                "includeAll": true
+              }
+            ]
+          },
+          "time": {"from": "now-30m", "to": "now"},
+          "timezone": "browser",
+          "title": "Pod Resources (Real-time)",
+          "uid": "dr-kube-pod-resources",
+          "version": 1
+        }
     dr-kube-overview:
       json: |
         {
