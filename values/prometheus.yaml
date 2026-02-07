@@ -5,6 +5,10 @@
 server:
   enabled: true
 
+  # Tempo metrics generator가 remote write로 span 메트릭 전송
+  extraFlags:
+    - web.enable-remote-write-receiver
+
   securityContext:
     runAsUser: 0
     runAsNonRoot: false

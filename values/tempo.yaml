@@ -13,6 +13,18 @@ tempo:
       protocols:
         grpc:
           endpoint: 0.0.0.0:4317
+  # metrics generator - Grafana Drilldown에서 TraceQL 메트릭 제공
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: "http://prometheus-server.monitoring:80/api/v1/write"
+  # local-blocks 프로세서 활성화 (Drilldown 서버사이드 메트릭)
+  overrides:
+    defaults:
+      metrics_generator:
+        processors:
+          - local-blocks
+          - service-graphs
+          - span-metrics
 
 # in-memory 스토리지 (로컬 개발 환경)
 storage:
