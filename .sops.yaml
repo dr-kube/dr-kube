@@ -2,4 +2,4 @@
 # age 공개키는 make secrets-init 실행 시 자동으로 채워짐
 creation_rules:
   - path_regex: secrets/secrets\.yaml$
-    age: "<AGE_PUBLIC_KEY>"
+    age: "age1sjlam8zrawxltgw7h0mxhf8mp70uuh4aa3lm0df6vxrahg56vurqcaeesx"
