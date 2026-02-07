@@ -244,13 +244,13 @@ make hosts-status       # 접속 주소 확인
 
 | 서비스 | 로컬 | 외부 |
 |--------|------|------|
-| Grafana | grafana.drkube.local | grafana.drkube.huik.site |
-| Prometheus | prometheus.drkube.local | prometheus.drkube.huik.site |
-| Alertmanager | alert.drkube.local | alert.drkube.huik.site |
-| ArgoCD | argocd.drkube.local | argocd.drkube.huik.site |
-| Boutique | boutique.drkube.local | boutique.drkube.huik.site |
-| Chaos Mesh | chaos.drkube.local | chaos.drkube.huik.site |
-| Jaeger | jaeger.drkube.local | jaeger.drkube.huik.site |
+| Grafana | grafana.drkube.local | grafana-drkube.huik.site |
+| Prometheus | prometheus.drkube.local | prometheus-drkube.huik.site |
+| Alertmanager | alert.drkube.local | alert-drkube.huik.site |
+| ArgoCD | argocd.drkube.local | argocd-drkube.huik.site |
+| Boutique | boutique.drkube.local | boutique-drkube.huik.site |
+| Chaos Mesh | chaos.drkube.local | chaos-drkube.huik.site |
+| Jaeger | jaeger.drkube.local | jaeger-drkube.huik.site |
 
 ### TLS (HTTPS)
 ```bash

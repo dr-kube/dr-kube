@@ -17,11 +17,11 @@ allInOne:
       nginx.ingress.kubernetes.io/ssl-redirect: "false"
     hosts:
       - jaeger.drkube.local
-      - jaeger.drkube.huik.site
+      - jaeger-drkube.huik.site
     tls:
       - secretName: jaeger-tls
         hosts:
-          - jaeger.drkube.huik.site
+          - jaeger-drkube.huik.site
 
 storage:
   type: memory

@@ -64,12 +64,12 @@ server:
       cert-manager.io/cluster-issuer: letsencrypt-prod
       nginx.ingress.kubernetes.io/ssl-redirect: "false"
     extraHosts:
-      - name: argocd.drkube.huik.site
+      - name: argocd-drkube.huik.site
         path: /
     extraTls:
       - secretName: argocd-tls
         hosts:
-          - argocd.drkube.huik.site
+          - argocd-drkube.huik.site
   resources:
     limits:
       cpu: 200m

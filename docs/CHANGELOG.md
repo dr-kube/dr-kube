@@ -16,13 +16,13 @@
 #### 등록된 도메인
 | 서비스 | 로컬 | 외부 |
 |--------|------|------|
-| Grafana | grafana.drkube.local | grafana.drkube.huik.site |
-| Prometheus | prometheus.drkube.local | prometheus.drkube.huik.site |
-| Alertmanager | alert.drkube.local | alert.drkube.huik.site |
-| ArgoCD | argocd.drkube.local | argocd.drkube.huik.site |
-| Online Boutique | boutique.drkube.local | boutique.drkube.huik.site |
-| Chaos Mesh | chaos.drkube.local | chaos.drkube.huik.site |
-| Jaeger | jaeger.drkube.local | jaeger.drkube.huik.site |
+| Grafana | grafana.drkube.local | grafana-drkube.huik.site |
+| Prometheus | prometheus.drkube.local | prometheus-drkube.huik.site |
+| Alertmanager | alert.drkube.local | alert-drkube.huik.site |
+| ArgoCD | argocd.drkube.local | argocd-drkube.huik.site |
+| Online Boutique | boutique.drkube.local | boutique-drkube.huik.site |
+| Chaos Mesh | chaos.drkube.local | chaos-drkube.huik.site |
+| Jaeger | jaeger.drkube.local | jaeger-drkube.huik.site |
 
 ---
 
@@ -65,7 +65,7 @@
 #### Jaeger All-in-One 배포
 - `values/jaeger.yaml` 생성 (in-memory 저장, 로컬 개발용)
 - `applications/jaeger.yaml` 생성 (jaegertracing/helm-charts v3.4.1)
-- Ingress 설정 (jaeger.drkube.local / jaeger.drkube.huik.site)
+- Ingress 설정 (jaeger.drkube.local / jaeger-drkube.huik.site)
 
 #### Grafana 연동
 - Jaeger 데이터소스 추가 (`uid: jaeger-uid`)

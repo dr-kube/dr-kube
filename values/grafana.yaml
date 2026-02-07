@@ -12,13 +12,13 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
   hosts:
     - grafana.drkube.local
-    - grafana.drkube.huik.site
+    - grafana-drkube.huik.site
   path: /
   pathType: Prefix
   tls:
     - secretName: grafana-tls
       hosts:
-        - grafana.drkube.huik.site
+        - grafana-drkube.huik.site
 
 persistence:
   enabled: true

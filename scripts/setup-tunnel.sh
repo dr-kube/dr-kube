@@ -20,7 +20,7 @@ NAMESPACE="cloudflare"
 SECRET_NAME="cloudflare-tunnel-token"
 TUNNEL_NAME="dr-kube"
 INGRESS_SVC="nginx-ingress-ingress-nginx-controller.ingress-nginx.svc.cluster.local"
-DOMAIN="drkube.huik.site"
+DOMAIN_SUFFIX="-drkube.huik.site"
 ZONE_NAME="huik.site"
 
 # 서비스 도메인 목록
@@ -141,7 +141,7 @@ setup_tunnel() {
     log_info "터널 ingress 규칙 설정 중..."
     local INGRESS_RULES=""
     for svc in "${SERVICES[@]}"; do
-        INGRESS_RULES+="{\"hostname\":\"${svc}.${DOMAIN}\",\"service\":\"http://${INGRESS_SVC}:80\"},"
+        INGRESS_RULES+="{\"hostname\":\"${svc}${DOMAIN_SUFFIX}\",\"service\":\"http://${INGRESS_SVC}:80\"},"
     done
     # catch-all 규칙 추가
     INGRESS_RULES+="{\"service\":\"http_status:404\"}"
@@ -170,7 +170,7 @@ setup_tunnel() {
     else
         local TUNNEL_CNAME="${TUNNEL_ID}.cfargotunnel.com"
         for svc in "${SERVICES[@]}"; do
-            local FQDN="${svc}.${DOMAIN}"
+            local FQDN="${svc}${DOMAIN_SUFFIX}"
             # 기존 레코드 확인
             local EXISTING
             EXISTING=$(cf_api GET "/zones/${ZONE_ID}/dns_records?name=${FQDN}&type=CNAME")
@@ -217,7 +217,7 @@ setup_tunnel() {
     echo ""
     echo "  서비스 접속 URL:"
     for svc in "${SERVICES[@]}"; do
-        echo "    https://${svc}.${DOMAIN}"
+        echo "    https://${svc}${DOMAIN_SUFFIX}"
     done
     echo ""
     log_warn "make secrets-encrypt 로 토큰을 암호화하세요"
@@ -281,7 +281,7 @@ show_status() {
     echo ""
     echo "  서비스 URL:"
     for svc in "${SERVICES[@]}"; do
-        echo "    https://${svc}.${DOMAIN}"
+        echo "    https://${svc}${DOMAIN_SUFFIX}"
     done
     echo "=========================================="
     echo ""

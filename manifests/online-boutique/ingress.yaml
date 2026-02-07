@@ -18,7 +18,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
-    - host: boutique.drkube.huik.site
+    - host: boutique-drkube.huik.site
       http:
         paths:
           - path: /
@@ -31,4 +31,4 @@ spec:
   tls:
     - secretName: boutique-tls
       hosts:
-        - boutique.drkube.huik.site
+        - boutique-drkube.huik.site

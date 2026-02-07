@@ -54,14 +54,14 @@ dashboard:
         paths:
           - path: /
             pathType: Prefix
-      - name: chaos.drkube.huik.site
+      - name: chaos-drkube.huik.site
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: chaos-tls
         hosts:
-          - chaos.drkube.huik.site
+          - chaos-drkube.huik.site
 
   # Service 타입
   service:
