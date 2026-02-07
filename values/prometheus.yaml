@@ -27,7 +27,7 @@ server:
     enabled: true
     ingressClassName: nginx
     hosts:
-      - prometheus.drkube.shop
+      - prometheus.drkube.local
     paths:
       - /
     tls: [] # HTTP만 사용
@@ -50,7 +50,7 @@ alertmanager:
     enabled: true
     className: nginx
     hosts:
-      - host: alert.drkube.shop
+      - host: alert.drkube.local
         paths:
           - path: /
             pathType: Prefix

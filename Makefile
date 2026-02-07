@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-cpu chaos-pod-kill chaos-network chaos-stop chaos-status
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-cpu chaos-pod-kill chaos-network chaos-stop chaos-status hosts hosts-remove hosts-status
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -16,7 +16,7 @@ help: ## 도움말 표시
 	@echo "DR-Kube 명령어"
 	@echo ""
 	@echo "  [클러스터]"
-	@grep -E '^(setup|teardown|port-forward).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(setup|teardown|hosts|port-forward).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [Online Boutique]"
 	@grep -E '^(port-forward-boutique|boutique-open).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -36,6 +36,15 @@ setup: ## Kind 클러스터 + ArgoCD 설치
 
 teardown: ## 클러스터 삭제
 	@./scripts/teardown.sh
+
+hosts: ## /etc/hosts에 로컬 도메인 등록
+	@./scripts/setup-hosts.sh add
+
+hosts-remove: ## /etc/hosts에서 로컬 도메인 제거
+	@./scripts/setup-hosts.sh remove
+
+hosts-status: ## 로컬 접속 주소 확인
+	@./scripts/setup-hosts.sh status
 
 port-forward: ## 포트포워딩 시작 (ArgoCD, Grafana)
 	@./scripts/setup.sh port-forward

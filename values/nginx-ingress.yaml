@@ -4,12 +4,22 @@
 
 controller:
   resources:
-    #  limits:
-    #    cpu: 100m
-    #    memory: 90Mi
     requests:
       cpu: 100m
       memory: 90Mi
+
+  # Kind 환경: hostPort로 80/443 직접 바인딩 (포트포워딩 불필요)
+  hostPort:
+    enabled: true
+
+  # Kind control-plane 노드에 배치 (extraPortMappings 대상)
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
 
   # Service 설정
   service:
@@ -17,7 +27,6 @@ controller:
     nodePorts:
       http: 30010
       https: 30011
-    externalTrafficPolicy: Local
 
   # Ingress Class 설정
   ingressClassResource:

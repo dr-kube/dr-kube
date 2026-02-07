@@ -56,6 +56,11 @@ repoServer:
       memory: 600Mi
 
 server:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - argocd.drkube.local
   resources:
     limits:
       cpu: 200m

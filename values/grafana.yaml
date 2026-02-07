@@ -4,6 +4,14 @@ adminPassword: drkube
 service:
   type: ClusterIP
 
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hosts:
+    - grafana.drkube.local
+  path: /
+  pathType: Prefix
+
 persistence:
   enabled: true
   storageClassName: standard
