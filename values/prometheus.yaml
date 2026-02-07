@@ -28,6 +28,7 @@ server:
     ingressClassName: nginx
     hosts:
       - prometheus.drkube.local
+      - prometheus.drkube.huik.site
     paths:
       - /
     tls: [] # HTTP만 사용
@@ -51,6 +52,10 @@ alertmanager:
     className: nginx
     hosts:
       - host: alert.drkube.local
+        paths:
+          - path: /
+            pathType: Prefix
+      - host: alert.drkube.huik.site
         paths:
           - path: /
             pathType: Prefix

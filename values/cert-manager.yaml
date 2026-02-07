@@ -1,0 +1,19 @@
+# https://artifacthub.io/packages/helm/cert-manager/cert-manager
+installCRDs: true
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+webhook:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+cainjector:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi

@@ -60,6 +60,9 @@ server:
     enabled: true
     ingressClassName: nginx
     hostname: argocd.drkube.local
+    extraHosts:
+      - name: argocd.drkube.huik.site
+        path: /
   resources:
     limits:
       cpu: 200m

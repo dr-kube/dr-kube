@@ -9,6 +9,7 @@ ingress:
   ingressClassName: nginx
   hosts:
     - grafana.drkube.local
+    - grafana.drkube.huik.site
   path: /
   pathType: Prefix
 
