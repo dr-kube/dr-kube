@@ -1,6 +1,11 @@
 # https://artifacthub.io/packages/helm/cert-manager/cert-manager
 installCRDs: true
 
+# DNS-01 챌린지 시 Cloudflare public DNS로 직접 조회 (클러스터 내부 DNS 우회)
+extraArgs:
+  - --dns01-recursive-nameservers=1.1.1.1:53,8.8.8.8:53
+  - --dns01-recursive-nameservers-only
+
 resources:
   requests:
     cpu: 10m
