@@ -1,0 +1,9 @@
+# https://artifacthub.io/packages/helm/metrics-server/metrics-server
+# Kind 환경에서 kubelet 인증서 검증 비활성화
+args:
+  - --kubelet-insecure-tls
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
