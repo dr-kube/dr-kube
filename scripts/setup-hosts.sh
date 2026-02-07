@@ -27,7 +27,6 @@ MARKER="# DR-Kube local domains"
 detect_platform() {
     if grep -qi microsoft /proc/version 2>/dev/null; then
         PLATFORM="wsl"
-        # WSL: 브라우저는 Windows에서 실행되므로 Windows hosts 파일 수정
         WIN_HOSTS="/mnt/c/Windows/System32/drivers/etc/hosts"
         HOSTS_FILE="$WIN_HOSTS"
         if [ ! -f "$HOSTS_FILE" ]; then
@@ -43,19 +42,26 @@ detect_platform() {
     fi
 }
 
-# 크로스 플랫폼 sed -i (macOS BSD sed vs GNU sed)
-sed_inplace() {
-    if [[ "$PLATFORM" == "macos" ]]; then
-        sed -i '' "$@"
-    else
-        sed -i "$@"
-    fi
+# WSL: 임시 .ps1 파일을 만들어 관리자 권한으로 실행
+wsl_run_elevated() {
+    local PS_SCRIPT="$1"
+    local TMPPS="/mnt/c/Users/$(/mnt/c/Windows/System32/cmd.exe /C 'echo %USERNAME%' 2>/dev/null | tr -d '\r')/drkube-hosts.ps1"
+
+    echo "$PS_SCRIPT" > "$TMPPS"
+
+    # WSL 경로 → Windows 경로 변환
+    local WIN_SCRIPT
+    WIN_SCRIPT=$(wslpath -w "$TMPPS")
+
+    log_info "Windows 관리자 권한 요청 중 (UAC 팝업 허용하세요)..."
+    powershell.exe -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-ExecutionPolicy Bypass -File \"$WIN_SCRIPT\"'" 2>/dev/null
+
+    rm -f "$TMPPS"
 }
 
 add_hosts() {
     log_info "[$PLATFORM] $HOSTS_FILE 에 DR-Kube 도메인 추가 중..."
 
-    # 이미 등록되어 있으면 스킵
     if grep -q "$MARKER" "$HOSTS_FILE" 2>/dev/null; then
         log_warn "이미 등록되어 있습니다. 갱신하려면: $0 update"
         return 0
@@ -64,19 +70,18 @@ add_hosts() {
     ENTRY="127.0.0.1 ${DOMAINS[*]} $MARKER"
 
     if [[ "$PLATFORM" == "wsl" ]]; then
-        # WSL → Windows hosts: cmd.exe /C 로 관리자 권한 우회
-        # tee -a 로 직접 쓰기 시도, 실패 시 안내
-        if echo "$ENTRY" >> "$HOSTS_FILE" 2>/dev/null; then
+        wsl_run_elevated "Add-Content -Path 'C:\Windows\System32\drivers\etc\hosts' -Value '${ENTRY}' -Encoding ASCII"
+
+        if grep -q "$MARKER" "$HOSTS_FILE" 2>/dev/null; then
             log_success "Windows hosts 파일 수정 완료"
         else
-            log_error "권한 부족! 관리자 권한으로 PowerShell을 열고 아래 명령 실행:"
+            log_error "등록 실패. 관리자 PowerShell에서 직접 실행하세요:"
             echo ""
-            echo "  Add-Content C:\\Windows\\System32\\drivers\\etc\\hosts '127.0.0.1 ${DOMAINS[*]} $MARKER'"
+            echo "  Add-Content 'C:\Windows\System32\drivers\etc\hosts' '${ENTRY}'"
             echo ""
             return 1
         fi
     else
-        # macOS / Linux
         if [ "$(id -u)" -ne 0 ]; then
             log_info "sudo 권한이 필요합니다."
             echo "$ENTRY" | sudo tee -a "$HOSTS_FILE" > /dev/null
@@ -100,16 +105,15 @@ remove_hosts() {
     fi
 
     if [[ "$PLATFORM" == "wsl" ]]; then
-        # WSL: grep -v 로 해당 줄 제외한 임시파일 생성 후 덮어쓰기
-        TMPFILE=$(mktemp)
-        grep -v "$MARKER" "$HOSTS_FILE" > "$TMPFILE" 2>/dev/null || true
-        if cp "$TMPFILE" "$HOSTS_FILE" 2>/dev/null; then
-            log_success "Windows hosts 파일에서 제거 완료"
-        else
-            log_error "권한 부족! 관리자 PowerShell에서 직접 제거하세요."
+        wsl_run_elevated '
+$hostsPath = "C:\Windows\System32\drivers\etc\hosts"
+$content = Get-Content $hostsPath | Where-Object { $_ -notmatch "DR-Kube local domains" }
+Set-Content -Path $hostsPath -Value $content -Encoding ASCII
+'
+        if grep -q "$MARKER" "$HOSTS_FILE" 2>/dev/null; then
+            log_error "제거 실패. 관리자 PowerShell에서 직접 제거하세요."
             return 1
         fi
-        rm -f "$TMPFILE"
     elif [[ "$PLATFORM" == "macos" ]]; then
         if [ "$(id -u)" -ne 0 ]; then
             sudo sed -i '' "/$MARKER/d" "$HOSTS_FILE"
