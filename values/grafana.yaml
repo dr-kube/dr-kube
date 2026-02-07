@@ -42,12 +42,6 @@ datasources:
         uid: loki-uid
         url: http://loki:3100
         access: proxy
-        jsonData:
-          derivedFields:
-            - datasourceUid: jaeger-uid
-              matcherRegex: "traceID=(\\w+)"
-              name: TraceID
-              url: "$${__value.raw}"
       # Prometheus 설정
       - name: Prometheus
         type: prometheus
@@ -63,15 +57,25 @@ datasources:
         jsonData:
           tracesToLogsV2:
             datasourceUid: loki-uid
-            filterByTraceID: true
-            filterBySpanID: true
+            filterByTraceID: false
+            filterBySpanID: false
+            spanStartTimeShift: "-2m"
+            spanEndTimeShift: "2m"
+            tags:
+              - key: service.name
+                value: app
           tracesToMetrics:
             datasourceUid: prometheus-uid
+            spanStartTimeShift: "-5m"
+            spanEndTimeShift: "5m"
+            tags:
+              - key: service.name
+                value: app
             queries:
-              - name: Request Rate
-                query: "sum(rate(http_server_request_count_total{$$__tags}[5m]))"
-              - name: Request Duration
-                query: "histogram_quantile(0.95, sum(rate(http_server_duration_bucket{$$__tags}[5m])) by (le))"
+              - name: CPU Usage
+                query: "sum(rate(container_cpu_usage_seconds_total{namespace=\"online-boutique\", pod=~\"$$__tags.*\"}[5m]))"
+              - name: Memory Usage
+                query: "sum(container_memory_working_set_bytes{namespace=\"online-boutique\", pod=~\"$$__tags.*\"})"
           nodeGraph:
             enabled: true
 
