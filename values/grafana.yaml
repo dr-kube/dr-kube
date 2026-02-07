@@ -36,7 +36,7 @@ datasources:
       # Prometheus 설정
       - name: Prometheus
         type: prometheus
-        url: http://prom-prometheus-server
+        url: http://prometheus-server
         access: proxy
 
 initChownData:
