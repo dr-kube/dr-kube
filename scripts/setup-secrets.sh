@@ -154,9 +154,10 @@ apply() {
         exit 1
     fi
 
-    local SLACK_URL CLOUDFLARE_TOKEN GEMINI_KEY
+    local SLACK_URL CLOUDFLARE_TOKEN TUNNEL_TOKEN GEMINI_KEY
     SLACK_URL=$(get_value slack_webhook_url)
     CLOUDFLARE_TOKEN=$(get_value cloudflare_api_token)
+    TUNNEL_TOKEN=$(get_value cloudflare_tunnel_token)
     GEMINI_KEY=$(get_value gemini_api_key)
 
     # Slack Webhook → monitoring 네임스페이스
@@ -179,21 +180,36 @@ apply() {
         log_success "Secret 생성: cert-manager/cloudflare-api-token"
     fi
 
-    # Gemini API Key → agent .env 에 동기화
-    if [ -n "$GEMINI_KEY" ]; then
-        local AGENT_ENV="$PROJECT_ROOT/agent/.env"
-        if [ -f "$AGENT_ENV" ]; then
-            if grep -q "^GEMINI_API_KEY=" "$AGENT_ENV"; then
-                if [[ "$OSTYPE" == "darwin"* ]]; then
-                    sed -i '' "s|^GEMINI_API_KEY=.*|GEMINI_API_KEY=$GEMINI_KEY|" "$AGENT_ENV"
-                else
-                    sed -i "s|^GEMINI_API_KEY=.*|GEMINI_API_KEY=$GEMINI_KEY|" "$AGENT_ENV"
-                fi
-            else
-                echo "GEMINI_API_KEY=$GEMINI_KEY" >> "$AGENT_ENV"
-            fi
-        fi
-        log_success "agent/.env 에 GEMINI_API_KEY 동기화"
+    # Cloudflare Tunnel Token → cloudflare 네임스페이스
+    if [ -n "$TUNNEL_TOKEN" ]; then
+        kubectl create namespace cloudflare --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+        kubectl create secret generic cloudflare-tunnel-token \
+            --namespace cloudflare \
+            --from-literal=token="$TUNNEL_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+        log_success "Secret 생성: cloudflare/cloudflare-tunnel-token"
+    fi
+
+    # agent/.env 생성 (gemini_api_key는 개인별 관리)
+    local AGENT_ENV="$PROJECT_ROOT/agent/.env"
+    local EXISTING_KEY=""
+    if [ -f "$AGENT_ENV" ]; then
+        EXISTING_KEY=$(grep "^GEMINI_API_KEY=" "$AGENT_ENV" 2>/dev/null | cut -d'=' -f2-)
+    fi
+    # SOPS에 값이 있으면 사용, 없으면 기존 로컬 값 유지
+    local FINAL_KEY="${GEMINI_KEY:-$EXISTING_KEY}"
+    cat > "$AGENT_ENV" <<EOF
+# DR-Kube 에이전트 환경변수 (make secrets-apply 로 자동 생성)
+# GEMINI_API_KEY는 개인별 관리 — 아래에 직접 입력하세요
+
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=${FINAL_KEY}
+GEMINI_MODEL=gemini-3-flash-preview
+EOF
+    if [ -z "$FINAL_KEY" ]; then
+        log_warn "agent/.env 생성 (GEMINI_API_KEY 미설정 — agent/.env에 직접 입력하세요)"
+    else
+        log_success "agent/.env 생성 완료"
     fi
 
     echo ""
@@ -224,14 +240,16 @@ show_status() {
     if [ -f "$SECRETS_PLAIN" ]; then
         echo -e "  평문 파일:    ${GREEN}있음${NC} (Git 커밋 금지)"
 
-        local SLACK_URL CLOUDFLARE_TOKEN GEMINI_KEY
+        local SLACK_URL CLOUDFLARE_TOKEN TUNNEL_TOKEN GEMINI_KEY
         SLACK_URL=$(get_value slack_webhook_url)
         CLOUDFLARE_TOKEN=$(get_value cloudflare_api_token)
+        TUNNEL_TOKEN=$(get_value cloudflare_tunnel_token)
         GEMINI_KEY=$(get_value gemini_api_key)
 
         echo ""
         [ -n "$SLACK_URL" ] && echo -e "  Slack:        ${GREEN}설정됨${NC}" || echo -e "  Slack:        ${YELLOW}미설정${NC}"
         [ -n "$CLOUDFLARE_TOKEN" ] && echo -e "  Cloudflare:   ${GREEN}설정됨${NC}" || echo -e "  Cloudflare:   ${YELLOW}미설정${NC}"
+        [ -n "$TUNNEL_TOKEN" ] && echo -e "  Tunnel:       ${GREEN}설정됨${NC}" || echo -e "  Tunnel:       ${YELLOW}미설정${NC}"
         [ -n "$GEMINI_KEY" ] && echo -e "  Gemini:       ${GREEN}설정됨${NC}" || echo -e "  Gemini:       ${YELLOW}미설정${NC}"
     else
         echo -e "  평문 파일:    ${RED}없음${NC} → make secrets-decrypt"

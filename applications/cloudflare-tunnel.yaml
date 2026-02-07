@@ -1,0 +1,21 @@
+# Cloudflare Tunnel - GitHub webhook 등 외부 접근용
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflare-tunnel
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dr-kube/dr-kube.git
+    targetRevision: main
+    path: manifests/cloudflare-tunnel
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudflare
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

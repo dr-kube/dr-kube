@@ -15,12 +15,12 @@ def get_llm() -> BaseChatModel:
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         return ChatGoogleGenerativeAI(
-            model=os.getenv("MODEL_NAME") or os.getenv("GEMINI_MODEL", "gemini-pro"),
+            model=os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"),
             google_api_key=api_key,
             temperature=0.3,
         )
 
-    # 기본값: Ollama
+    # 폴백: Ollama (로컬)
     from langchain_ollama import ChatOllama
 
     return ChatOllama(

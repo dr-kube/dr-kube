@@ -45,16 +45,28 @@ Kubernetes 이슈 자동 감지 → 분석 → PR 생성 → GitOps 복구 시�
 dr-kube/
 ├── Makefile                # 프로젝트 명령어
 ├── scripts/
-│   └── setup-agent.sh      # 에이전트 환경 설정
+│   ├── setup.sh            # 클러스터 설치/삭제
+│   ├── setup-agent.sh      # 에이전트 환경 설정
+│   ├── setup-hosts.sh      # /etc/hosts 도메인 등록
+│   ├── setup-tls.sh        # Let's Encrypt TLS 설정
+│   ├── setup-secrets.sh    # SOPS + age 시크릿 관리
+│   └── setup-slack.sh      # Slack webhook 설정
 ├── agent/
 │   ├── cli.py              # CLI 진입점
 │   ├── dr_kube/            # 메인 에이전트 코드 ⭐
 │   │   ├── graph.py        # LangGraph 워크플로우
 │   │   ├── llm.py          # LLM 프로바이더
 │   │   ├── prompts.py      # 프롬프트 템플릿
-│   │   └── state.py        # 상태 정의
+│   │   ├── state.py        # 상태 정의
+│   │   ├── github.py       # GitHub PR 생성
+│   │   ├── webhook.py      # Alertmanager 웹훅 서버
+│   │   └── converter.py    # Alert → Issue 변환
 │   └── issues/             # 샘플 이슈 파일
+├── secrets/
+│   ├── secrets.yaml        # 평문 시크릿 (gitignored)
+│   └── secrets.enc.yaml    # SOPS 암호화 (Git 커밋)
 ├── values/                 # Helm values (수정 대상)
+├── chaos/                  # Chaos Mesh 실험 정의
 └── docs/                   # 문서
 ```
 
@@ -74,8 +86,12 @@ dr-kube/
 | Loki | 로그 수집 | ✅ |
 | Grafana | 대시보드/알람 | ✅ |
 | Alloy | 로그/메트릭 수집기 | ✅ |
+| Jaeger | 분산 추적 | ✅ |
 | ArgoCD | GitOps 배포 | ✅ |
 | Slack 알람 | 이슈 발생 알림 | ✅ |
+| metrics-server | 실시간 CPU/메모리 | ✅ |
+| Chaos Mesh | 장애 주입 테스트 | ✅ |
+| cert-manager | TLS 인증서 자동화 | ✅ |
 
 ## 환경 설정
 
@@ -109,27 +125,25 @@ dr-kube/
 ./scripts/teardown.sh
 ```
 
-### 테스트 환경 (Chaos Mesh)
+### 테스트 환경 (Chaos Mesh + Online Boutique)
 
-Chaos Mesh를 사용해 의도적으로 이슈를 발생시켜 에이전트 테스트
+Chaos Mesh를 사용해 Online Boutique에 의도적으로 장애를 주입하여 에이전트 테스트
 
 ```bash
-# Chaos Mesh 설치
-./scripts/setup.sh chaos
-
-# 테스트 시나리오 실행
-./scripts/chaos-test.sh oom        # OOMKilled 발생
-./scripts/chaos-test.sh cpu        # CPU 스로틀링
-./scripts/chaos-test.sh network    # 네트워크 지연/장애
-./scripts/chaos-test.sh pod-kill   # 파드 강제 종료
+make chaos-memory       # Frontend OOM 실험 (3분)
+make chaos-cpu          # CartService CPU 스트레스 (3분)
+make chaos-network      # ProductCatalog 네트워크 지연 (3분)
+make chaos-pod-kill     # CheckoutService Pod 강제 종료 (1분)
+make chaos-stop         # 모든 실험 중지
+make chaos-status       # 실험 상태 확인
 ```
 
-| 시나리오 | 발생 이슈 | 예상 수정 |
-|----------|-----------|-----------|
-| oom | OOMKilled | memory limit 증가 |
-| cpu | CPU Throttling | cpu limit 증가 |
-| network | Connection Timeout | timeout 설정 조정 |
-| pod-kill | CrashLoopBackOff | replicas/restart 정책 |
+| 시나리오 | 대상 | 발생 이슈 | 예상 수정 |
+|----------|------|-----------|-----------|
+| chaos-memory | frontend | OOMKilled | memory limit 증가 |
+| chaos-cpu | frontend | CPU Throttling | cpu limit 증가 |
+| chaos-network | frontend | 500ms 지연 | timeout 설정 조정 |
+| chaos-pod-kill | frontend | CrashLoopBackOff | replicas/restart 정책 |
 
 ### 사전 요구사항
 
@@ -139,12 +153,44 @@ Chaos Mesh를 사용해 의도적으로 이슈를 발생시켜 에이전트 테�
 ./scripts/setup-agent.sh
 ```
 
+### 시크릿 관리 (SOPS + age)
+
+팀원 간 시크릿 공유를 위해 **SOPS + age** 암호화 사용.
+암호화된 `secrets/secrets.enc.yaml`만 Git에 커밋, 평문은 gitignored.
+
+```bash
+# 팀 리더 (최초 1회)
+make secrets-init        # age 키 생성 + .sops.yaml 업데이트
+# → secrets/age.key를 팀원에게 Slack DM으로 공유
+
+# 팀원
+make secrets-import KEY=~/age.key   # 공유받은 키 가져오기
+make secrets-decrypt                # 암호화 파일 → 평문 복호화
+
+# 시크릿 수정 후
+vi secrets/secrets.yaml             # 값 수정
+make secrets-encrypt                # 평문 → 암호화 (Git 커밋 가능)
+
+# 클러스터에 적용
+make secrets-apply                  # K8s Secret 생성 + agent/.env 동기화
+```
+
+**관리 대상 시크릿:**
+| 키 | 용도 | 적용 위치 |
+|---|------|----------|
+| `slack_webhook_url` | Alertmanager 알림 | monitoring/alertmanager-slack Secret |
+| `cloudflare_api_token` | cert-manager DNS-01 | cert-manager/cloudflare-api-token Secret |
+| `cloudflare_tunnel_token` | 외부 접근 터널 | cloudflare/cloudflare-tunnel-token Secret |
+| `gemini_api_key` | LLM API 호출 | agent/.env (개인별 관리) |
+
+> **agent/.env**는 `make secrets-apply`로 자동 생성됨. 단, `GEMINI_API_KEY`는 **개인별 관리** — 각자 agent/.env에 직접 입력
+
 ### 에이전트 환경 설정
 
 ```bash
 # 프로젝트 루트에서 실행
 make agent-setup         # uv + venv + 의존성 자동 설치
-vi agent/.env            # LLM_PROVIDER=gemini, API 키 설정
+make secrets-apply       # agent/.env에 API 키 동기화
 ```
 
 ### 에이전트 실행
@@ -157,9 +203,14 @@ make help                # 전체 명령어
 
 ## 워크플로우 상태
 
-### 현재 (as-is)
+### 분석 모드 (`make agent-run`)
 ```
-load_issue → analyze → suggest (3노드)
+load_issue → analyze → suggest
+```
+
+### PR 생성 모드 (`make agent-fix`)
+```
+load_issue → analyze → generate_fix → create_pr
 ```
 
 ### 프로토타입 목표
@@ -171,9 +222,9 @@ load_issue → analyze → generate_fix → create_pr → notify (5노드)
 |------|------|-----------|
 | load_issue | 알람에서 이슈 로드 | ✅ 완료 |
 | analyze | LLM 분석 | ✅ 완료 |
-| generate_fix | YAML 수정안 생성 | ⏳ TODO |
-| create_pr | GitHub PR 생성 | ⏳ TODO |
-| notify | 완료 알람 (원인, diff, PR링크) | ⏳ TODO |
+| generate_fix | YAML 수정안 생성 | ⏳ 구현됨, target file 매핑 수정 필요 |
+| create_pr | GitHub PR 생성 | ⏳ 구현됨, 실테스트 필요 |
+| notify | 완료 알람 (원인, diff, PR링크) | ❌ 미구현 |
 
 ### 프로토타입 이후 (스킵)
 | 노드 | 역할 | 비고 |
@@ -182,13 +233,38 @@ load_issue → analyze → generate_fix → create_pr → notify (5노드)
 | verify | 복구 확인 | 사람이 수동 확인 |
 | [ArgoCD Sync] | GitOps 동기화 | 수동 sync |
 
+## 도메인 & 접속
+
+### 로컬 도메인 (hosts 파일)
+```bash
+make hosts              # /etc/hosts에 도메인 등록 (WSL/macOS/Linux)
+make hosts-remove       # 도메인 제거
+make hosts-status       # 접속 주소 확인
+```
+
+| 서비스 | 로컬 | 외부 |
+|--------|------|------|
+| Grafana | grafana.drkube.local | grafana.drkube.huik.site |
+| Prometheus | prometheus.drkube.local | prometheus.drkube.huik.site |
+| Alertmanager | alert.drkube.local | alert.drkube.huik.site |
+| ArgoCD | argocd.drkube.local | argocd.drkube.huik.site |
+| Boutique | boutique.drkube.local | boutique.drkube.huik.site |
+| Chaos Mesh | chaos.drkube.local | chaos.drkube.huik.site |
+| Jaeger | jaeger.drkube.local | jaeger.drkube.huik.site |
+
+### TLS (HTTPS)
+```bash
+make tls                # cert-manager + Let's Encrypt 설정 (Cloudflare DNS-01)
+make tls-status         # 인증서 상태 확인
+```
+
 ## 우선순위 (프로토타입)
 
-### P0 (필수) - 4주 내
-1. `generate_fix` - YAML 수정안 생성
-2. `create_pr` - GitHub PR 자동 생성
-3. `notify` - 완료 알람
-4. 로컬 환경 스크립트 (Kind + ArgoCD)
+### P0 (필수)
+1. `generate_fix` - YAML 수정안 생성 (⏳ 구현됨, target file 매핑 수정 필요)
+2. `create_pr` - GitHub PR 자동 생성 (⏳ 구현됨, 테스트 필요)
+3. `notify` - 완료 알람 (❌ 미구현)
+4. ~~로컬 환경 스크립트 (Kind + ArgoCD)~~ ✅ 완료
 
 ### P1 (프로토타입 이후)
 5. classify 노드
@@ -196,8 +272,8 @@ load_issue → analyze → generate_fix → create_pr → notify (5노드)
 7. ArgoCD 자동 sync
 
 ### P2 (선택)
-8. Chaos Mesh 테스트
-9. Slack/Discord 알림
+8. ~~Chaos Mesh 테스트~~ ✅ 완료
+9. ~~Slack/Discord 알림~~ ✅ 완료 (Alertmanager → Slack)
 10. 대시보드 UI
 
 ## 코딩 규칙
@@ -225,9 +301,25 @@ AI 도구 사용 시 아래 내용을 항상 전달:
 ## 자주 사용하는 명령어
 
 ```bash
-# 에이전트 설정 및 실행 (프로젝트 루트에서)
-make agent-setup
-make agent-run
+# 클러스터
+make setup              # Kind + ArgoCD + 전체 앱 설치
+make teardown           # 클러스터 삭제
+make hosts              # 로컬 도메인 등록
+
+# 시크릿
+make secrets-decrypt    # 시크릿 복호화
+make secrets-apply      # K8s Secret + agent/.env 동기화
+
+# 에이전트
+make agent-setup        # 환경 설치
+make agent-run          # 이슈 분석 (기본)
+make agent-fix          # 분석 + PR 생성
+make agent-webhook      # Alertmanager 웹훅 서버
+
+# Chaos 테스트
+make chaos-memory       # OOM 실험
+make chaos-stop         # 실험 중지
+make help               # 전체 명령어
 ```
 
 ## 참고 문서

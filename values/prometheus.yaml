@@ -28,6 +28,7 @@ server:
     ingressClassName: nginx
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
     hosts:
       - prometheus.drkube.local
       - prometheus.drkube.huik.site
@@ -57,6 +58,7 @@ alertmanager:
     className: nginx
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
     hosts:
       - host: alert.drkube.local
         paths:

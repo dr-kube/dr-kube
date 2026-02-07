@@ -48,6 +48,7 @@ dashboard:
     ingressClassName: nginx
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
     hosts:
       - name: chaos.drkube.local
         paths:

@@ -4,6 +4,7 @@ metadata:
   name: boutique-ingress
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: nginx
   rules:
