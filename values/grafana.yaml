@@ -38,6 +38,11 @@ datasources:
         type: prometheus
         url: http://prometheus-server
         access: proxy
+      # Jaeger 설정
+      - name: Jaeger
+        type: jaeger
+        url: http://jaeger-query:16686
+        access: proxy
 
 initChownData:
   enabled: false
