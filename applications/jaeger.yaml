@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jaeger
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://jaegertracing.github.io/helm-charts
+      chart: jaeger
+      targetRevision: 3.4.1
+      helm:
+        valueFiles:
+          - $values/values/jaeger.yaml
+
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
