@@ -3,6 +3,14 @@
 # OCI Helm Chart: oci://us-docker.pkg.dev/online-boutique-ci/charts/onlineboutique
 
 # ============================================
+# OpenTelemetry → Jaeger 트레이싱
+# ============================================
+# create=true → 각 서비스에 COLLECTOR_SERVICE_ADDR 환경변수 설정
+# collector 자체는 manifests/online-boutique/otel-collector.yaml 에서 배포
+opentelemetryCollector:
+  create: true
+
+# ============================================
 # Frontend
 # ============================================
 frontend:
