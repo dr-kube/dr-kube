@@ -28,7 +28,7 @@ spec:
             - name: LLM_PROVIDER
               value: "gemini"
             - name: GEMINI_MODEL
-              value: "gemini-2.5-flash"
+              value: "gemini-3-flash-preview"
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -44,7 +44,7 @@ spec:
             - name: WEBHOOK_PORT
               value: "8080"
             - name: AUTO_PR
-              value: "true"
+              value: "false"
           resources:
             requests:
               cpu: 100m
