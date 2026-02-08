@@ -16,6 +16,8 @@ spec:
         app: dr-kube-agent
     spec:
       serviceAccountName: dr-kube-agent
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: agent
           image: ghcr.io/dr-kube/dr-kube-agent:latest
@@ -39,12 +41,17 @@ spec:
                 secretKeyRef:
                   name: dr-kube-agent-secrets
                   key: github-token
+            - name: GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: github-token
             - name: WEBHOOK_HOST
               value: "0.0.0.0"
             - name: WEBHOOK_PORT
               value: "8080"
             - name: AUTO_PR
-              value: "false"
+              value: "true"
           resources:
             requests:
               cpu: 100m
