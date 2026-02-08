@@ -44,18 +44,21 @@ datasources:
         uid: loki-uid
         url: http://loki:3100
         access: proxy
+        isDefault: false
       # Prometheus 설정
       - name: Prometheus
         type: prometheus
         uid: prometheus-uid
         url: http://prometheus-server
         access: proxy
+        isDefault: true
       # Tempo 설정 (Jaeger 대체, Grafana Drilldown 네이티브 지원)
       - name: Tempo
         type: tempo
         uid: tempo-uid
         url: http://tempo:3200
         access: proxy
+        isDefault: false
         jsonData:
           tracesToLogsV2:
             datasourceUid: loki-uid
@@ -94,6 +97,7 @@ datasources:
         uid: pyroscope-uid
         url: http://pyroscope:4040
         access: proxy
+        isDefault: false
 
 initChownData:
   enabled: false
