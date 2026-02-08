@@ -9,6 +9,11 @@ configs:
       url: https://github.com/dr-kube/dr-kube.git
       name: dr-kube
       type: git
+  cm:
+    # CRD metadata.annotations can exceed 262144 bytes (e.g. applicationsets.argoproj.io); ignore to avoid sync failure
+    resource.customizations.ignoreResourceUpdates.apiextensions.k8s.io_CustomResourceDefinition: |
+      jqPathExpressions:
+        - '.metadata.annotations'
 
 controller:
   resources:
