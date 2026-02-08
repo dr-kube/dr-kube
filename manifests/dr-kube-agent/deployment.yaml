@@ -20,7 +20,7 @@ spec:
         - name: ghcr-pull-secret
       containers:
         - name: agent
-          image: ghcr.io/dr-kube/dr-kube-agent:latest
+          image: b100to/dr-kube-agent:latest
           imagePullPolicy: Always
           ports:
             - name: http
