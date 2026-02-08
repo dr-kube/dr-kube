@@ -137,10 +137,11 @@ prometheus-pushgateway:
 serverFiles:
   prometheus.yml:
     scrape_configs:
-      # 기본 Prometheus self-scrape
-      - job_name: "prometheus"
-        static_configs:
-          - targets: ["localhost:9090"]
+      # 기본 Prometheus self-scrape (이름 변경: 기본 chart와 중복 방지)
+      # NOTE: Helm chart 기본값에 이미 prometheus job이 있으므로 제거
+      # - job_name: "prometheus-self"
+      #   static_configs:
+      #     - targets: ["localhost:9090"]
       # Kube-State-Metrics 스크랩
       - job_name: "kube-state-metrics"
         static_configs:
