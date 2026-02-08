@@ -252,6 +252,41 @@ alloy:
         forward_to = [loki.write.local.receiver]
       }
 
+      // ============================================================
+      // 6. Pyroscope - Continuous Profiling
+      // ============================================================
+      
+      // Pyroscope 서버로 프로파일 전송
+      pyroscope.write "default" {
+        endpoint {
+          url = "http://pyroscope.monitoring:4040"
+        }
+      }
+
+      // Kubernetes pods에서 프로파일 수집 (pprof 엔드포인트가 있는 앱)
+      pyroscope.scrape "kubernetes_pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [pyroscope.write.default.receiver]
+
+        profiling_config {
+          profile.process_cpu {
+            enabled = true
+          }
+          profile.memory {
+            enabled = true
+          }
+          profile.goroutine {
+            enabled = true
+          }
+        }
+
+        // 프로파일링 annotation이 있는 pod만 스크랩
+        // pods에 profiles.grafana.com/cpu.scrape: "true" annotation 필요
+        clustering {
+          enabled = true
+        }
+      }
+
   # Alloy 컨테이너에 들어갈 환경변수 (공식 values: alloy.extraEnv)
   # ref: values.yaml의 alloy.extraEnv
   extraEnv:
