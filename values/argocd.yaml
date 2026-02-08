@@ -86,7 +86,7 @@ server:
 notifications:
   enabled: true
   cm:
-    create: true
+    create: false
   notifiers:
     "service.webhook.dr-kube": |
       url: "http://host.docker.internal:8080/webhook/argocd"
