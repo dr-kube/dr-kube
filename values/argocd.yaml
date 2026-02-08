@@ -107,12 +107,8 @@ notifications:
           body: |
             {"id":"argocd-{{.app.metadata.name}}-health-degraded","type":"argocd_health_degraded","namespace":"{{.app.metadata.namespace}}","resource":"{{.app.metadata.name}}","error_message":"Health Degraded","logs":["{{.app.status.health.message}}"],"timestamp":"","values_file":"values/{{.app.metadata.name}}.yaml"}
   triggers:
-    trigger.on-sync-failed: |
-      - when: app.status.sync.status == 'OutOfSync' || app.status?.operationState.phase in ['Error', 'Failed']
-        send: [app-sync-failed]
-    trigger.on-health-degraded: |
-      - when: app.status.health.status == 'Degraded'
-        send: [app-health-degraded]
+    trigger.on-sync-failed: '[{"when":"app.status.sync.status == ''OutOfSync'' || app.status?.operationState.phase in [''Error'', ''Failed'']","send":["app-sync-failed"]}]'
+    trigger.on-health-degraded: '[{"when":"app.status.health.status == ''Degraded''","send":["app-health-degraded"]}]'
   resources:
     requests:
       cpu: 50m
