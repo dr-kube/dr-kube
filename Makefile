@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-cpu chaos-pod-kill chaos-network chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-cpu chaos-pod-kill chaos-network chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -23,6 +23,9 @@ help: ## 도움말 표시
 	@echo ""
 	@echo "  [Chaos 실험]"
 	@grep -E '^(chaos-memory|chaos-cpu|chaos-pod-kill|chaos-network|chaos-stop|chaos-status).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  [원격 접속]"
+	@grep -E '^ssh-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [에이전트]"
 	@grep -E '^agent-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -60,6 +63,58 @@ tunnel-status: ## Cloudflare Tunnel 상태 확인
 
 tunnel-teardown: ## Cloudflare Tunnel 제거
 	@./scripts/setup-tunnel.sh teardown
+
+# =============================================================================
+# 원격 SSH 접속 (Cloudflare Tunnel)
+# =============================================================================
+
+SSH_HOST ?= ssh-drkube.huik.site
+SSH_USER ?= moltbot
+
+ssh-setup: ## cloudflared 설치 (WSL/Linux)
+	@echo "📦 cloudflared 설치 중..."
+	@if command -v cloudflared >/dev/null 2>&1; then \
+		echo "✓ cloudflared 이미 설치됨: $$(cloudflared --version)"; \
+	else \
+		curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared && \
+		chmod +x /tmp/cloudflared && \
+		sudo mv /tmp/cloudflared /usr/local/bin/ && \
+		echo "✓ cloudflared 설치 완료"; \
+	fi
+	@echo ""
+	@echo "📝 SSH config 설정 중..."
+	@mkdir -p ~/.ssh
+	@if grep -q "Host mac-k9s" ~/.ssh/config 2>/dev/null; then \
+		echo "✓ SSH config 이미 설정됨"; \
+	else \
+		echo "" >> ~/.ssh/config && \
+		echo "Host mac-k9s" >> ~/.ssh/config && \
+		echo "  HostName $(SSH_HOST)" >> ~/.ssh/config && \
+		echo "  User $(SSH_USER)" >> ~/.ssh/config && \
+		echo '  ProxyCommand cloudflared access ssh --hostname %h' >> ~/.ssh/config && \
+		echo "✓ SSH config 추가 완료"; \
+	fi
+	@echo ""
+	@echo "🎉 설정 완료! 'make ssh-connect'로 접속하세요"
+
+ssh-connect: ## Mac에 SSH 접속 (k9s 사용 가능)
+	@echo "🔗 $(SSH_HOST)에 접속 중..."
+	@ssh mac-k9s
+
+ssh-tunnel: ## Mac에서 SSH 터널 시작 (호스트용)
+	@echo "🚇 SSH 터널 시작..."
+	@if pgrep -f "cloudflared.*mac-ssh" >/dev/null; then \
+		echo "✓ 터널 이미 실행 중"; \
+	else \
+		nohup cloudflared tunnel --config ~/.cloudflared/config-mac-ssh.yml run mac-ssh > ~/.cloudflared/mac-ssh.log 2>&1 & \
+		sleep 2 && \
+		echo "✓ 터널 시작됨 (PID: $$(pgrep -f 'cloudflared.*mac-ssh'))"; \
+	fi
+	@echo "   접속 주소: $(SSH_HOST)"
+
+ssh-tunnel-stop: ## SSH 터널 중지 (호스트용)
+	@echo "⏹️  SSH 터널 중지..."
+	@pkill -f "cloudflared.*mac-ssh" 2>/dev/null && echo "✓ 터널 중지됨" || echo "터널이 실행 중이 아님"
 
 secrets-init: ## 시크릿 키 생성 (팀 리더, 최초 1회)
 	@./scripts/setup-secrets.sh init
