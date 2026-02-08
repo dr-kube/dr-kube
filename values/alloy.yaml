@@ -99,35 +99,83 @@ alloy:
         // --- 5.2 JSON 로그 파싱 (구조화된 로그) ---
         stage.json {
           expressions = {
+            // 표준 필드
             level      = "level",
+            severity   = "severity",      // frontend 등 severity 사용하는 앱
             msg        = "msg",
             message    = "message",
             timestamp  = "timestamp",
             time       = "time",
+            ts         = "ts",            // 일부 앱에서 사용
             caller     = "caller",
+            // 에러 정보
             error      = "error",
             err        = "err",
+            stack      = "stack",
+            stacktrace = "stacktrace",
+            // 트레이싱
             trace_id   = "trace_id",
+            traceId    = "traceId",       // camelCase 버전
+            traceID    = "traceID",
             span_id    = "span_id",
+            spanId     = "spanId",
+            spanID     = "spanID",
+            // HTTP 요청 정보
             request_id = "request_id",
+            requestId  = "requestId",
+            http_req_id = "http.req.id",  // frontend 스타일
             user_id    = "user_id",
+            userId     = "userId",
             method     = "method",
+            http_method = "http.req.method",
             path       = "path",
+            http_path  = "http.req.path",
             status     = "status",
+            http_status = "http.resp.status",
             duration   = "duration",
             latency    = "latency",
+            took_ms    = "http.resp.took_ms",
+            // 서비스 정보
+            service    = "service",
+            component  = "component",
           }
         }
 
-        // --- 5.3 Non-JSON 로그 파싱 (일반 텍스트 로그) ---
-        stage.regex {
-          expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}:\\d{2}\\.\\d+)\\s+(?P<log_level>\\w+)\\s+\\[.*?\\]\\s+(?P<log_message>.*)"
-        }
-        stage.regex {
-          expression = "\\[(?P<django_timestamp>.*?)\\]\\s+(?P<django_level>\\w+)\\s+(?P<django_message>.*)"
+        // --- 5.3 Logfmt 파싱 (Grafana 스타일 로그) ---
+        stage.logfmt {
+          mapping = {
+            level   = "level",
+            msg     = "msg",
+            logger  = "logger",
+            caller  = "caller",
+            err     = "err",
+            method  = "method",
+            path    = "path",
+            status  = "status",
+            t       = "timestamp",
+          }
         }
 
-        // --- 5.4 Level 라벨 추출 및 정규화 ---
+        // --- 5.4 Plain text 로그 파싱 (비구조화 로그) ---
+        // 타임스탬프 + 레벨 + 메시지 패턴
+        stage.regex {
+          expression = "^(?P<timestamp>\\d{4}-\\d{2}-\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2}[.,]?\\d*)\\s*(?P<log_level>TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|FATAL|PANIC)?\\s*(?P<log_message>.*)"
+        }
+        // 대괄호 포맷: [timestamp] LEVEL message
+        stage.regex {
+          expression = "\\[(?P<bracket_timestamp>[^\\]]+)\\]\\s*(?P<bracket_level>TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|FATAL|PANIC)?\\s*(?P<bracket_message>.*)"
+        }
+        // 함수 호출 패턴: FunctionName called with param=value
+        stage.regex {
+          expression = "^(?P<func_name>[A-Z][a-zA-Z]+)\\s+(called|started|finished|completed)\\s+(?:with\\s+)?(?P<func_params>.*)"
+        }
+
+        // --- 5.5 Level 라벨 정규화 (여러 소스에서 통합) ---
+        // severity -> level (frontend 등)
+        stage.labels {
+          values = { level = "severity" }
+        }
+        // 기타 level 소스들
         stage.labels {
           values = { level = "level" }
         }
@@ -135,14 +183,17 @@ alloy:
           values = { level = "log_level" }
         }
         stage.labels {
-          values = { level = "django_level" }
+          values = { level = "bracket_level" }
         }
+        // 텍스트에서 추출
         stage.regex {
-          expression = "(?i)(?P<extracted_level>trace|debug|info|warn|warning|error|err|fatal|panic)"
+          expression = "(?i)\\b(?P<extracted_level>trace|debug|info|warn(?:ing)?|error|err|fatal|panic|critical)\\b"
         }
         stage.labels {
           values = { level = "extracted_level" }
         }
+
+        // Level 값 표준화 (소문자, warning/error 통일)
         stage.replace {
           expression = "(?i)^(warn)$"
           source     = "level"
@@ -154,53 +205,87 @@ alloy:
           replace    = "error"
         }
         stage.replace {
-          expression = "(?i)^(debug|info|warning|error|fatal|panic)$"
+          expression = "(?i)^(TRACE|DEBUG|INFO|WARNING|ERROR|FATAL|PANIC|CRITICAL)$"
           source     = "level"
-          replace    = "$1"
+          replace    = "{{ ToLower .Value }}"
         }
 
-        // --- 5.5 시스템 컨테이너 로그 제외 ---
+        // --- 5.6 Trace ID 정규화 ---
+        stage.labels {
+          values = { trace_id = "trace_id" }
+        }
+        stage.labels {
+          values = { trace_id = "traceId" }
+        }
+        stage.labels {
+          values = { trace_id = "traceID" }
+        }
+
+        // --- 5.7 시스템 컨테이너 로그 제외 ---
         stage.match {
-          selector = "{container=~\"loki|alloy|kube-proxy|aws-node|coredns\"}"
+          selector = "{container=~\"loki|alloy|kube-proxy|aws-node|coredns|etcd|kube-scheduler|kube-controller-manager\"}"
           action   = "drop"
         }
 
-        // --- 5.6 노이즈 로그 필터링 (JSON/Non-JSON 모두 적용) ---
+        // --- 5.8 DEBUG 레벨 로그 드롭 (가장 중요한 필터!) ---
+        stage.match {
+          selector = "{level=\"debug\"}"
+          action   = "drop"
+        }
+
+        // --- 5.9 노이즈 로그 필터링 (강화됨) ---
+        // Health check 관련
         stage.drop {
           expression          = "(?i)(GET|POST|HEAD).*(health|healthz|readiness|liveness|ready|live|ping|favicon)"
           drop_counter_reason = "health_check"
         }
         stage.drop {
-          expression          = "(kube-probe|Go-http-client)"
+          expression          = "(kube-probe|Go-http-client|x-readiness-probe|x-liveness-probe)"
           drop_counter_reason = "kube_probe"
         }
+        stage.drop {
+          expression          = "(?i)(ELB-HealthChecker|Amazon-Route53-Health-Check-Service|GoogleHC)"
+          drop_counter_reason = "cloud_health_check"
+        }
+        stage.drop {
+          expression          = "(?i)session.*x-(readiness|liveness)-probe"
+          drop_counter_reason = "probe_session"
+        }
+
+        // Metrics/pprof 엔드포인트
         stage.drop {
           expression          = "(GET|POST).*/metrics"
           drop_counter_reason = "metrics_endpoint"
         }
         stage.drop {
-          expression          = "\\bGET\\s+/\\s*$"
-          drop_counter_reason = "root_path_health_check"
+          expression          = "(GET|POST).*/debug/pprof"
+          drop_counter_reason = "pprof_endpoint"
+        }
+
+        // 정적 파일 요청
+        stage.drop {
+          expression          = "(?i)(GET|POST).*/static/"
+          drop_counter_reason = "static_files"
         }
         stage.drop {
-          expression          = "\\bGET\\s+/$"
-          drop_counter_reason = "root_path_get_only"
+          expression          = "(?i)(GET|POST).*\\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)($|\\?)"
+          drop_counter_reason = "static_assets"
         }
+
+        // 성공 응답 로그 (노이즈)
         stage.drop {
           expression          = "(?i)Returned\\s+(200|201|204)\\s+in\\s+\\d+\\s*ms"
-          drop_counter_reason = "success_response_log"
+          drop_counter_reason = "success_response"
         }
         stage.drop {
-          expression          = "(?i)(ELB-HealthChecker|Amazon-Route53-Health-Check-Service)"
-          drop_counter_reason = "alb_health_check"
+          expression          = "\"status\":\\s*(200|201|204)"
+          drop_counter_reason = "json_success_status"
         }
+
+        // 반복적인 루틴 로그
         stage.drop {
-          expression          = "(?i)Scheduler: Sending due task"
-          drop_counter_reason = "celery_scheduler_routine"
-        }
-        stage.drop {
-          expression          = "(?i)(celerybeat|beat):.*(Scheduler|Writing entries|waking up)"
-          drop_counter_reason = "celery_beat_routine"
+          expression          = "(?i)(worker.*ready|worker.*started|shutting down gracefully)"
+          drop_counter_reason = "worker_lifecycle"
         }
         stage.drop {
           expression          = "(?i)(connection pool|pool size|idle connections)"
@@ -211,42 +296,66 @@ alloy:
           drop_counter_reason = "connection_routine"
         }
         stage.drop {
-          expression          = "(?i)(worker.*ready|worker.*started|shutting down gracefully)"
-          drop_counter_reason = "worker_lifecycle"
+          expression          = "(?i)Scheduler: Sending due task"
+          drop_counter_reason = "celery_scheduler"
         }
         stage.drop {
-          expression          = "^\\s*$"
-          drop_counter_reason = "empty_line"
+          expression          = "(?i)(celerybeat|beat):.*(Scheduler|Writing entries|waking up)"
+          drop_counter_reason = "celery_beat"
         }
-        stage.drop {
-          expression          = "(?i)(GET|POST).*/static/"
-          drop_counter_reason = "static_files"
-        }
+
+        // Kafka 내부 로그
         stage.drop {
           expression          = "(?i)Sent auto-creation request for Set\\(__consumer_offsets\\)"
           drop_counter_reason = "kafka_auto_creation"
         }
         stage.drop {
           expression          = "(?i)kafka\\.server\\.(DefaultAutoTopicCreationManager|ReplicaManager|GroupCoordinator)"
-          drop_counter_reason = "kafka_internal_operations"
+          drop_counter_reason = "kafka_internal"
         }
         stage.drop {
           expression          = "(?i)(Fetching metadata|Updated partition metadata|Successfully fetched metadata)"
-          drop_counter_reason = "kafka_metadata_routine"
+          drop_counter_reason = "kafka_metadata"
         }
         stage.drop {
           expression          = "(?i)(Group coordinator|Rebalance (started|completed)|Syncing group state)"
-          drop_counter_reason = "kafka_rebalance_routine"
+          drop_counter_reason = "kafka_rebalance"
         }
         stage.drop {
           expression          = "(?i)(Offset commit|Committing offsets|Successfully committed)"
-          drop_counter_reason = "kafka_offset_commit_routine"
+          drop_counter_reason = "kafka_offset"
         }
 
-        // --- 5.7 Rate Limiting (과도한 로그 발생 방지) ---
+        // Grafana 내부 로그
+        stage.drop {
+          expression          = "logger=context.*Request Completed.*status=200"
+          drop_counter_reason = "grafana_success_request"
+        }
+        stage.drop {
+          expression          = "logger=tsdb\\.loki.*Response (received|parsed)"
+          drop_counter_reason = "grafana_loki_query"
+        }
+
+        // 빈 줄/공백
+        stage.drop {
+          expression          = "^\\s*$"
+          drop_counter_reason = "empty_line"
+        }
+
+        // gRPC 반복 로그 (online-boutique)
+        stage.drop {
+          expression          = "(?i)GetCartAsync called with userId"
+          drop_counter_reason = "cart_service_routine"
+        }
+        stage.drop {
+          expression          = "(?i)(GetSupportedCurrencies|GetQuote|ShipOrder) (called|completed)"
+          drop_counter_reason = "boutique_routine_calls"
+        }
+
+        // --- 5.10 Rate Limiting (과도한 로그 발생 방지) ---
         stage.limit {
-          rate  = 1000
-          burst = 2000
+          rate  = 500     // 초당 500개로 감소 (기존 1000)
+          burst = 1000    // 버스트도 감소 (기존 2000)
         }
 
         forward_to = [loki.write.local.receiver]
