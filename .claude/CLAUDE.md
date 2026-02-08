@@ -79,19 +79,25 @@ dr-kube/
 
 **현실**: 팀원들이 회사 업무로 바빠서 참여가 어려움
 
-### 모니터링 스택 (구축 완료)
-| 도구 | 용도 | 상태 |
-|------|------|------|
-| Prometheus | 메트릭 수집 | ✅ |
-| Loki | 로그 수집 | ✅ |
-| Grafana | 대시보드/알람 | ✅ |
-| Alloy | 로그/메트릭 수집기 | ✅ |
-| Jaeger | 분산 추적 | ✅ |
-| ArgoCD | GitOps 배포 | ✅ |
-| Slack 알람 | 이슈 발생 알림 | ✅ |
-| metrics-server | 실시간 CPU/메모리 | ✅ |
-| Chaos Mesh | 장애 주입 테스트 | ✅ |
-| cert-manager | TLS 인증서 자동화 | ✅ |
+### 관측성 스택 (구축 완료)
+| 도구 | 용도 | 시그널 | 상태 |
+|------|------|--------|------|
+| Prometheus | 메트릭 수집 + Alert Rules | Metrics | ✅ |
+| Loki | 로그 집계 | Logs | ✅ |
+| Grafana | 통합 대시보드 + Drilldown | 전체 | ✅ |
+| Alloy | 로그/메트릭/프로파일 수집 에이전트 | 전체 | ✅ |
+| Tempo | 분산 트레이싱 + span metrics | Traces | ✅ |
+| Pyroscope | Continuous Profiling (CPU/Memory/eBPF) | Profiles | ✅ |
+| ArgoCD | GitOps 배포 | - | ✅ |
+| Slack 알람 | 이슈 발생 알림 | - | ✅ |
+| metrics-server | 실시간 CPU/메모리 | Metrics | ✅ |
+| Chaos Mesh | 장애 주입 테스트 | - | ✅ |
+| cert-manager | TLS 인증서 자동화 | - | ✅ |
+
+### Grafana Drilldown (4가지 시그널 연동)
+- **Traces → Logs**: trace ID 기반 (±2m 윈도우)
+- **Traces → Metrics**: span metrics → Prometheus (CPU/Memory ±5m)
+- **Traces → Profiles**: service_name 기반 Pyroscope 연동
 
 ## 환경 설정
 
@@ -203,35 +209,31 @@ make help                # 전체 명령어
 
 ## 워크플로우 상태
 
-### 분석 모드 (`make agent-run`)
+### 현재 구현 (리팩토링 예정 - #1194)
 ```
-load_issue → analyze → suggest
-```
-
-### PR 생성 모드 (`make agent-fix`)
-```
-load_issue → analyze → generate_fix → create_pr
+load_issue → analyze(LLM) → generate_fix(LLM) → create_pr → END
 ```
 
-### 프로토타입 목표
+### 리팩토링 후 목표 (#1194 AGENT-1)
 ```
-load_issue → analyze → generate_fix → create_pr → notify (5노드)
+load_issue → analyze_and_fix(LLM 1회) → validate → create_pr → END
+                                           ↓ 실패
+                                         retry (최대 3회)
 ```
 
 | 노드 | 역할 | 구현 상태 |
 |------|------|-----------|
 | load_issue | 알람에서 이슈 로드 | ✅ 완료 |
-| analyze | LLM 분석 | ✅ 완료 |
-| generate_fix | YAML 수정안 생성 | ⏳ 구현됨, target file 매핑 수정 필요 |
-| create_pr | GitHub PR 생성 | ⏳ 구현됨, 실테스트 필요 |
-| notify | 완료 알람 (원인, diff, PR링크) | ❌ 미구현 |
+| analyze_and_fix | LLM 1회 호출로 원인 분석 + YAML 수정안 생성 | ⏳ 리팩토링 필요 (#1194) |
+| validate | 생성된 YAML 문법 검증 + diff 확인 | ❌ 미구현 (#1194) |
+| create_pr | GitHub PR 생성 | ✅ 구현됨 |
 
-### 프로토타입 이후 (스킵)
-| 노드 | 역할 | 비고 |
-|------|------|------|
-| classify | 이슈 유형 분류 | 하드코딩으로 대체 |
-| verify | 복구 확인 | 사람이 수동 확인 |
-| [ArgoCD Sync] | GitOps 동기화 | 수동 sync |
+### 완료 알림
+- ~~notify 노드~~ → **ArgoCD Notifications**로 대체 (이벤트 기반, 폴링 불필요)
+- ArgoCD Sync 완료 시 자동으로 Slack 알림 전송
+
+### 추가 예정
+- **PR 댓글 피드백** (#1195): 리뷰어 댓글 → 에이전트가 수정안 재생성 (Human-in-the-Loop)
 
 ## 도메인 & 접속
 
@@ -242,15 +244,14 @@ make hosts-remove       # 도메인 제거
 make hosts-status       # 접속 주소 확인
 ```
 
-| 서비스 | 로컬 | 외부 |
-|--------|------|------|
-| Grafana | grafana.drkube.local | grafana-drkube.huik.site |
-| Prometheus | prometheus.drkube.local | prometheus-drkube.huik.site |
-| Alertmanager | alert.drkube.local | alert-drkube.huik.site |
-| ArgoCD | argocd.drkube.local | argocd-drkube.huik.site |
-| Boutique | boutique.drkube.local | boutique-drkube.huik.site |
-| Chaos Mesh | chaos.drkube.local | chaos-drkube.huik.site |
-| Jaeger | jaeger.drkube.local | jaeger-drkube.huik.site |
+| 서비스 | 로컬 |
+|--------|------|
+| Grafana | grafana.drkube.local |
+| Prometheus | prometheus.drkube.local |
+| Alertmanager | alert.drkube.local |
+| ArgoCD | argocd.drkube.local |
+| Boutique | boutique.drkube.local |
+| Chaos Mesh | chaos.drkube.local |
 
 ### TLS (HTTPS)
 ```bash
@@ -260,28 +261,40 @@ make tls-status         # 인증서 상태 확인
 
 ## 우선순위 (프로토타입)
 
+> 상세 현황: GitHub Issue #1187 참고
+
 ### P0 (필수)
-1. `generate_fix` - YAML 수정안 생성 (⏳ 구현됨, target file 매핑 수정 필요)
-2. `create_pr` - GitHub PR 자동 생성 (⏳ 구현됨, 테스트 필요)
-3. `notify` - 완료 알람 (❌ 미구현)
-4. ~~로컬 환경 스크립트 (Kind + ArgoCD)~~ ✅ 완료
+1. TASK-3 (#1164) - Converter 알림 타입 매핑 확장
+2. AGENT-1 (#1194) - LangGraph 워크플로우 구조 개선 (LLM 중복 호출 제거 + 검증 루프)
+3. MON-4 (#1172) - 서비스 레벨 알림 규칙 확장 + Alertmanager 라우팅/억제
+4. CHAOS (#1186) - 복합 카오스 시나리오 확장 (5개)
+5. MON-7 (#1175) - ArgoCD Notifications → Slack (완료 알림)
+
+### P0.5 (프로토타입 품질 향상)
+6. AGENT-2 (#1195) - PR 댓글 피드백으로 수정안 재생성 (Human-in-the-Loop)
+7. MON-12 (#1196) - Grafana 대시보드 확장 (Nginx Ingress + Service Health RED + 서비스 의존성 맵)
 
 ### P1 (프로토타입 이후)
-5. classify 노드
-6. verify 노드
-7. ArgoCD 자동 sync
+7. TASK-8 (#1168) - ArgoCD 이벤트 처리
 
 ### P2 (선택)
-8. ~~Chaos Mesh 테스트~~ ✅ 완료
-9. ~~Slack/Discord 알림~~ ✅ 완료 (Alertmanager → Slack)
-10. 대시보드 UI
+8. MON-8 (#1176) - ArgoCD Prometheus 메트릭
+
+### 최종 검증
+9. TASK-6 (#1167) - E2E 통합 테스트
+
+### 작업 순서
+```
+TASK-3 + AGENT-1 (동시) → MON-4 → MON-12 → CHAOS → AGENT-2 → MON-7 → TASK-8 → TASK-6
+```
 
 ## 코딩 규칙
 
 - Python 3.11+
 - LangGraph 기반 워크플로우
-- LLM: Ollama(로컬) 또는 Gemini 3.0 Flash
+- LLM: Gemini Flash (무료 티어) 또는 Ollama (로컬 fallback)
 - 한글 주석/문서 사용
+- **프롬프트에 kubectl 쓰기 명령 금지** (GitOps 원칙)
 
 ## AI 도구 사용 가이드
 
@@ -292,7 +305,9 @@ make tls-status         # 인증서 상태 확인
 AI 도구 사용 시 아래 내용을 항상 전달:
 1. **GitOps 원칙**: kubectl은 읽기 전용, 변경은 PR로만
 2. **핵심 경로**: `agent/dr_kube/` 가 메인 코드
-3. **프로토타입 범위**: `load_issue → analyze → generate_fix → create_pr → notify`
+3. **프로토타입 범위**: `load_issue → analyze_and_fix → validate → create_pr`
+4. **완료 알림**: ArgoCD Notifications가 담당 (에이전트 notify 노드 없음)
+5. **관측성**: Grafana Drilldown으로 Traces→Logs→Metrics→Profiles 연동
 
 ### 금지 사항
 - `kubectl apply`, `kubectl patch` 등 클러스터 직접 수정 코드 생성 금지
