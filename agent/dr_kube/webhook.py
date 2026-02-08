@@ -71,6 +71,23 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
     }
 
 
+@app.post("/webhook/argocd")
+async def argocd_webhook(request: Request, background_tasks: BackgroundTasks):
+    """ArgoCD Notifications webhook (sync-failed, health-degraded). Body = single issue_data JSON."""
+    body = await request.json()
+    issue_id = body.get("id") or "argocd-unknown"
+    logger.info(f"ArgoCD 이벤트 수신: {issue_id} (type={body.get('type', '')})")
+
+    if issue_id in _processed_alerts:
+        logger.info(f"중복 스킵: {issue_id}")
+        return {"status": "accepted", "queued": 0, "reason": "duplicate"}
+
+    _processed_alerts.add(issue_id)
+    with_pr = os.getenv("AUTO_PR", "false").lower() == "true"
+    background_tasks.add_task(process_issue, body, with_pr)
+    return {"status": "accepted", "queued": 1, "id": issue_id}
+
+
 def main():
     import uvicorn
 
