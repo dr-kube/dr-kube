@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dr-kube-agent
+  namespace: monitoring
+  labels:
+    app: dr-kube-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dr-kube-agent
+  template:
+    metadata:
+      labels:
+        app: dr-kube-agent
+    spec:
+      serviceAccountName: dr-kube-agent
+      containers:
+        - name: agent
+          image: ghcr.io/dr-kube/dr-kube-agent:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: LLM_PROVIDER
+              value: "gemini"
+            - name: GEMINI_MODEL
+              value: "gemini-2.5-flash"
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: gemini-api-key
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: github-token
+            - name: WEBHOOK_HOST
+              value: "0.0.0.0"
+            - name: WEBHOOK_PORT
+              value: "8080"
+            - name: AUTO_PR
+              value: "true"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dr-kube-agent
+  namespace: monitoring
+  labels:
+    app: dr-kube-agent
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: dr-kube-agent
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dr-kube-agent
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dr-kube-agent
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events", "nodes", "namespaces", "services", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dr-kube-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dr-kube-agent
+subjects:
+  - kind: ServiceAccount
+    name: dr-kube-agent
+    namespace: monitoring
