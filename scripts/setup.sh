@@ -97,13 +97,16 @@ create_cluster() {
         fi
     fi
 
-    # Kind 설정 파일 생성
+    # Kind 설정 파일 생성 (K8s 버전 고정: v1.35는 cgroup v1 제거로 WSL2에서 kubelet unhealthy 발생, v1.31 사용)
+    KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.31.0}"
+    log_info "Node image: ${KIND_NODE_IMAGE}"
     cat > /tmp/kind-config.yaml <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ${CLUSTER_NAME}
 nodes:
   - role: control-plane
+    image: ${KIND_NODE_IMAGE}
     extraPortMappings:
       # Ingress HTTP
       - containerPort: 80
@@ -122,7 +125,9 @@ nodes:
         hostPort: 30081
         protocol: TCP
   - role: worker
+    image: ${KIND_NODE_IMAGE}
   - role: worker
+    image: ${KIND_NODE_IMAGE}
 EOF
 
     kind create cluster --config /tmp/kind-config.yaml
