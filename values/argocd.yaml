@@ -83,10 +83,11 @@ server:
       cpu: 85m
       memory: 100Mi
 
+
 notifications:
   enabled: true
   cm:
-    create: false
+    create: true
   notifiers:
     "service.webhook.dr-kube": |
       url: "http://host.docker.internal:8080/webhook/argocd"
