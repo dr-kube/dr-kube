@@ -280,11 +280,16 @@ alloy:
           }
         }
 
-        // 프로파일링 annotation이 있는 pod만 스크랩
-        // pods에 profiles.grafana.com/cpu.scrape: "true" annotation 필요
         clustering {
           enabled = true
         }
+      }
+
+      // eBPF 프로파일링 - 모든 언어 앱 지원 (Go, Java, Python, Node.js 등)
+      pyroscope.ebpf "instance" {
+        forward_to = [pyroscope.write.default.receiver]
+
+        targets = discovery.relabel.pods.output
       }
 
   # Alloy 컨테이너에 들어갈 환경변수 (공식 values: alloy.extraEnv)
@@ -292,4 +297,10 @@ alloy:
   extraEnv:
     - name: LOKI_URL
       value: "http://loki:3100/loki/api/v1/push"
+
+  # eBPF 프로파일링을 위한 privileged 권한
+  securityContext:
+    privileged: true
+    runAsUser: 0
+
 # 참고: docs/ALLOY_CONFIG.md 참조
