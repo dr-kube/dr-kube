@@ -92,9 +92,28 @@ alertmanager:
     route:
       receiver: "slack-and-agent"
       group_by: ["alertname", "namespace", "pod"]
-      group_wait: 10s
-      group_interval: 30s
-      repeat_interval: 1h
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 2h
+      routes:
+        - matchers:
+            - severity="critical"
+          receiver: "slack-and-agent"
+          group_wait: 5s
+          group_interval: 2m
+          repeat_interval: 30m
+        - matchers:
+            - severity="warning"
+          receiver: "slack"
+          group_wait: 30s
+          group_interval: 10m
+          repeat_interval: 2h
+    inhibit_rules:
+      - source_matchers:
+          - severity="critical"
+        target_matchers:
+          - severity="warning"
+        equal: ["namespace", "pod"]
     receivers:
       # Slack + DR-Kube Agent 동시 발송
       - name: "slack-and-agent"
@@ -184,6 +203,12 @@ serverFiles:
           # 3) node 이름을 라벨로 붙이고 싶으면 (옵션)
           - source_labels: [__meta_kubernetes_pod_node_name]
             target_label: "node"
+
+      # NGINX Ingress Controller 메트릭 스크랩
+      - job_name: "nginx-ingress"
+        static_configs:
+          - targets:
+              - "ingress-nginx-controller-metrics.ingress-nginx.svc.cluster.local:10254"
 
       # 3. cAdvisor (kubelet) 통해 Pod/컨테이너 메트릭 스크랩
       - job_name: "cadvisor"
@@ -351,6 +376,102 @@ serverFiles:
               description: |
                 노드 {{ $labels.instance }} 의
                 CPU 사용률이 80%를 초과했습니다.
+
+      - name: service-level.rules
+        rules:
+          - alert: ServiceHighLatencyP99
+            expr: |
+              histogram_quantile(
+                0.99,
+                sum by (le, service) (rate(traces_spanmetrics_latency_bucket[5m]))
+              ) > 2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "서비스 지연 증가 (p99)"
+              description: |
+                서비스 {{ $labels.service }} 의 p99 지연이 2s를 초과했습니다.
+
+          - alert: ServiceHighErrorRate
+            expr: |
+              (
+                sum by (service) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR"}[5m]))
+                /
+                sum by (service) (rate(traces_spanmetrics_calls_total[5m]))
+              ) > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "서비스 에러율 증가"
+              description: |
+                서비스 {{ $labels.service }} 의 에러율이 5%를 초과했습니다.
+
+          - alert: ServiceDown
+            expr: |
+              sum by (service) (rate(traces_spanmetrics_calls_total[5m])) == 0
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "서비스 다운"
+              description: |
+                서비스 {{ $labels.service }} 에서 10분간 트래픽이 감지되지 않았습니다.
+
+          - alert: UpstreamConnectionError
+            expr: |
+              sum by (service, peer_service) (
+                rate(traces_spanmetrics_calls_total{span_kind="SPAN_KIND_CLIENT", status_code="STATUS_CODE_ERROR"}[5m])
+              ) > 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "업스트림 연결 실패"
+              description: |
+                {{ $labels.service }} -> {{ $labels.peer_service }} 업스트림 연결 에러가 감지되었습니다.
+
+      - name: nginx-ingress.rules
+        rules:
+          - alert: NginxHighLatency
+            expr: |
+              histogram_quantile(0.99, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket[5m]))) > 5
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "NGINX Ingress 지연 증가 (p99)"
+              description: |
+                NGINX Ingress 요청 p99 지연이 5s를 초과했습니다.
+
+          - alert: NginxHigh4xxRate
+            expr: |
+              sum(rate(nginx_ingress_controller_requests{status=~"4.."}[5m]))
+              /
+              sum(rate(nginx_ingress_controller_requests[5m]))
+              > 0.10
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "NGINX Ingress 4xx 증가"
+              description: |
+                NGINX Ingress 4xx 비율이 10%를 초과했습니다.
+
+          - alert: NginxHigh5xxRate
+            expr: |
+              sum(rate(nginx_ingress_controller_requests{status=~"5.."}[5m]))
+              /
+              sum(rate(nginx_ingress_controller_requests[5m]))
+              > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "NGINX Ingress 5xx 증가"
+              description: |
+                NGINX Ingress 5xx 비율이 5%를 초과했습니다.
 
   # alerting_rules.yml:
   #   groups:
