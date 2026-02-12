@@ -26,10 +26,10 @@ frontend:
   resources:
     requests:
       cpu: 50m
-      memory: 64Mi
+      memory: 128Mi # ← 수정됨: 64Mi → 128Mi
     limits:
       cpu: 100m
-      memory: 128Mi # ← 에이전트가 수정할 대상 (OOMKilled 유발)
+      memory: 256Mi # ← 수정됨: 128Mi → 256Mi (OOMKilled 유발)
   externalService: false
   service:
     type: ClusterIP
