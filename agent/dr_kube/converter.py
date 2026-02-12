@@ -3,15 +3,39 @@ import hashlib
 import re
 from pathlib import Path
 
-# alertname → issue type 매핑
+# alertname → issue type 매핑 (values/prometheus.yaml의 15개 alert rule 전부)
 ALERT_TYPE_MAP = {
+    # 컨테이너 리소스
     "ContainerOOMKilled": "oom",
-    "CPUThrottling": "cpu_throttle",
-    "PodCrashLooping": "pod_crash",
     "HighMemoryUsage": "oom",
+    "CPUThrottling": "cpu_throttle",
+    # 파드 상태
+    "PodCrashLooping": "pod_crash",
+    "PodNotReady": "pod_unhealthy",
+    "ContainerWaiting": "container_waiting",
+    # 디플로이먼트
+    "DeploymentReplicasMismatch": "replicas_mismatch",
+    # 노드
+    "NodeHighCPU": "node_resource",
+    # 서비스 레벨 (span metrics 기반)
+    "ServiceHighLatencyP99": "service_latency",
+    "ServiceHighErrorRate": "service_error",
+    "ServiceDown": "service_down",
+    "UpstreamConnectionError": "upstream_error",
+    # Nginx Ingress
+    "NginxHighLatency": "nginx_latency",
+    "NginxHigh4xxRate": "nginx_error",
+    "NginxHigh5xxRate": "nginx_error",
 }
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+# Online Boutique 서비스명 목록
+ONLINE_BOUTIQUE_SERVICES = {
+    "frontend", "cartservice", "productcatalogservice", "currencyservice",
+    "paymentservice", "shippingservice", "emailservice", "checkoutservice",
+    "recommendationservice", "adservice", "redis-cart", "loadgenerator",
+}
 
 
 def extract_resource_name(pod_name: str) -> str:
@@ -29,11 +53,24 @@ def extract_resource_name(pod_name: str) -> str:
     return result
 
 
-def derive_values_file(resource: str) -> str:
-    """리소스명으로 values 파일 경로 추론"""
+def derive_values_file(resource: str, namespace: str = "") -> str:
+    """리소스명과 네임스페이스로 values 파일 경로 추론
+
+    우선순위:
+    1. values/{resource}.yaml 파일이 직접 존재하는 경우
+    2. 리소스가 Online Boutique 서비스인 경우
+    3. 네임스페이스가 online-boutique인 경우
+    """
+    # 1. 직접 매칭
     candidate = f"values/{resource}.yaml"
     if (PROJECT_ROOT / candidate).exists():
         return candidate
+    # 2. Online Boutique 서비스 매칭
+    if resource in ONLINE_BOUTIQUE_SERVICES:
+        return "values/online-boutique.yaml"
+    # 3. 네임스페이스 기반 fallback
+    if namespace == "online-boutique":
+        return "values/online-boutique.yaml"
     return ""
 
 
@@ -43,23 +80,32 @@ def convert_alert_to_issue(alert: dict) -> dict:
     annotations = alert.get("annotations", {})
 
     alertname = labels.get("alertname", "Unknown")
-    pod = labels.get("pod", "unknown")
-    resource = extract_resource_name(pod)
     namespace = labels.get("namespace", "default")
 
+    # 리소스명 추출: pod → deployment → service 순 fallback
+    pod = labels.get("pod", "")
+    if pod:
+        resource = extract_resource_name(pod)
+    elif labels.get("deployment"):
+        resource = labels["deployment"]
+    elif labels.get("service"):
+        resource = labels["service"]
+    else:
+        resource = "unknown"
+
     alert_id = hashlib.md5(
-        f"{alertname}-{pod}-{alert.get('startsAt', '')}".encode()
+        f"{alertname}-{resource}-{namespace}-{alert.get('startsAt', '')}".encode()
     ).hexdigest()[:8]
 
     return {
         "id": f"alert-{alert_id}",
-        "type": ALERT_TYPE_MAP.get(alertname, "unknown"),
+        "type": ALERT_TYPE_MAP.get(alertname, alertname),
         "namespace": namespace,
         "resource": resource,
         "error_message": annotations.get("summary", alertname),
         "logs": [annotations.get("description", "")],
         "timestamp": alert.get("startsAt", ""),
-        "values_file": derive_values_file(resource),
+        "values_file": derive_values_file(resource, namespace),
     }
 
 

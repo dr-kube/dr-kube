@@ -1,14 +1,15 @@
 {
   "id": "issue-003",
-  "type": "resource_issue",
-  "namespace": "default",
-  "resource": "worker-job-5678",
+  "type": "cpu_throttle",
+  "namespace": "online-boutique",
+  "resource": "cartservice",
   "error_message": "CPU Throttling",
   "logs": [
     "2026-01-07T12:00:00Z CPU throttling detected",
-    "2026-01-07T12:00:00Z Container cpu usage: 1000m/500m (200%)",
+    "2026-01-07T12:00:00Z Container cpu usage: 200m/100m (200%)",
     "2026-01-07T11:59:55Z Request processing latency increased",
     "2026-01-07T11:59:50Z Warning: CPU limit exceeded"
   ],
-  "timestamp": "2026-01-07T12:00:00Z"
+  "timestamp": "2026-01-07T12:00:00Z",
+  "values_file": "values/online-boutique.yaml"
 }
