@@ -269,14 +269,14 @@ def create_pr(state: IssueState) -> IssueState:
             f.write(fix_content)
 
         # 3. 커밋 및 푸시
-        commit_message = f"fix({issue.get('type', 'unknown')}): {state.get('fix_description', '자동 수정')}"
+        commit_message = f"fix({issue.get('resource', 'unknown')}): {state.get('fix_description', '자동 수정')}"
         success, msg = gh.commit_and_push(target_file, commit_message, branch_name)
         if not success:
             gh.cleanup()
             return {"error": f"커밋/푸시 실패: {msg}", "status": "error"}
 
         # 4. PR 생성
-        pr_title = f"fix({issue.get('type', 'unknown')}): {state.get('fix_description', '자동 수정')}"
+        pr_title = f"fix({issue.get('resource', 'unknown')}): {state.get('fix_description', '자동 수정')}"
         pr_body = generate_pr_body(state)
         success, pr_url, pr_number = gh.create_pr(branch_name, pr_title, pr_body)
 

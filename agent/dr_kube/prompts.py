@@ -36,7 +36,7 @@ ANALYZE_AND_FIX_PROMPT = """당신은 Kubernetes 전문가이자 Helm values YAM
 [전체 수정된 values YAML 내용]
 ```
 
-변경 설명: [한 줄로 변경 내용 요약]
+변경 설명: [영어, 30자 이내, 예: "increase memory limit to 256Mi"]
 
 **주의**:
 - 기존 YAML 구조를 반드시 유지하면서 필요한 부분만 수정
@@ -111,7 +111,7 @@ GENERATE_FIX_PROMPT = """당신은 Kubernetes YAML 전문가입니다.
 # 전체 수정된 YAML 내용
 ```
 
-변경 설명: [한 줄로 변경 내용 요약]
+변경 설명: [50자 이내, 예: "frontend memory limit 128Mi → 256Mi"]
 
 **주의**:
 - 기존 YAML 구조를 유지하면서 필요한 부분만 수정
