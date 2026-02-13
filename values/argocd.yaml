@@ -90,7 +90,7 @@ notifications:
     create: true
   notifiers:
     "service.webhook.dr-kube": |
-      url: "http://host.docker.internal:8080/webhook/argocd"
+      url: "http://172.25.69.176:8080/webhook/argocd"
       headers:
         - name: Content-Type
           value: application/json
