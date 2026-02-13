@@ -185,6 +185,15 @@ agent-webhook-pr: ## 웹훅 서버 (자동 PR 생성 모드)
 	@echo ""
 	@cd $(AGENT_DIR) && AUTO_PR=true .venv/bin/python -m dr_kube.webhook
 
+agent-webhook-check: ## 웹훅 URL 도달 여부 확인 (로컬 + 클러스터)
+	@echo "1. 로컬 (이 기기에서 에이전트):"
+	@curl -sf http://localhost:8080/health >/dev/null && echo "   OK - 에이전트 수신 가능" || echo "   실패 - make agent-webhook 실행 후 다시 시도"
+	@echo ""
+	@echo "2. 클러스터 → host.docker.internal:8080 (ArgoCD가 쓰는 주소):"
+	@code=$$(kubectl run curl-webhook-check --rm -i --restart=Never --image=curlimages/curl -- curl -sf -o /dev/null -w "%{http_code}" http://host.docker.internal:8080/health 2>/dev/null | tr -d '\r\n'); \
+	if [ "$$code" = "200" ]; then echo "   OK (HTTP $$code) - 클러스터에서 웹훅 도달 가능"; else echo "   실패 (HTTP $${code:-none}) - WSL 사용 시 values/argocd.yaml url을 WSL IP로 변경 (agent/README.md 참고)"; fi
+	@echo ""
+
 agent-clean: ## 에이전트 가상환경 삭제
 	rm -rf $(AGENT_VENV)
 
