@@ -97,13 +97,16 @@ create_cluster() {
         fi
     fi
 
-    # Kind 설정 파일 생성
+    # Kind 설정 파일 생성 (K8s 버전 고정: v1.35는 cgroup v1 제거로 WSL2에서 kubelet unhealthy 발생, v1.31 사용)
+    KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.31.0}"
+    log_info "Node image: ${KIND_NODE_IMAGE}"
     cat > /tmp/kind-config.yaml <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ${CLUSTER_NAME}
 nodes:
   - role: control-plane
+    image: ${KIND_NODE_IMAGE}
     extraPortMappings:
       # Ingress HTTP
       - containerPort: 80
@@ -122,7 +125,9 @@ nodes:
         hostPort: 30081
         protocol: TCP
   - role: worker
+    image: ${KIND_NODE_IMAGE}
   - role: worker
+    image: ${KIND_NODE_IMAGE}
 EOF
 
     kind create cluster --config /tmp/kind-config.yaml
@@ -137,6 +142,13 @@ install_argocd() {
 
     # 네임스페이스 생성
     kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+
+    # ArgoCD가 이미 Application으로 셀프 관리 중이면 Helm 건너뛰기 (필드 매니저 충돌 방지)
+    if kubectl get application argocd -n argocd &>/dev/null; then
+        log_warn "ArgoCD Application이 이미 존재합니다. Helm upgrade를 건너뜁니다."
+        log_info "업그레이드는 Git 푸시 후 ArgoCD 동기화로 진행하세요."
+        return 0
+    fi
 
     # Helm repo 추가
     helm repo add argo https://argoproj.github.io/argo-helm

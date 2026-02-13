@@ -22,6 +22,8 @@ make agent-oom         # OOM 이슈 분석
 make agent-cpu         # CPU Throttle 분석
 make agent-run-all     # 모든 샘플 분석
 make agent-clean       # 가상환경 삭제
+make agent-webhook     # 웹훅 서버 (ArgoCD 알림 수신)
+make agent-webhook-check  # 웹훅 URL 도달 여부 확인 (로컬 + 클러스터)
 ```
 
 특정 이슈 파일 분석:

@@ -22,9 +22,18 @@ spec:
     server: https://kubernetes.default.svc
     namespace: argocd
 
+  # CRD applicationsets.argoproj.io metadata.annotations can exceed 262144 bytes; ignore to avoid sync failure
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      name: applicationsets.argoproj.io
+      jqPathExpressions:
+        - .metadata.annotations
+
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true
