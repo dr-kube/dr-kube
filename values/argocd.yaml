@@ -88,6 +88,14 @@ notifications:
   enabled: true
   cm:
     create: true
+  # All applications use dr-kube webhook (no need to annotate each Application)
+  subscriptions: |
+    - recipients:
+      - dr-kube
+      triggers:
+      - on-out-of-sync
+      - on-sync-failed
+      - on-health-degraded
   notifiers:
     "service.webhook.dr-kube": |
       url: "http://172.25.69.176:8080/webhook/argocd"
