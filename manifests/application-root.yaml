@@ -3,6 +3,7 @@ kind: Application
 metadata:
   annotations:
     argocd.argoproj.io/sync-options: PruneLast=true
+    notifications.argoproj.io/subscribe.on-out-of-sync.dr-kube: ""
     notifications.argoproj.io/subscribe.on-sync-failed.dr-kube: ""
     notifications.argoproj.io/subscribe.on-health-degraded.dr-kube: ""
   name: root
