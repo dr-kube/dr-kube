@@ -34,6 +34,12 @@ def process_issue(issue_data: dict, with_pr: bool = False):
             logger.info(f"처리 완료: {issue_data['id']} - status={result.get('status')}")
             if result.get("pr_url"):
                 logger.info(f"PR 생성됨: {result['pr_url']}")
+            # 분석 결과 요약 (LLM이 한 일을 로그로 남김)
+            if result.get("root_cause"):
+                logger.info(f"[분석] 근본 원인: {result['root_cause']}")
+            if result.get("suggestions"):
+                for i, s in enumerate(result["suggestions"][:5], 1):
+                    logger.info(f"[분석] 해결책 {i}: {s}")
     except (ConnectionRefusedError, OSError) as e:
         if getattr(e, "errno", None) == 111 or isinstance(e, ConnectionRefusedError):
             logger.error(
