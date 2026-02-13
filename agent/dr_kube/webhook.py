@@ -34,6 +34,14 @@ def process_issue(issue_data: dict, with_pr: bool = False):
             logger.info(f"처리 완료: {issue_data['id']} - status={result.get('status')}")
             if result.get("pr_url"):
                 logger.info(f"PR 생성됨: {result['pr_url']}")
+    except (ConnectionRefusedError, OSError) as e:
+        if getattr(e, "errno", None) == 111 or isinstance(e, ConnectionRefusedError):
+            logger.error(
+                f"처리 실패: {issue_data['id']} - Connection refused. "
+                "LLM 연결 실패 가능성: Ollama 미실행 시 GEMINI_API_KEY 설정, 또는 Ollama 실행 확인."
+            )
+        else:
+            logger.error(f"처리 실패: {issue_data['id']} - {e}")
     except Exception as e:
         logger.error(f"처리 중 예외: {issue_data['id']} - {e}")
 
