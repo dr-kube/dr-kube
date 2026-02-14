@@ -1,5 +1,48 @@
 # DR-Kube 변경 이력
 
+## 2026-02-14 - Chaos 확장, 알람 고도화, Agent 자동화
+
+### 🌪️ Chaos 시나리오 확장 (#1186)
+- 복합 카오스 5개 시나리오 추가:
+  - `chaos/boutique-redis-failure.yaml`
+  - `chaos/boutique-payment-delay.yaml`
+  - `chaos/boutique-traffic-spike.yaml`
+  - `chaos/boutique-dns-failure.yaml`
+  - `chaos/boutique-replica-shortage.yaml`
+- `Makefile`에 실행 타깃 추가 (`chaos-redis-failure`, `chaos-payment-delay`, `chaos-traffic-spike`, `chaos-dns-failure`, `chaos-replica-shortage`)
+- `README.md`에 복합 장애 실행/검증 체크리스트 반영
+
+### 🔔 알람 체계 개선 (운영 품질)
+- `values/prometheus.yaml` 알람 라우팅/임계치/지속시간(`for`) 전면 조정
+- 저트래픽/잡음 억제를 위한 조건 추가 (container 필터, 최소 트래픽 조건)
+- `critical / warning / info` 라우팅 분리 및 노이즈 감소
+
+### 🤖 Agent 자동 동작 복구/강화
+- `applications/dr-kube-agent.yaml` 활성화 (주석 해제)
+- `manifests/dr-kube-agent/deployment.yaml` 비용 보호 env 추가
+  - `COST_MODE`, `MAX_LLM_CALLS_PER_DAY`, `DEDUP_COOLDOWN_MINUTES`
+  - `HIGH_MAX_LLM_CALLS_PER_DAY`, `HIGH_DEDUP_COOLDOWN_MINUTES`
+- 웹훅 비용 보호 로직 추가:
+  - `agent/dr_kube/webhook.py` (일일 상한, fingerprint 쿨다운, 운영 모드/오버라이드)
+  - `agent/dr_kube/converter.py` (Alertmanager fingerprint 전달)
+  - `agent/.env.example` 운영 변수 추가
+
+### 🌐 Ingress 안정화
+- `values/nginx-ingress.yaml` 조정:
+  - `replicaCount: 1`
+  - `autoscaling` 비활성화
+  - `updateStrategy`를 hostPort 환경에 맞게 조정 (`maxSurge: 0`, `maxUnavailable: 1`)
+- 증상: `didn't have free ports` 스케줄링 에러 재발 방지
+
+### 📦 이미지 태그 정책 전환 (latest → semver)
+- `.github/workflows/agent-build.yaml`:
+  - `latest` 태그 제거
+  - `v*.*.*` 태그 기반 semver 이미지 빌드
+  - 태그 빌드 시 `manifests/dr-kube-agent/deployment.yaml` 이미지 태그 자동 승격 커밋
+- `manifests/dr-kube-agent/deployment.yaml` 기본 이미지 태그를 `v0.1.0`으로 변경
+
+---
+
 ## 2026-02-07 - 모니터링 고도화 및 인프라 확장
 
 ### 🌐 Ingress 통합 관리
