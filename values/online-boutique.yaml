@@ -142,7 +142,7 @@ emailservice:
 # ============================================
 checkoutservice:
   enabled: true
-  replicas: 1
+  replicas: 3
   resources:
     requests:
       cpu: 50m
