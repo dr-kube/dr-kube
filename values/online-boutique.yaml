@@ -91,7 +91,7 @@ currencyservice:
 # ============================================
 paymentservice:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
       cpu: 50m
@@ -142,7 +142,7 @@ emailservice:
 # ============================================
 checkoutservice:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
       cpu: 50m
@@ -193,7 +193,7 @@ adservice:
 # ============================================
 redis:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
       cpu: 50m
