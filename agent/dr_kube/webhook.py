@@ -1,6 +1,7 @@
 """Alertmanager 웹훅 수신 서버"""
 import os
 import logging
+import hashlib
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, BackgroundTasks, Request
 from dotenv import load_dotenv
@@ -161,6 +162,49 @@ def _is_recent_pr_group(group_key: str, cooldown_minutes: int) -> bool:
     return False
 
 
+def _build_composite_issue(issues: list[dict]) -> dict:
+    """여러 알림을 하나의 복합 인시던트 이슈로 합성."""
+    if len(issues) == 1:
+        return issues[0]
+
+    sorted_ids = sorted(i.get("id", "") for i in issues)
+    sorted_fps = sorted(i.get("fingerprint", "") for i in issues)
+    seed = "|".join(sorted_ids + sorted_fps)
+    cid = hashlib.md5(seed.encode()).hexdigest()[:10]
+
+    # resource 빈도 기반 대표값 선택
+    counter: dict[str, int] = {}
+    for issue in issues:
+        res = issue.get("resource", "unknown")
+        counter[res] = counter.get(res, 0) + 1
+    primary_resource = max(counter, key=counter.get) if counter else "online-boutique"
+
+    # 전체 컨텍스트를 logs에 합쳐서 LLM이 복합 장애를 보게 함
+    merged_logs: list[str] = []
+    for issue in issues:
+        merged_logs.append(
+            (
+                f"[{issue.get('type','unknown')}] "
+                f"ns={issue.get('namespace','default')} "
+                f"resource={issue.get('resource','unknown')} "
+                f"msg={issue.get('error_message','')}"
+            )
+        )
+        merged_logs.extend(issue.get("logs", []))
+
+    return {
+        "id": f"incident-{cid}",
+        "fingerprint": f"composite-{cid}",
+        "type": "composite_incident",
+        "namespace": issues[0].get("namespace", "online-boutique"),
+        "resource": primary_resource,
+        "error_message": f"복합 장애 감지: {len(issues)} alerts",
+        "logs": merged_logs,
+        "timestamp": issues[0].get("timestamp", ""),
+        "values_file": "values/online-boutique.yaml",
+    }
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -176,9 +220,13 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
     logger.info(f"알림 수신: {total}건, 처리 대상(firing): {len(issues)}건")
 
     with_pr = os.getenv("AUTO_PR", "false").lower() == "true"
+    composite_mode = os.getenv("COMPOSITE_INCIDENT_MODE", "true").lower() == "true"
     limits = _resolve_runtime_limits()
     max_issues_with_pr = _parse_int_env("MAX_ISSUES_PER_WEBHOOK_WITH_PR", 1)
     pr_group_cooldown_minutes = _parse_int_env("PR_GROUP_COOLDOWN_MINUTES", 180)
+
+    if with_pr and composite_mode and len(issues) > 1:
+        issues = [_build_composite_issue(issues)]
 
     queued = []
     skipped_duplicate = []

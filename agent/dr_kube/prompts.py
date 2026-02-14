@@ -47,6 +47,9 @@ ANALYZE_AND_FIX_PROMPT = """당신은 Kubernetes 전문가이자 Helm values YAM
 - 타입이 pod_crash/service_error/upstream_error/service_down 인 경우:
   - resources/limits/requests/memory/cpu 변경 금지
   - replicas, PodDisruptionBudget, timeout/retry/backoff/circuit-breaker 계열을 우선 사용
+- 타입이 composite_incident 인 경우:
+  - 복합 장애로 보고 최소 2개 이상의 독립 변경을 포함 (예: replicas + timeout)
+  - 단순 memory/cpu 상향만으로 끝내지 마세요
 """
 
 # =============================================================================

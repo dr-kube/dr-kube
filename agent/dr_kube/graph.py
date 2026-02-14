@@ -119,6 +119,22 @@ def _validate_remediation_policy(issue_type: str, changed_paths: list[str]) -> s
       - 정책 위반 메시지(str): 위반
       - 빈 문자열: 통과
     """
+    if issue_type == "composite_incident":
+        # 복합 인시던트는 최소 2개 이상의 독립 변경 필요
+        unique_roots = {p.split(".", 1)[0] for p in changed_paths if p}
+        if len(unique_roots) < 2 and len(changed_paths) < 2:
+            return "정책 위반: composite_incident 는 최소 2개 이상의 독립 변경이 필요합니다."
+
+        has_only_resource_tuning = True
+        for path in changed_paths:
+            tokens = _path_tokens(path)
+            if not (tokens & POLICY_DENY_TOKENS):
+                has_only_resource_tuning = False
+                break
+        if has_only_resource_tuning:
+            return "정책 위반: composite_incident 에서 리소스 튜닝 단독 변경은 금지됩니다."
+        return ""
+
     if issue_type not in POLICY_RESTRICTED_TYPES:
         return ""
 
