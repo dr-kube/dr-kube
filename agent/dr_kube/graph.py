@@ -40,6 +40,16 @@ POLICY_ALLOW_TOKENS = {
     "maxretries",
     "maxconnections",
 }
+RESOURCE_KEY_MAP = {
+    "redis-cart": "redis",
+}
+RELATED_SERVICES = {
+    "checkoutservice": ["paymentservice", "redis"],
+    "paymentservice": ["checkoutservice"],
+    "redis": ["checkoutservice"],
+    "redis-cart": ["checkoutservice"],
+    "frontend": ["checkoutservice", "productcatalogservice"],
+}
 
 
 # =============================================================================
@@ -82,6 +92,140 @@ def _parse_yaml_block(text: str) -> str:
     """YAML 코드 블록 추출"""
     match = re.search(r"```yaml\n(.*?)```", text, re.DOTALL)
     return match.group(1).strip() if match else ""
+
+
+def _normalize_resource_key(resource: str) -> str:
+    return RESOURCE_KEY_MAP.get(resource, resource)
+
+
+def _extract_alert_contexts_from_logs(logs: list[str]) -> list[dict]:
+    """composite 로그에서 alert context 파싱."""
+    out: list[dict] = []
+    for line in logs:
+        # 예: [pod_crash] ns=online-boutique resource=checkoutservice msg=...
+        m = re.search(
+            r"\[(?P<type>[^\]]+)\]\s+ns=(?P<ns>\S+)\s+resource=(?P<resource>\S+)\s+msg=(?P<msg>.*)",
+            line,
+        )
+        if not m:
+            continue
+        out.append(
+            {
+                "type": m.group("type").strip(),
+                "namespace": m.group("ns").strip(),
+                "resource": m.group("resource").strip(),
+                "msg": m.group("msg").strip(),
+            }
+        )
+    return out
+
+
+def _select_services_for_composite(issue: dict, values_data: dict) -> list[str]:
+    """composite 이슈에서 수정할 서비스 키 선정."""
+    logs = issue.get("logs", [])
+    contexts = _extract_alert_contexts_from_logs(logs)
+    selected: list[str] = []
+
+    for c in contexts:
+        key = _normalize_resource_key(c.get("resource", ""))
+        if key in values_data and key not in selected:
+            selected.append(key)
+
+    # 리소스가 적게 잡히면 대표 리소스 + 연관 서비스 추가
+    primary = _normalize_resource_key(issue.get("resource", ""))
+    if primary in values_data and primary not in selected:
+        selected.append(primary)
+
+    if selected:
+        for rel in RELATED_SERVICES.get(selected[0], []):
+            if rel in values_data and rel not in selected:
+                selected.append(rel)
+            if len(selected) >= 3:
+                break
+
+    # 최소 2개 보장 (복합 대응)
+    if len(selected) < 2:
+        for fallback in ["checkoutservice", "paymentservice", "redis", "frontend"]:
+            if fallback in values_data and fallback not in selected:
+                selected.append(fallback)
+            if len(selected) >= 2:
+                break
+
+    return selected[:3]
+
+
+def _apply_replica_bumps_text(original_yaml: str, targets: list[str]) -> tuple[str, list[str]]:
+    """원본 YAML 텍스트에서 target 서비스의 replicas만 최소 변경."""
+    lines = original_yaml.splitlines()
+    changed: list[str] = []
+    current_top_key = ""
+    target_set = set(targets)
+
+    for idx, line in enumerate(lines):
+        # top-level key 추적 (들여쓰기 없는 "key:")
+        if re.match(r"^[a-zA-Z0-9_-]+:\s*$", line):
+            current_top_key = line.rstrip(":").strip()
+            continue
+
+        if current_top_key not in target_set:
+            continue
+
+        m = re.match(r"^(\s{2}replicas:\s*)(\d+)(\s*(#.*)?)$", line)
+        if not m:
+            continue
+
+        cur = int(m.group(2))
+        new_val = min(max(cur + 1, 2), 4)
+        if new_val == cur:
+            continue
+        lines[idx] = f"{m.group(1)}{new_val}{m.group(3)}"
+        if current_top_key not in changed:
+            changed.append(current_top_key)
+
+    return "\n".join(lines), changed
+
+
+def _rule_based_fix(issue: dict, original_yaml: str) -> tuple[str, str, str] | None:
+    """정책 기반 수정안 생성.
+
+    Returns:
+      (fix_content, fix_description, root_cause) or None
+    """
+    issue_type = issue.get("type", "unknown")
+    if issue_type not in POLICY_RESTRICTED_TYPES | {"composite_incident"}:
+        return None
+
+    try:
+        values_data = yaml.safe_load(original_yaml)
+    except yaml.YAMLError:
+        values_data = {}
+    if not isinstance(values_data, dict):
+        values_data = {}
+
+    changed_targets: list[str] = []
+
+    if issue_type == "composite_incident":
+        targets = _select_services_for_composite(issue, values_data or {})
+    else:
+        resource = _normalize_resource_key(issue.get("resource", ""))
+        targets = [resource] if resource in (values_data or {}) else []
+        for rel in RELATED_SERVICES.get(resource, []):
+            if rel in (values_data or {}) and rel not in targets:
+                targets.append(rel)
+            if len(targets) >= 2:
+                break
+
+    fix_content, changed_targets = _apply_replica_bumps_text(original_yaml, targets)
+
+    # 실제 변경이 없다면 규칙 기반 실패로 간주
+    if not changed_targets:
+        return None
+    fix_description = f"scale replicas for {', '.join(changed_targets[:2])}"
+    root_cause = (
+        f"서비스 가용성 저하({issue_type})가 감지되어 "
+        f"핵심 경로 서비스({', '.join(changed_targets)}) 레플리카를 증설했습니다."
+    )
+    return fix_content, fix_description[:60], root_cause
 
 
 def _collect_changed_paths(original, modified, prefix: str = "") -> list[str]:
@@ -220,6 +364,23 @@ def analyze_and_fix(state: IssueState) -> IssueState:
     # target_file이 없으면 분석만 수행
     if not target_file or not original_yaml:
         return _analyze_only(state)
+
+    # PR 품질 안정화를 위해 crash/error/composite 계열은 규칙 기반 우선 처리
+    rule_result = _rule_based_fix(issue, original_yaml)
+    if rule_result is not None:
+        fix_content, fix_description, root_cause = rule_result
+        return {
+            "analysis": f"rule_based_fix applied for {issue.get('type', 'unknown')}",
+            "root_cause": root_cause,
+            "severity": "high",
+            "suggestions": [
+                "서비스 레플리카를 증설해 단일 장애점(SPOF)을 줄였습니다.",
+                "후속으로 timeout/retry 정책을 서비스 코드/차트에 반영하세요.",
+            ],
+            "fix_content": fix_content,
+            "fix_description": fix_description,
+            "status": "analyzed",
+        }
 
     prompt = ANALYZE_AND_FIX_PROMPT.format(
         type=issue.get("type", "unknown"),
