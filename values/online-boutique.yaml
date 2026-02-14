@@ -196,14 +196,11 @@ redis:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
-  service:
-    type: ClusterIP
-    port: 6379
+    limits:
+      cpu: 200m
+      memory: 256Mi
 
 # ============================================
 # LoadGenerator (비활성화 - 수동 테스트)
