@@ -107,8 +107,10 @@ alertmanager:
         - matchers:
             - severity="critical"
           receiver: "agent-critical"
-          group_wait: 1m
-          group_interval: 15m
+          # 복합 인시던트 수집을 위해 alertname/pod 단위 분리를 줄임
+          group_by: ["namespace", "severity"]
+          group_wait: 90s
+          group_interval: 10m
           repeat_interval: 6h
         - matchers:
             - severity="warning"
