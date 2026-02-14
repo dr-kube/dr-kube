@@ -24,6 +24,22 @@ from dr_kube.github import GitHubClient, generate_branch_name, generate_pr_body
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 MAX_RETRIES = 3
+POLICY_RESTRICTED_TYPES = {"pod_crash", "service_error", "upstream_error", "service_down"}
+POLICY_DENY_TOKENS = {"resources", "limits", "requests", "memory", "cpu"}
+POLICY_ALLOW_TOKENS = {
+    "replica",
+    "replicas",
+    "poddisruptionbudget",
+    "pdb",
+    "timeout",
+    "retry",
+    "retries",
+    "backoff",
+    "circuitbreaker",
+    "connectionpool",
+    "maxretries",
+    "maxconnections",
+}
 
 
 # =============================================================================
@@ -66,6 +82,70 @@ def _parse_yaml_block(text: str) -> str:
     """YAML 코드 블록 추출"""
     match = re.search(r"```yaml\n(.*?)```", text, re.DOTALL)
     return match.group(1).strip() if match else ""
+
+
+def _collect_changed_paths(original, modified, prefix: str = "") -> list[str]:
+    """두 YAML 객체 간 변경 경로를 수집."""
+    paths: list[str] = []
+
+    if isinstance(original, dict) and isinstance(modified, dict):
+        keys = set(original.keys()) | set(modified.keys())
+        for key in keys:
+            next_prefix = f"{prefix}.{key}" if prefix else str(key)
+            if key not in original or key not in modified:
+                paths.append(next_prefix)
+                continue
+            paths.extend(_collect_changed_paths(original[key], modified[key], next_prefix))
+        return paths
+
+    if isinstance(original, list) and isinstance(modified, list):
+        if original != modified:
+            paths.append(f"{prefix}[]")
+        return paths
+
+    if original != modified:
+        paths.append(prefix or "<root>")
+    return paths
+
+
+def _path_tokens(path: str) -> set[str]:
+    return {t for t in re.split(r"[^a-z0-9]+", path.lower()) if t}
+
+
+def _validate_remediation_policy(issue_type: str, changed_paths: list[str]) -> str:
+    """장애 타입별 허용/금지 변경 정책 검사.
+
+    반환값:
+      - 정책 위반 메시지(str): 위반
+      - 빈 문자열: 통과
+    """
+    if issue_type not in POLICY_RESTRICTED_TYPES:
+        return ""
+
+    # 금지: 리소스 상향(memory/cpu/limits/requests/resources)
+    for path in changed_paths:
+        tokens = _path_tokens(path)
+        if tokens & POLICY_DENY_TOKENS:
+            return (
+                f"정책 위반: issue_type={issue_type} 에서 리소스 튜닝 변경({path})은 금지됩니다. "
+                "replicas/PDB/timeout/retry/circuit-breaker 계열만 허용됩니다."
+            )
+
+    # 허용 계열 변경이 최소 1개는 있어야 함
+    has_allowed = False
+    for path in changed_paths:
+        tokens = _path_tokens(path)
+        if tokens & POLICY_ALLOW_TOKENS:
+            has_allowed = True
+            break
+
+    if not has_allowed:
+        return (
+            f"정책 위반: issue_type={issue_type} 는 replicas/PDB/timeout/retry/circuit-breaker "
+            "계열 변경을 포함해야 합니다."
+        )
+
+    return ""
 
 
 # =============================================================================
@@ -213,6 +293,10 @@ def validate(state: IssueState) -> IssueState:
     except yaml.YAMLError as e:
         return {"retry_count": retry_count + 1, "error": f"YAML 문법 오류: {str(e)}", "status": "validation_failed"}
 
+    issue = state.get("issue_data", {})
+    issue_type = issue.get("type", "unknown")
+    original_parsed = None
+
     # 2. 원본과 동일한지 확인
     try:
         original_parsed = yaml.safe_load(original_yaml)
@@ -224,6 +308,24 @@ def validate(state: IssueState) -> IssueState:
     # 3. dict 형식인지 확인
     if not isinstance(parsed, dict):
         return {"retry_count": retry_count + 1, "error": "YAML이 dict 형식이 아닙니다", "status": "validation_failed"}
+
+    # 4. 장애 타입별 수정 정책 검증
+    if issue_type in POLICY_RESTRICTED_TYPES:
+        if not isinstance(original_parsed, dict):
+            return {
+                "retry_count": retry_count + 1,
+                "error": f"정책 검증 실패: issue_type={issue_type} 는 원본 YAML 파싱이 필요합니다",
+                "status": "validation_failed",
+            }
+
+        changed_paths = _collect_changed_paths(original_parsed, parsed)
+        policy_error = _validate_remediation_policy(issue_type, changed_paths)
+        if policy_error:
+            return {
+                "retry_count": retry_count + 1,
+                "error": policy_error,
+                "status": "validation_failed",
+            }
 
     return {"status": "validated"}
 

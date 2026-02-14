@@ -44,6 +44,9 @@ ANALYZE_AND_FIX_PROMPT = """당신은 Kubernetes 전문가이자 Helm values YAM
 - {resource} 서비스의 설정만 수정 (다른 서비스는 그대로 유지)
 - kubectl 명령어를 포함하지 마세요 (GitOps 원칙: 변경은 Git을 통해서만)
 - YAML 블록에는 반드시 전체 파일 내용을 포함해주세요
+- 타입이 pod_crash/service_error/upstream_error/service_down 인 경우:
+  - resources/limits/requests/memory/cpu 변경 금지
+  - replicas, PodDisruptionBudget, timeout/retry/backoff/circuit-breaker 계열을 우선 사용
 """
 
 # =============================================================================
