@@ -90,7 +90,7 @@ alertmanager:
       resolve_timeout: 5m
       slack_api_url_file: /etc/alertmanager/secrets/slack-webhook/url
     route:
-      receiver: "slack-and-agent"
+      receiver: "slack"
       group_by: ["alertname", "namespace", "pod"]
       group_wait: 30s
       group_interval: 5m
@@ -98,10 +98,18 @@ alertmanager:
       routes:
         - matchers:
             - severity="critical"
-          receiver: "slack-and-agent"
+          receiver: "slack"
           group_wait: 5s
           group_interval: 2m
           repeat_interval: 30m
+          continue: true
+        # Agent 비용 제어: critical만 저빈도로 웹훅 전달
+        - matchers:
+            - severity="critical"
+          receiver: "agent-critical"
+          group_wait: 1m
+          group_interval: 15m
+          repeat_interval: 6h
         - matchers:
             - severity="warning"
           receiver: "slack"
@@ -121,17 +129,8 @@ alertmanager:
           - severity="warning"
         equal: ["namespace", "pod"]
     receivers:
-      # Slack + DR-Kube Agent 동시 발송
-      - name: "slack-and-agent"
-        slack_configs:
-          - channel: "#alert"
-            send_resolved: true
-            title: '{{ if eq .Status "firing" }}:fire: {{ .CommonLabels.alertname }}{{ else }}:white_check_mark: {{ .CommonLabels.alertname }} 해결{{ end }}'
-            text: >-
-              *{{ .CommonAnnotations.summary }}*
-              {{ .CommonAnnotations.description }}
-              *Namespace:* {{ .CommonLabels.namespace }}
-              *Pod:* {{ .CommonLabels.pod }}
+      # Agent 전용 receiver (LLM 비용 절약을 위해 critical만 사용)
+      - name: "agent-critical"
         webhook_configs:
           - url: "http://dr-kube-agent.monitoring.svc.cluster.local:8080/webhook/alertmanager"
             send_resolved: false  # firing만 분석

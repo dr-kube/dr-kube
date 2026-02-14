@@ -1,6 +1,7 @@
 """Alertmanager 웹훅 수신 서버"""
 import os
 import logging
+from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, BackgroundTasks, Request
 from dotenv import load_dotenv
 
@@ -15,8 +16,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("dr-kube-webhook")
 
-# 중복 방지용 세트
-_processed_alerts: set[str] = set()
+# LLM 비용 보호 설정
+DEFAULT_MAX_LLM_CALLS_PER_DAY = int(os.getenv("MAX_LLM_CALLS_PER_DAY", "20"))
+DEFAULT_DEDUP_COOLDOWN_MINUTES = int(os.getenv("DEDUP_COOLDOWN_MINUTES", "60"))
+
+# 간단한 프로세스 메모리 캐시
+_daily_usage = {"date": datetime.now(timezone.utc).date().isoformat(), "count": 0}
+_processed_fingerprints: dict[str, datetime] = {}
 
 app = FastAPI(title="DR-Kube Webhook Server")
 
@@ -38,6 +44,100 @@ def process_issue(issue_data: dict, with_pr: bool = False):
         logger.error(f"처리 중 예외: {issue_data['id']} - {e}")
 
 
+def _reset_daily_usage_if_needed() -> None:
+    today = datetime.now(timezone.utc).date().isoformat()
+    if _daily_usage["date"] != today:
+        _daily_usage["date"] = today
+        _daily_usage["count"] = 0
+
+
+def _parse_int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _parse_utc_datetime(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def _resolve_runtime_limits() -> dict:
+    """환경변수 기반 런타임 비용 정책 계산.
+
+    - COST_MODE: normal | high | unlimited
+    - OVERRIDE_UNTIL_UTC: 이 시각까지 OVERRIDE_COST_MODE 강제 적용
+    - MAX_LLM_CALLS_PER_DAY=0: 무제한
+    """
+    now = datetime.now(timezone.utc)
+    mode = os.getenv("COST_MODE", "normal").strip().lower()
+    if mode not in {"normal", "high", "unlimited"}:
+        mode = "normal"
+
+    override_until = _parse_utc_datetime(os.getenv("OVERRIDE_UNTIL_UTC", ""))
+    override_active = bool(override_until and now < override_until)
+    if override_active:
+        override_mode = os.getenv("OVERRIDE_COST_MODE", "high").strip().lower()
+        if override_mode in {"normal", "high", "unlimited"}:
+            mode = override_mode
+
+    normal_max = _parse_int_env("MAX_LLM_CALLS_PER_DAY", DEFAULT_MAX_LLM_CALLS_PER_DAY)
+    normal_dedup = _parse_int_env("DEDUP_COOLDOWN_MINUTES", DEFAULT_DEDUP_COOLDOWN_MINUTES)
+    high_max = _parse_int_env("HIGH_MAX_LLM_CALLS_PER_DAY", 200)
+    high_dedup = _parse_int_env("HIGH_DEDUP_COOLDOWN_MINUTES", 10)
+
+    if mode == "unlimited":
+        max_calls = 0
+        dedup_minutes = 1
+    elif mode == "high":
+        max_calls = high_max
+        dedup_minutes = high_dedup
+    else:
+        max_calls = normal_max
+        dedup_minutes = normal_dedup
+
+    return {
+        "mode": mode,
+        "max_calls_per_day": max_calls,
+        "dedup_cooldown_minutes": dedup_minutes,
+        "override_active": override_active,
+        "override_until_utc": override_until.isoformat() if override_until else "",
+    }
+
+
+def _is_over_daily_limit(max_calls_per_day: int) -> bool:
+    _reset_daily_usage_if_needed()
+    if max_calls_per_day == 0:
+        return False
+    return _daily_usage["count"] >= max_calls_per_day
+
+
+def _consume_daily_budget() -> None:
+    _reset_daily_usage_if_needed()
+    _daily_usage["count"] += 1
+
+
+def _is_duplicate_within_cooldown(fingerprint: str, cooldown_minutes: int) -> bool:
+    if not fingerprint:
+        return False
+    if cooldown_minutes <= 0:
+        return False
+    now = datetime.now(timezone.utc)
+    last_seen = _processed_fingerprints.get(fingerprint)
+    if last_seen and (now - last_seen) < timedelta(minutes=cooldown_minutes):
+        return True
+    _processed_fingerprints[fingerprint] = now
+    return False
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -53,21 +153,50 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
     logger.info(f"알림 수신: {total}건, 처리 대상(firing): {len(issues)}건")
 
     with_pr = os.getenv("AUTO_PR", "false").lower() == "true"
+    limits = _resolve_runtime_limits()
 
     queued = []
+    skipped_duplicate = []
+    skipped_budget = []
     for issue in issues:
         alert_id = issue["id"]
-        if alert_id in _processed_alerts:
-            logger.info(f"중복 스킵: {alert_id}")
+        fingerprint = issue.get("fingerprint", "")
+
+        if _is_duplicate_within_cooldown(
+            fingerprint, limits["dedup_cooldown_minutes"]
+        ):
+            logger.info(f"중복 스킵(쿨다운): {alert_id} fp={fingerprint}")
+            skipped_duplicate.append(alert_id)
             continue
-        _processed_alerts.add(alert_id)
+
+        if _is_over_daily_limit(limits["max_calls_per_day"]):
+            logger.warning(
+                "일일 예산 초과 스킵: %s (count=%s, limit=%s)",
+                alert_id,
+                _daily_usage["count"],
+                limits["max_calls_per_day"],
+            )
+            skipped_budget.append(alert_id)
+            continue
+
+        _consume_daily_budget()
         background_tasks.add_task(process_issue, issue, with_pr)
         queued.append(alert_id)
 
     return {
         "status": "accepted",
+        "daily_usage": {
+            "date_utc": _daily_usage["date"],
+            "count": _daily_usage["count"],
+            "limit": limits["max_calls_per_day"],
+        },
+        "cost_mode": limits["mode"],
+        "override_active": limits["override_active"],
+        "override_until_utc": limits["override_until_utc"],
         "queued": len(queued),
         "alert_ids": queued,
+        "skipped_duplicate": skipped_duplicate,
+        "skipped_budget": skipped_budget,
     }
 
 
@@ -76,9 +205,17 @@ def main():
 
     host = os.getenv("WEBHOOK_HOST", "0.0.0.0")
     port = int(os.getenv("WEBHOOK_PORT", "8080"))
+    limits = _resolve_runtime_limits()
 
     logger.info(f"DR-Kube 웹훅 서버 시작: http://{host}:{port}")
     logger.info(f"AUTO_PR={os.getenv('AUTO_PR', 'false')}")
+    logger.info(
+        "COST_MODE=%s max_calls_per_day=%s dedup_cooldown_minutes=%s override_active=%s",
+        limits["mode"],
+        limits["max_calls_per_day"],
+        limits["dedup_cooldown_minutes"],
+        limits["override_active"],
+    )
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 

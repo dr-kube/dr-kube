@@ -99,6 +99,7 @@ def convert_alert_to_issue(alert: dict) -> dict:
 
     return {
         "id": f"alert-{alert_id}",
+        "fingerprint": alert.get("fingerprint", ""),
         "type": ALERT_TYPE_MAP.get(alertname, alertname),
         "namespace": namespace,
         "resource": resource,

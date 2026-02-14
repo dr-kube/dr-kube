@@ -16,8 +16,6 @@ spec:
         app: dr-kube-agent
     spec:
       serviceAccountName: dr-kube-agent
-      imagePullSecrets:
-        - name: ghcr-pull-secret
       containers:
         - name: agent
           image: ghcr.io/dr-kube/dr-kube-agent:latest
@@ -52,6 +50,16 @@ spec:
               value: "8080"
             - name: AUTO_PR
               value: "true"
+            - name: COST_MODE
+              value: "normal"
+            - name: MAX_LLM_CALLS_PER_DAY
+              value: "20"
+            - name: DEDUP_COOLDOWN_MINUTES
+              value: "60"
+            - name: HIGH_MAX_LLM_CALLS_PER_DAY
+              value: "200"
+            - name: HIGH_DEDUP_COOLDOWN_MINUTES
+              value: "10"
           resources:
             requests:
               cpu: 100m
