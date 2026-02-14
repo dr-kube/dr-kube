@@ -76,6 +76,10 @@ spec:
               value: "20"
             - name: DEDUP_COOLDOWN_MINUTES
               value: "60"
+            - name: PR_GROUP_COOLDOWN_MINUTES
+              value: "180"
+            - name: MAX_ISSUES_PER_WEBHOOK_WITH_PR
+              value: "1"
             - name: HIGH_MAX_LLM_CALLS_PER_DAY
               value: "200"
             - name: HIGH_DEDUP_COOLDOWN_MINUTES

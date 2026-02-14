@@ -23,6 +23,7 @@ DEFAULT_DEDUP_COOLDOWN_MINUTES = int(os.getenv("DEDUP_COOLDOWN_MINUTES", "60"))
 # 간단한 프로세스 메모리 캐시
 _daily_usage = {"date": datetime.now(timezone.utc).date().isoformat(), "count": 0}
 _processed_fingerprints: dict[str, datetime] = {}
+_recent_pr_groups: dict[str, datetime] = {}
 
 app = FastAPI(title="DR-Kube Webhook Server")
 
@@ -138,6 +139,28 @@ def _is_duplicate_within_cooldown(fingerprint: str, cooldown_minutes: int) -> bo
     return False
 
 
+def _issue_group_key(issue: dict) -> str:
+    """PR 중복 제어용 그룹 키."""
+    target_file = issue.get("values_file", "")
+    if target_file:
+        return f"file:{target_file}"
+    return (
+        f"resource:{issue.get('namespace', 'default')}:"
+        f"{issue.get('resource', 'unknown')}:{issue.get('type', 'unknown')}"
+    )
+
+
+def _is_recent_pr_group(group_key: str, cooldown_minutes: int) -> bool:
+    if cooldown_minutes <= 0:
+        return False
+    now = datetime.now(timezone.utc)
+    last_seen = _recent_pr_groups.get(group_key)
+    if last_seen and (now - last_seen) < timedelta(minutes=cooldown_minutes):
+        return True
+    _recent_pr_groups[group_key] = now
+    return False
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -154,10 +177,15 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
 
     with_pr = os.getenv("AUTO_PR", "false").lower() == "true"
     limits = _resolve_runtime_limits()
+    max_issues_with_pr = _parse_int_env("MAX_ISSUES_PER_WEBHOOK_WITH_PR", 1)
+    pr_group_cooldown_minutes = _parse_int_env("PR_GROUP_COOLDOWN_MINUTES", 180)
 
     queued = []
     skipped_duplicate = []
     skipped_budget = []
+    skipped_group_cooldown = []
+    skipped_batch_limit = []
+    queued_count = 0
     for issue in issues:
         alert_id = issue["id"]
         fingerprint = issue.get("fingerprint", "")
@@ -179,9 +207,33 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
             skipped_budget.append(alert_id)
             continue
 
+        if with_pr:
+            group_key = _issue_group_key(issue)
+            if _is_recent_pr_group(group_key, pr_group_cooldown_minutes):
+                logger.info(
+                    "그룹 쿨다운 스킵: %s group=%s cooldown=%sm",
+                    alert_id,
+                    group_key,
+                    pr_group_cooldown_minutes,
+                )
+                skipped_group_cooldown.append(alert_id)
+                continue
+
+            # PR 모드에서는 한 번의 Alertmanager 요청당 최대 N건만 처리
+            if max_issues_with_pr > 0 and queued_count >= max_issues_with_pr:
+                logger.info(
+                    "배치 상한 스킵: %s queued=%s limit=%s",
+                    alert_id,
+                    queued_count,
+                    max_issues_with_pr,
+                )
+                skipped_batch_limit.append(alert_id)
+                continue
+
         _consume_daily_budget()
         background_tasks.add_task(process_issue, issue, with_pr)
         queued.append(alert_id)
+        queued_count += 1
 
     return {
         "status": "accepted",
@@ -197,6 +249,8 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
         "alert_ids": queued,
         "skipped_duplicate": skipped_duplicate,
         "skipped_budget": skipped_budget,
+        "skipped_group_cooldown": skipped_group_cooldown,
+        "skipped_batch_limit": skipped_batch_limit,
     }
 
 
