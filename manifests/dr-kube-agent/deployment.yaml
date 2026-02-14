@@ -16,14 +16,34 @@ spec:
         app: dr-kube-agent
     spec:
       serviceAccountName: dr-kube-agent
+      volumes:
+        - name: workspace
+          emptyDir: {}
       containers:
         - name: agent
           image: ghcr.io/dr-kube/dr-kube-agent:latest
           imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              REPO_DIR=/workspace/dr-kube
+              REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/dr-kube/dr-kube.git"
+              rm -rf "${REPO_DIR}"
+              git clone --depth 1 "${REPO_URL}" "${REPO_DIR}"
+              git -C "${REPO_DIR}" config user.name "dr-kube-agent[bot]"
+              git -C "${REPO_DIR}" config user.email "dr-kube-agent@users.noreply.github.com"
+              cd "${REPO_DIR}/agent"
+              python -m dr_kube.webhook
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
           env:
             - name: LLM_PROVIDER
               value: "gemini"
