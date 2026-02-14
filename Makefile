@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-cpu chaos-pod-kill chaos-network chaos-redis-failure chaos-payment-delay chaos-traffic-spike chaos-dns-failure chaos-replica-shortage chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -22,7 +22,7 @@ help: ## 도움말 표시
 	@grep -E '^(port-forward-boutique|boutique-open).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [Chaos 실험]"
-	@grep -E '^(chaos-memory|chaos-cpu|chaos-pod-kill|chaos-network|chaos-redis-failure|chaos-payment-delay|chaos-traffic-spike|chaos-dns-failure|chaos-replica-shortage|chaos-stop|chaos-status).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(chaos-track-checkout-cascade|chaos-track-catalog-break|chaos-track-platform-brownout|chaos-stop|chaos-status).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-32s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [원격 접속]"
 	@grep -E '^ssh-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -206,59 +206,29 @@ agent-image: ## Image Pull 이슈 분석
 # Chaos Mesh 실험 (Online Boutique)
 # =============================================================================
 
-chaos-memory: ## Frontend OOM 실험
-	@echo "🔥 Frontend OOM 실험 시작..."
-	@kubectl apply -f chaos/boutique-memory-stress.yaml
-	@echo "✓ 3분 동안 실행 (OOMKilled 유발)"
+chaos-track-checkout-cascade: ## checkout 경로 복합 장애 (redis/payment/checkout)
+	@echo "🔥 복합 트랙: checkout-cascade 시작..."
+	@kubectl apply -f chaos/track-checkout-cascade.yaml
+	@echo "✓ 적용 완료 (권장 관측 6분)"
 
-chaos-cpu: ## CartService CPU 스트레스 실험
-	@echo "🔥 CartService CPU 스트레스 실험 시작..."
-	@kubectl apply -f chaos/boutique-cpu-stress.yaml
-	@echo "✓ 3분 동안 실행"
+chaos-track-catalog-break: ## catalog 장애 + frontend/cart 과부하 복합 실험
+	@echo "🔥 복합 트랙: catalog-break 시작..."
+	@kubectl apply -f chaos/track-catalog-break.yaml
+	@echo "✓ 적용 완료 (권장 관측 5분)"
 
-chaos-pod-kill: ## CheckoutService Pod 강제 종료 실험
-	@echo "🔥 CheckoutService Pod 강제 종료 실험 시작..."
-	@kubectl apply -f chaos/boutique-pod-kill.yaml
-	@echo "✓ 1분 동안 실행"
-
-chaos-network: ## ProductCatalog 네트워크 지연 실험
-	@echo "🔥 ProductCatalog 네트워크 지연 실험 시작..."
-	@kubectl apply -f chaos/boutique-network-delay.yaml
-	@echo "✓ 3분 동안 실행 (500ms 지연)"
-
-chaos-redis-failure: ## Redis 장애 -> 연쇄 실패 실험
-	@echo "🔥 Redis 장애(지연) 실험 시작..."
-	@kubectl apply -f chaos/boutique-redis-failure.yaml
-	@echo "✓ 3분 동안 실행"
-
-chaos-payment-delay: ## Payment 지연 -> timeout 전파 실험
-	@echo "🔥 PaymentService 2000ms 지연 실험 시작..."
-	@kubectl apply -f chaos/boutique-payment-delay.yaml
-	@echo "✓ 3분 동안 실행"
-
-chaos-traffic-spike: ## 다중 서비스 동시 CPU+Memory 스트레스
-	@echo "🔥 트래픽 급증(다중 서비스 리소스 고갈) 실험 시작..."
-	@kubectl apply -f chaos/boutique-traffic-spike.yaml
-	@echo "✓ 3분 동안 실행"
-
-chaos-dns-failure: ## ProductCatalog DNS 장애 실험
-	@echo "🔥 ProductCatalog DNS 장애 실험 시작..."
-	@kubectl apply -f chaos/boutique-dns-failure.yaml
-	@echo "✓ 3분 동안 실행"
-
-chaos-replica-shortage: ## Checkout 반복 pod-kill 실험
-	@echo "🔥 CheckoutService 반복 pod-kill 실험 시작..."
-	@kubectl apply -f chaos/boutique-replica-shortage.yaml
-	@echo "✓ 5분 동안 실행 (30초 간격)"
+chaos-track-platform-brownout: ## 플랫폼 전반 성능 저하 복합 실험
+	@echo "🔥 복합 트랙: platform-brownout 시작..."
+	@kubectl apply -f chaos/track-platform-brownout.yaml
+	@echo "✓ 적용 완료 (권장 관측 7분)"
 
 chaos-stop: ## 모든 Chaos 실험 중지
 	@echo "⏹️  모든 Chaos 실험 중지..."
-	@kubectl delete -n chaos-mesh stresschaos,podchaos,networkchaos,dnschaos --all 2>/dev/null || true
+	@kubectl delete -n chaos-mesh stresschaos,podchaos,networkchaos,dnschaos,schedules --all 2>/dev/null || true
 	@echo "✓ 완료"
 
 chaos-status: ## Chaos 실험 상태 확인
 	@echo "📊 Chaos 실험 상태:"
-	@kubectl get stresschaos,podchaos,networkchaos,dnschaos -n chaos-mesh -o wide || echo "실험 없음"
+	@kubectl get stresschaos,podchaos,networkchaos,dnschaos,schedules -n chaos-mesh -o wide || echo "실험 없음"
 	@echo ""
 	@echo "📊 영향받는 Pod 상태:"
 	@kubectl get pods -n online-boutique -l "app in (frontend,cartservice,checkoutservice,productcatalogservice,paymentservice,redis-cart)" -o wide

@@ -231,33 +231,21 @@ Traces ──(trace ID)──→ Logs
 
 Online Boutique(10 마이크로서비스)에 Chaos Mesh로 장애를 주입하여 에이전트를 테스트합니다.
 
-### 단일 장애
+### 실전형 복합 장애 트랙 (3개)
 ```bash
-make chaos-memory    # Frontend OOM 실험
-make chaos-cpu       # CartService CPU 스트레스
-make chaos-pod-kill  # CheckoutService Pod 강제 종료
-make chaos-network   # ProductCatalog 네트워크 지연
+make chaos-track-checkout-cascade   # redis/payment/checkout 연쇄 장애
+make chaos-track-catalog-break      # catalog DNS 실패 + edge 과부하
+make chaos-track-platform-brownout  # 플랫폼 전반 brownout
 
 make chaos-status    # 실험 상태 확인
 make chaos-stop      # 모든 실험 중지
 ```
 
-### 복합 장애 (5개)
-```bash
-make chaos-redis-failure    # Redis 장애 -> 연쇄 실패
-make chaos-payment-delay    # Payment 2000ms 지연 -> timeout 전파
-make chaos-traffic-spike    # 다중 서비스 동시 CPU+Memory 스트레스
-make chaos-dns-failure      # ProductCatalog DNS 장애
-make chaos-replica-shortage # Checkout 반복 pod-kill (다운타임)
-```
-
 | 시나리오 | 내용 | 관측 포인트 |
 |----------|------|-------------|
-| Redis 연쇄 실패 | Redis 장애 → cart → checkout → frontend 전파 | Tempo 에러 체인, Loki 로그 |
-| 결제 지연 전파 | payment 2초 지연 → checkout/frontend 타임아웃 | Tempo latency 체인, span metrics |
-| 트래픽 급증 | 다중 서비스 동시 CPU+Memory 스트레스 | 알림 폭풍, NodeHighCPU |
-| DNS 장애 | productcatalog DNS 실패 → frontend 부분 장애 | Loki DNS 에러, PodNotReady |
-| 단일 Pod 반복 종료 | replicas=1에서 반복 kill → 다운타임 | DeploymentReplicasMismatch |
+| checkout-cascade | redis 지연 + payment 지연 + checkout pod-failure 동시 주입 | ServiceHighErrorRate, NginxHigh5xxRate, PodNotReady |
+| catalog-break | productcatalog DNS 오류 + frontend/cart 리소스 압박 | UpstreamConnectionError, ServiceDown, latency 상승 |
+| platform-brownout | 다중 서비스 stress + payment/redis 지연 | 경고/치명 알림 동시 발화, 응답시간 급증 |
 
 ### 복합 장애 검증 체크리스트 (#1186)
 각 시나리오마다 아래 순서로 검증합니다.
@@ -341,15 +329,9 @@ make agent-oom         # OOM 이슈 분석
 make agent-webhook     # 웹훅 서버
 
 # Chaos 실험
-make chaos-memory      # OOM 실험
-make chaos-cpu         # CPU 스트레스
-make chaos-pod-kill    # Pod 강제 종료
-make chaos-network     # 네트워크 지연
-make chaos-redis-failure    # Redis 장애 -> 연쇄 실패
-make chaos-payment-delay    # Payment 지연 -> timeout 전파
-make chaos-traffic-spike    # 다중 서비스 동시 CPU+Memory 스트레스
-make chaos-dns-failure      # DNS 장애
-make chaos-replica-shortage # 반복 pod-kill
+make chaos-track-checkout-cascade   # checkout 경로 연쇄 장애
+make chaos-track-catalog-break      # catalog DNS + edge 과부하
+make chaos-track-platform-brownout  # 플랫폼 brownout
 make chaos-stop        # 실험 중지
 ```
 
