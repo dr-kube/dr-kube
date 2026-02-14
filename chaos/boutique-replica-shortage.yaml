@@ -1,18 +1,20 @@
 # Chaos Mesh 실험: 단일 Pod 반복 종료 -> 서비스 다운타임
-# 방법: checkoutservice에 PodChaos(pod-kill) 반복 적용
+# 방법: Schedule + PodChaos로 30초 간격 반복 pod-kill
 apiVersion: chaos-mesh.org/v1alpha1
-kind: PodChaos
+kind: Schedule
 metadata:
   name: boutique-replica-shortage
   namespace: chaos-mesh
 spec:
-  action: pod-kill
-  mode: one
-  duration: 5m
-  scheduler:
-    cron: "@every 30s"
-  selector:
-    namespaces:
-      - online-boutique
-    labelSelectors:
-      app: checkoutservice
+  schedule: "@every 30s"
+  type: PodChaos
+  historyLimit: 2
+  concurrencyPolicy: Allow
+  podChaos:
+    action: pod-kill
+    mode: one
+    selector:
+      namespaces:
+        - online-boutique
+      labelSelectors:
+        app: checkoutservice
