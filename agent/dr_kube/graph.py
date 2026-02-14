@@ -98,62 +98,6 @@ def _normalize_resource_key(resource: str) -> str:
     return RESOURCE_KEY_MAP.get(resource, resource)
 
 
-def _extract_alert_contexts_from_logs(logs: list[str]) -> list[dict]:
-    """composite 로그에서 alert context 파싱."""
-    out: list[dict] = []
-    for line in logs:
-        # 예: [pod_crash] ns=online-boutique resource=checkoutservice msg=...
-        m = re.search(
-            r"\[(?P<type>[^\]]+)\]\s+ns=(?P<ns>\S+)\s+resource=(?P<resource>\S+)\s+msg=(?P<msg>.*)",
-            line,
-        )
-        if not m:
-            continue
-        out.append(
-            {
-                "type": m.group("type").strip(),
-                "namespace": m.group("ns").strip(),
-                "resource": m.group("resource").strip(),
-                "msg": m.group("msg").strip(),
-            }
-        )
-    return out
-
-
-def _select_services_for_composite(issue: dict, values_data: dict) -> list[str]:
-    """composite 이슈에서 수정할 서비스 키 선정."""
-    logs = issue.get("logs", [])
-    contexts = _extract_alert_contexts_from_logs(logs)
-    selected: list[str] = []
-
-    for c in contexts:
-        key = _normalize_resource_key(c.get("resource", ""))
-        if key in values_data and key not in selected:
-            selected.append(key)
-
-    # 리소스가 적게 잡히면 대표 리소스 + 연관 서비스 추가
-    primary = _normalize_resource_key(issue.get("resource", ""))
-    if primary in values_data and primary not in selected:
-        selected.append(primary)
-
-    if selected:
-        for rel in RELATED_SERVICES.get(selected[0], []):
-            if rel in values_data and rel not in selected:
-                selected.append(rel)
-            if len(selected) >= 3:
-                break
-
-    # 최소 2개 보장 (복합 대응)
-    if len(selected) < 2:
-        for fallback in ["checkoutservice", "paymentservice", "redis", "frontend"]:
-            if fallback in values_data and fallback not in selected:
-                selected.append(fallback)
-            if len(selected) >= 2:
-                break
-
-    return selected[:3]
-
-
 def _apply_replica_bumps_text(original_yaml: str, targets: list[str]) -> tuple[str, list[str]]:
     """원본 YAML 텍스트에서 target 서비스의 replicas만 최소 변경."""
     lines = original_yaml.splitlines()
@@ -194,6 +138,9 @@ def _rule_based_fix(issue: dict, original_yaml: str) -> tuple[str, str, str] | N
     issue_type = issue.get("type", "unknown")
     if issue_type not in POLICY_RESTRICTED_TYPES | {"composite_incident"}:
         return None
+    if issue_type == "composite_incident":
+        # 복합 장애는 규칙 기반 replicas-only를 피하고 LLM이 다중 완화책을 생성하게 한다.
+        return None
 
     try:
         values_data = yaml.safe_load(original_yaml)
@@ -204,16 +151,13 @@ def _rule_based_fix(issue: dict, original_yaml: str) -> tuple[str, str, str] | N
 
     changed_targets: list[str] = []
 
-    if issue_type == "composite_incident":
-        targets = _select_services_for_composite(issue, values_data or {})
-    else:
-        resource = _normalize_resource_key(issue.get("resource", ""))
-        targets = [resource] if resource in (values_data or {}) else []
-        for rel in RELATED_SERVICES.get(resource, []):
-            if rel in (values_data or {}) and rel not in targets:
-                targets.append(rel)
-            if len(targets) >= 2:
-                break
+    resource = _normalize_resource_key(issue.get("resource", ""))
+    targets = [resource] if resource in (values_data or {}) else []
+    for rel in RELATED_SERVICES.get(resource, []):
+        if rel in (values_data or {}) and rel not in targets:
+            targets.append(rel)
+        if len(targets) >= 2:
+            break
 
     fix_content, changed_targets = _apply_replica_bumps_text(original_yaml, targets)
 
@@ -365,7 +309,7 @@ def analyze_and_fix(state: IssueState) -> IssueState:
     if not target_file or not original_yaml:
         return _analyze_only(state)
 
-    # PR 품질 안정화를 위해 crash/error/composite 계열은 규칙 기반 우선 처리
+    # PR 품질 안정화를 위해 crash/error 계열은 규칙 기반 우선 처리
     rule_result = _rule_based_fix(issue, original_yaml)
     if rule_result is not None:
         fix_content, fix_description, root_cause = rule_result

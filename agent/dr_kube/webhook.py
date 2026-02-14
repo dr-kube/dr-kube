@@ -7,6 +7,7 @@ from fastapi import FastAPI, BackgroundTasks, Request
 from dotenv import load_dotenv
 
 from dr_kube.converter import convert_alertmanager_payload
+from dr_kube.converter import derive_values_file
 from dr_kube.graph import create_graph
 
 load_dotenv()
@@ -177,7 +178,16 @@ def _build_composite_issue(issues: list[dict]) -> dict:
     for issue in issues:
         res = issue.get("resource", "unknown")
         counter[res] = counter.get(res, 0) + 1
-    primary_resource = max(counter, key=counter.get) if counter else "online-boutique"
+    primary_resource = max(counter, key=counter.get) if counter else issues[0].get("resource", "unknown")
+    namespace = issues[0].get("namespace", "default")
+    values_file = derive_values_file(primary_resource, namespace)
+    if not values_file:
+        # 입력 alert 중 유효한 values_file이 있다면 우선 사용
+        for issue in issues:
+            candidate = issue.get("values_file", "")
+            if candidate:
+                values_file = candidate
+                break
 
     # 전체 컨텍스트를 logs에 합쳐서 LLM이 복합 장애를 보게 함
     merged_logs: list[str] = []
@@ -196,13 +206,35 @@ def _build_composite_issue(issues: list[dict]) -> dict:
         "id": f"incident-{cid}",
         "fingerprint": f"composite-{cid}",
         "type": "composite_incident",
-        "namespace": issues[0].get("namespace", "online-boutique"),
+        "namespace": namespace,
         "resource": primary_resource,
         "error_message": f"복합 장애 감지: {len(issues)} alerts",
         "logs": merged_logs,
         "timestamp": issues[0].get("timestamp", ""),
-        "values_file": "values/online-boutique.yaml",
+        "values_file": values_file,
     }
+
+
+def _group_issues_for_composite(issues: list[dict]) -> list[dict]:
+    """namespace + values_file 단위로 issue를 그룹핑해 composite 생성."""
+    if len(issues) <= 1:
+        return issues
+
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for issue in issues:
+        key = (
+            issue.get("namespace", "default"),
+            issue.get("values_file", ""),
+        )
+        groups.setdefault(key, []).append(issue)
+
+    merged: list[dict] = []
+    for grouped in groups.values():
+        if len(grouped) > 1:
+            merged.append(_build_composite_issue(grouped))
+        else:
+            merged.append(grouped[0])
+    return merged
 
 
 @app.get("/health")
@@ -226,7 +258,7 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
     pr_group_cooldown_minutes = _parse_int_env("PR_GROUP_COOLDOWN_MINUTES", 180)
 
     if with_pr and composite_mode and len(issues) > 1:
-        issues = [_build_composite_issue(issues)]
+        issues = _group_issues_for_composite(issues)
 
     queued = []
     skipped_duplicate = []
