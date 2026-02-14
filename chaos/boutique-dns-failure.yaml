@@ -1,0 +1,18 @@
+# Chaos Mesh 실험: DNS 장애 -> 서비스 디스커버리 실패
+# 방법: productcatalogservice에 DNSChaos(DNS 응답 에러) 적용
+apiVersion: chaos-mesh.org/v1alpha1
+kind: DNSChaos
+metadata:
+  name: boutique-dns-failure
+  namespace: chaos-mesh
+spec:
+  action: error
+  mode: all
+  duration: 3m
+  patterns:
+    - ".*"
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: productcatalogservice

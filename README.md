@@ -242,7 +242,15 @@ make chaos-status    # 실험 상태 확인
 make chaos-stop      # 모든 실험 중지
 ```
 
-### 복합 장애 (예정)
+### 복합 장애 (5개)
+```bash
+make chaos-redis-failure    # Redis 장애 -> 연쇄 실패
+make chaos-payment-delay    # Payment 2000ms 지연 -> timeout 전파
+make chaos-traffic-spike    # 다중 서비스 동시 CPU+Memory 스트레스
+make chaos-dns-failure      # ProductCatalog DNS 장애
+make chaos-replica-shortage # Checkout 반복 pod-kill (다운타임)
+```
+
 | 시나리오 | 내용 | 관측 포인트 |
 |----------|------|-------------|
 | Redis 연쇄 실패 | Redis 장애 → cart → checkout → frontend 전파 | Tempo 에러 체인, Loki 로그 |
@@ -250,6 +258,40 @@ make chaos-stop      # 모든 실험 중지
 | 트래픽 급증 | 다중 서비스 동시 CPU+Memory 스트레스 | 알림 폭풍, NodeHighCPU |
 | DNS 장애 | productcatalog DNS 실패 → frontend 부분 장애 | Loki DNS 에러, PodNotReady |
 | 단일 Pod 반복 종료 | replicas=1에서 반복 kill → 다운타임 | DeploymentReplicasMismatch |
+
+### 복합 장애 검증 체크리스트 (#1186)
+각 시나리오마다 아래 순서로 검증합니다.
+
+1. 실험 적용
+```bash
+make chaos-<scenario>
+```
+
+2. Chaos 리소스 생성 확인
+```bash
+make chaos-status
+```
+- 기대값: 해당 `stresschaos/podchaos/networkchaos/dnschaos` 리소스가 `chaos-mesh` 네임스페이스에 표시됨
+
+3. 대상 서비스 영향 확인
+```bash
+kubectl get pods -n online-boutique -o wide
+kubectl logs -n online-boutique deploy/frontend --tail=100
+```
+- 기대값: 시나리오별 timeout, connection refused, DNS failure 등 증상 로그 확인
+
+4. 관측 포인트 확인
+- Prometheus/Grafana: 알림/패널 이상치 발화 (CPUThrottling, OOMKilled, ReplicasMismatch 등)
+- Loki: 오류 로그 증가 (timeout, connection refused, DNS error)
+- Tempo: 실패 span 또는 latency chain 확인
+- Pyroscope: (traffic-spike) CPU flame graph에서 stress workload 확인
+
+5. 실험 종료 및 정리
+```bash
+make chaos-stop
+make chaos-status
+```
+- 기대값: chaos 리소스가 모두 제거되고 상태 조회 시 실험 없음
 
 ## 시크릿 관리 (SOPS + age)
 
@@ -303,6 +345,11 @@ make chaos-memory      # OOM 실험
 make chaos-cpu         # CPU 스트레스
 make chaos-pod-kill    # Pod 강제 종료
 make chaos-network     # 네트워크 지연
+make chaos-redis-failure    # Redis 장애 -> 연쇄 실패
+make chaos-payment-delay    # Payment 지연 -> timeout 전파
+make chaos-traffic-spike    # 다중 서비스 동시 CPU+Memory 스트레스
+make chaos-dns-failure      # DNS 장애
+make chaos-replica-shortage # 반복 pod-kill
 make chaos-stop        # 실험 중지
 ```
 

@@ -1,0 +1,19 @@
+# Chaos Mesh 실험: Redis 장애 -> 연쇄 실패
+# 방법: Redis에 NetworkChaos(지연) 적용 (이슈 본문의 OR 조건 중 1안)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: boutique-redis-failure
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 3m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: redis-cart
+  delay:
+    latency: "1500ms"
+    jitter: "200ms"
