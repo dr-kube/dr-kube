@@ -3,6 +3,22 @@
 # https://kubernetes.github.io/ingress-nginx/
 
 controller:
+  # 단일 컨트롤러 파드로 고정
+  replicaCount: 1
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
+
+  # hostPort(80/443) 환경에서는 롤링 시 2개 동시 기동이 불가하므로
+  # 새 파드 선기동(maxSurge)을 막고 1개씩 교체
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+
   resources:
     requests:
       cpu: 100m
