@@ -25,11 +25,11 @@ frontend:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
-      memory: 128Mi # ← 에이전트가 수정할 대상 (OOMKilled 유발)
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi # ← 에이전트가 수정할 대상 (카오스 실험 시 OOMKilled 유발)
   externalService: false
   service:
     type: ClusterIP
@@ -43,11 +43,11 @@ cartservice:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 7070
@@ -60,11 +60,11 @@ productcatalogservice:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 3550
@@ -77,11 +77,11 @@ currencyservice:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 7000
@@ -91,14 +91,14 @@ currencyservice:
 # ============================================
 paymentservice:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 8081
@@ -111,11 +111,11 @@ shippingservice:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 50051
@@ -128,11 +128,11 @@ emailservice:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 5000
@@ -142,14 +142,14 @@ emailservice:
 # ============================================
 checkoutservice:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 5050
@@ -162,11 +162,11 @@ recommendationservice:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 8080
@@ -179,11 +179,11 @@ adservice:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 9555
@@ -193,14 +193,14 @@ adservice:
 # ============================================
 redis:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 6379
