@@ -18,7 +18,8 @@ spec:
       serviceAccountName: dr-kube-agent
       containers:
         - name: agent
-          image: ghcr.io/dr-kube/dr-kube-agent:latest
+          # latest 대신 시멘틱 버전 태그 사용
+          image: ghcr.io/dr-kube/dr-kube-agent:v0.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
