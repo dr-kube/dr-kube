@@ -1,0 +1,52 @@
+# 복합 트랙 1: checkout 핵심 경로 연쇄 장애
+# redis 지연 + payment 지연 + checkout pod 실패를 동시에 주입
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: track-checkout-redis-delay
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 6m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: redis-cart
+  delay:
+    latency: "1200ms"
+    jitter: "150ms"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: track-checkout-payment-delay
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 6m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: paymentservice
+  delay:
+    latency: "1800ms"
+    jitter: "200ms"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: track-checkout-pod-failure
+  namespace: chaos-mesh
+spec:
+  action: pod-failure
+  mode: one
+  duration: 2m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: checkoutservice

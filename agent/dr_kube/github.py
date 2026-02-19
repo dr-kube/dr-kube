@@ -113,24 +113,48 @@ def generate_branch_name(issue_type: str, resource: str) -> str:
     return f"fix/{issue_type}-{safe_resource}-{timestamp}"
 
 
+def _generate_diff(original: str, modified: str) -> str:
+    """원본과 수정본의 diff 생성 (변경된 라인만)"""
+    import difflib
+    original_lines = original.splitlines(keepends=True)
+    modified_lines = modified.splitlines(keepends=True)
+    diff = difflib.unified_diff(original_lines, modified_lines, lineterm="")
+    # 헤더(---/+++) 제외, @@ 이후 내용만
+    lines = []
+    for line in diff:
+        if line.startswith("@@") or line.startswith("-") or line.startswith("+"):
+            if not line.startswith("---") and not line.startswith("+++"):
+                lines.append(line.rstrip())
+    return "\n".join(lines) if lines else "(변경 없음)"
+
+
 def generate_pr_body(state: dict) -> str:
     """PR 본문 생성"""
-    return f"""## 🔧 DR-Kube 자동 수정
+    issue = state.get('issue_data', {})
+    diff = _generate_diff(
+        state.get('original_yaml', ''),
+        state.get('fix_content', ''),
+    )
+
+    return f"""## DR-Kube 자동 수정
 
 ### 이슈 정보
-- **타입**: {state.get('issue_data', {}).get('type', 'unknown')}
-- **리소스**: {state.get('issue_data', {}).get('resource', 'unknown')}
-- **네임스페이스**: {state.get('issue_data', {}).get('namespace', 'default')}
-- **심각도**: {state.get('severity', 'medium')}
+| 항목 | 값 |
+|------|-----|
+| 타입 | `{issue.get('type', 'unknown')}` |
+| 리소스 | `{issue.get('resource', 'unknown')}` |
+| 네임스페이스 | `{issue.get('namespace', 'default')}` |
+| 심각도 | **{state.get('severity', 'medium')}** |
 
 ### 근본 원인
 {state.get('root_cause', 'N/A')}
 
 ### 변경 내용
-{state.get('fix_description', 'N/A')}
+`{state.get('target_file', 'N/A')}`
 
-### 수정된 파일
-- `{state.get('target_file', 'N/A')}`
+```diff
+{diff}
+```
 
 ---
 > 이 PR은 DR-Kube 에이전트에 의해 자동 생성되었습니다.

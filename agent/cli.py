@@ -44,29 +44,13 @@ def print_analysis_result(result: dict, verbose: bool = False):
             if line.strip():
                 print(f"      {line.strip()}")
 
-    # 실행 계획 표시
-    action_plan = result.get("action_plan", "").strip()
-    if action_plan:
-        print(f"\n⚡ 실행 계획:")
-        print("-" * 60)
-        for line in action_plan.split('\n'):
-            print(f"  {line}")
-        print("-" * 60)
-
-    # YAML diff 표시
-    yaml_diff = result.get("yaml_diff", "").strip()
-    if yaml_diff:
-        print(f"\n📝 YAML 수정 (Diff):")
-        print("-" * 60)
-        for line in yaml_diff.split('\n'):
-            stripped = line.strip()
-            if stripped.startswith('-'):
-                print(f"  ❌ {line}")
-            elif stripped.startswith('+'):
-                print(f"  ✅ {line}")
-            else:
-                print(f"     {line}")
-        print("-" * 60)
+    # 수정안 설명 표시
+    fix_description = result.get("fix_description", "").strip()
+    if fix_description:
+        print(f"\n🔧 수정안: {fix_description}")
+        target_file = result.get("target_file", "")
+        if target_file:
+            print(f"   파일: {target_file}")
 
     # PR 생성 결과
     if result.get("pr_url"):

@@ -4,6 +4,8 @@ configs:
     argocdServerAdminPassword: $2a$10$7BuGb2czbMSz/Oyd0A56Deqf6xzGFuBqLJDhzP/z4wVMaakYXnQaC%
   params:
     server.insecure: true
+    application.instanceLabelKey: argocd.argoproj.io/instance
+    controller.app.resync.interval: 30s
   repositories:
     main:
       url: https://github.com/dr-kube/dr-kube.git

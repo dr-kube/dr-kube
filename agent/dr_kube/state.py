@@ -13,22 +13,20 @@ class IssueState(TypedDict, total=False):
     analysis: str
     root_cause: str
     severity: str  # critical, high, medium, low
-
-    # 해결책
     suggestions: list[str]
-    action_plan: str  # kubectl 명령어 등 실행 계획
-    yaml_diff: str  # YAML 수정 diff
 
-    # 수정안 생성 (generate_fix)
+    # 수정안
     target_file: str  # 수정할 values 파일 경로
+    original_yaml: str  # 원본 YAML (validate에서 diff 비교용)
     fix_content: str  # 수정된 YAML 내용
     fix_description: str  # 변경 설명
 
-    # PR 생성 (create_pr)
+    # PR 생성
     branch_name: str  # PR 브랜치명
     pr_url: str  # 생성된 PR URL
     pr_number: int  # PR 번호
 
-    # 메타
-    status: str  # pending, analyzed, fix_generated, pr_created, done
+    # 워크플로우 제어
+    retry_count: int  # 검증 실패 재시도 횟수 (최대 3)
+    status: str  # loaded, analyzed, validated, pr_created, done, error
     error: str  # 에러 메시지 (있을 경우)

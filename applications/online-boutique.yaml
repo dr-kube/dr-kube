@@ -10,9 +10,9 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: oci://us-docker.pkg.dev/online-boutique-ci/charts/onlineboutique
-      chart: onlineboutique
-      targetRevision: "0.10.4" # 최신 안정 버전
+    - repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
+      targetRevision: v0.10.4
+      path: helm-chart
       helm:
         valueFiles:
           - $values/values/online-boutique.yaml

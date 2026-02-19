@@ -1,0 +1,62 @@
+# 복합 트랙 3: 플랫폼 전반 브라운아웃
+# 다중 서비스 stress + payment/redis 지연으로 SLO 악화 유도
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: track-platform-traffic-spike
+  namespace: chaos-mesh
+spec:
+  mode: all
+  duration: 7m
+  selector:
+    namespaces:
+      - online-boutique
+    expressionSelectors:
+      - key: app
+        operator: In
+        values:
+          - frontend
+          - cartservice
+          - checkoutservice
+  stressors:
+    cpu:
+      workers: 2
+    memory:
+      workers: 2
+      size: 128M
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: track-platform-payment-delay
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 7m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: paymentservice
+  delay:
+    latency: "1500ms"
+    jitter: "200ms"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: track-platform-redis-delay
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 7m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: redis-cart
+  delay:
+    latency: "1000ms"
+    jitter: "100ms"

@@ -1,8 +1,8 @@
 {
   "id": "issue-001",
   "type": "oom",
-  "namespace": "default",
-  "resource": "oom-test",
+  "namespace": "online-boutique",
+  "resource": "frontend",
   "error_message": "OOMKilled",
   "logs": [
     "2026-01-27T10:00:00Z Error: OOMKilled",
@@ -12,5 +12,5 @@
     "2026-01-27T09:59:45Z stress: info: [1] dispatching hogs: 0 cpu, 0 io, 1 vm, 0 hdd"
   ],
   "timestamp": "2026-01-27T10:00:00Z",
-  "values_file": "values/oom-test.yaml"
+  "values_file": "values/online-boutique.yaml"
 }

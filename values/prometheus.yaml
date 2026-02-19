@@ -90,23 +90,49 @@ alertmanager:
       resolve_timeout: 5m
       slack_api_url_file: /etc/alertmanager/secrets/slack-webhook/url
     route:
-      receiver: "slack-and-agent"
+      receiver: "slack"
       group_by: ["alertname", "namespace", "pod"]
-      group_wait: 10s
-      group_interval: 30s
-      repeat_interval: 1h
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 2h
+      routes:
+        - matchers:
+            - severity="critical"
+          receiver: "slack"
+          group_wait: 5s
+          group_interval: 2m
+          repeat_interval: 30m
+          continue: true
+        # Agent 비용 제어: critical만 저빈도로 웹훅 전달
+        - matchers:
+            - severity="critical"
+          receiver: "agent-critical"
+          # 복합 인시던트 수집을 위해 alertname/pod 단위 분리를 줄임
+          group_by: ["namespace", "severity"]
+          group_wait: 90s
+          group_interval: 10m
+          repeat_interval: 6h
+        - matchers:
+            - severity="warning"
+          receiver: "slack"
+          group_wait: 15s
+          group_interval: 10m
+          repeat_interval: 2h
+        - matchers:
+            - severity="info"
+          receiver: "null"
+          group_wait: 1m
+          group_interval: 30m
+          repeat_interval: 6h
+    inhibit_rules:
+      - source_matchers:
+          - severity="critical"
+        target_matchers:
+          - severity="warning"
+        equal: ["namespace", "pod"]
     receivers:
-      # Slack + DR-Kube Agent 동시 발송
-      - name: "slack-and-agent"
-        slack_configs:
-          - channel: "#alert"
-            send_resolved: true
-            title: '{{ if eq .Status "firing" }}:fire: {{ .CommonLabels.alertname }}{{ else }}:white_check_mark: {{ .CommonLabels.alertname }} 해결{{ end }}'
-            text: >-
-              *{{ .CommonAnnotations.summary }}*
-              {{ .CommonAnnotations.description }}
-              *Namespace:* {{ .CommonLabels.namespace }}
-              *Pod:* {{ .CommonLabels.pod }}
+      # Agent 전용 receiver (LLM 비용 절약을 위해 critical만 사용)
+      - name: "agent-critical"
         webhook_configs:
           - url: "http://dr-kube-agent.monitoring.svc.cluster.local:8080/webhook/alertmanager"
             send_resolved: false  # firing만 분석
@@ -121,6 +147,7 @@ alertmanager:
               {{ .CommonAnnotations.description }}
               *Namespace:* {{ .CommonLabels.namespace }}
               *Pod:* {{ .CommonLabels.pod }}
+      - name: "null"
 
 # ============================================
 # Node Exporter (DaemonSet)
@@ -185,6 +212,12 @@ serverFiles:
           - source_labels: [__meta_kubernetes_pod_node_name]
             target_label: "node"
 
+      # NGINX Ingress Controller 메트릭 스크랩
+      - job_name: "nginx-ingress"
+        static_configs:
+          - targets:
+              - "ingress-nginx-controller-metrics.ingress-nginx.svc.cluster.local:10254"
+
       # 3. cAdvisor (kubelet) 통해 Pod/컨테이너 메트릭 스크랩
       - job_name: "cadvisor"
         scheme: https
@@ -247,9 +280,19 @@ serverFiles:
         rules:
           - alert: CPUThrottling
             expr: |
-              rate(container_cpu_cfs_throttled_periods_total[5m])
-              / rate(container_cpu_cfs_periods_total[5m]) > 0.5
-            for: 2m
+              (
+                sum by (namespace, pod, container) (
+                  rate(container_cpu_cfs_throttled_periods_total{container!="",container!="POD"}[5m])
+                )
+                /
+                clamp_min(
+                  sum by (namespace, pod, container) (
+                    rate(container_cpu_cfs_periods_total{container!="",container!="POD"}[5m])
+                  ),
+                  1
+                )
+              ) > 0.7
+            for: 5m
             labels:
               severity: warning
             annotations:
@@ -257,7 +300,7 @@ serverFiles:
               description: |
                 Pod {{ $labels.namespace }}/{{ $labels.pod }}
                 컨테이너 {{ $labels.container }} 가
-                CPU throttling 비율 50% 이상입니다.
+                CPU throttling 비율 70% 이상입니다.
 
       - name: container-crash.rules
         rules:
@@ -278,12 +321,12 @@ serverFiles:
           - alert: HighMemoryUsage
             expr: |
               (
-                container_memory_working_set_bytes
-                / container_spec_memory_limit_bytes
-              ) > 0.85
+                container_memory_working_set_bytes{container!="",container!="POD"}
+                / container_spec_memory_limit_bytes{container!="",container!="POD"}
+              ) > 0.92
               and on (namespace, pod, container)
-              container_spec_memory_limit_bytes > 0
-            for: 2m
+              container_spec_memory_limit_bytes{container!="",container!="POD"} > 0
+            for: 5m
             labels:
               severity: warning
             annotations:
@@ -291,14 +334,16 @@ serverFiles:
               description: |
                 Pod {{ $labels.namespace }}/{{ $labels.pod }}
                 컨테이너 {{ $labels.container }} 의
-                메모리 사용률이 85%를 초과했습니다.
+                메모리 사용률이 92%를 초과했습니다.
 
       - name: pod-ready.rules
         rules:
           - alert: PodNotReady
             expr: |
               kube_pod_status_ready{condition="true"} == 0
-            for: 5m
+              and on (namespace, pod)
+              kube_pod_status_phase{phase=~"Succeeded|Failed"} == 0
+            for: 10m
             labels:
               severity: warning
             annotations:
@@ -311,8 +356,10 @@ serverFiles:
         rules:
           - alert: ContainerWaiting
             expr: |
-              kube_pod_container_status_waiting_reason{reason!="ContainerCreating"} > 0
-            for: 5m
+              kube_pod_container_status_waiting_reason{
+                reason=~"CrashLoopBackOff|ImagePullBackOff|ErrImagePull|CreateContainerConfigError"
+              } > 0
+            for: 10m
             labels:
               severity: warning
             annotations:
@@ -329,7 +376,7 @@ serverFiles:
               kube_deployment_spec_replicas
               !=
               kube_deployment_status_replicas_available
-            for: 5m
+            for: 10m
             labels:
               severity: warning
             annotations:
@@ -342,15 +389,125 @@ serverFiles:
         rules:
           - alert: NodeHighCPU
             expr: |
-              100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
-            for: 5m
+              100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+            for: 10m
             labels:
               severity: warning
             annotations:
               summary: "노드 CPU 사용률 높음"
               description: |
                 노드 {{ $labels.instance }} 의
-                CPU 사용률이 80%를 초과했습니다.
+                CPU 사용률이 90%를 초과했습니다.
+
+      - name: service-level.rules
+        rules:
+          - alert: ServiceHighLatencyP99
+            expr: |
+              histogram_quantile(
+                0.99,
+                sum by (le, service) (rate(traces_spanmetrics_latency_bucket[5m]))
+              ) > 3
+              and on (service)
+              sum by (service) (rate(traces_spanmetrics_calls_total[5m])) > 0.2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "서비스 지연 증가 (p99)"
+              description: |
+                서비스 {{ $labels.service }} 의 p99 지연이 3s를 초과했습니다.
+
+          - alert: ServiceHighErrorRate
+            expr: |
+              (
+                sum by (service) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR"}[5m]))
+                /
+                sum by (service) (rate(traces_spanmetrics_calls_total[5m]))
+              ) > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "서비스 에러율 증가"
+              description: |
+                서비스 {{ $labels.service }} 의 에러율이 5%를 초과했습니다.
+
+          - alert: ServiceDown
+            expr: |
+              sum by (service) (rate(traces_spanmetrics_calls_total[5m])) == 0
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "서비스 다운"
+              description: |
+                서비스 {{ $labels.service }} 에서 10분간 트래픽이 감지되지 않았습니다.
+
+          - alert: UpstreamConnectionError
+            expr: |
+              (
+                sum by (service, peer_service) (
+                  rate(traces_spanmetrics_calls_total{span_kind="SPAN_KIND_CLIENT", status_code="STATUS_CODE_ERROR"}[5m])
+                )
+                /
+                clamp_min(
+                  sum by (service, peer_service) (
+                    rate(traces_spanmetrics_calls_total{span_kind="SPAN_KIND_CLIENT"}[5m])
+                  ),
+                  0.1
+                )
+              ) > 0.2
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "업스트림 연결 실패"
+              description: |
+                {{ $labels.service }} -> {{ $labels.peer_service }} 업스트림 연결 에러율이 20%를 초과했습니다.
+
+      - name: nginx-ingress.rules
+        rules:
+          - alert: NginxHighLatency
+            expr: |
+              histogram_quantile(0.99, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket[5m]))) > 7
+              and sum(rate(nginx_ingress_controller_requests[5m])) > 0.5
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "NGINX Ingress 지연 증가 (p99)"
+              description: |
+                NGINX Ingress 요청 p99 지연이 5s를 초과했습니다.
+
+          - alert: NginxHigh4xxRate
+            expr: |
+              sum(rate(nginx_ingress_controller_requests{status=~"4.."}[5m]))
+              /
+              sum(rate(nginx_ingress_controller_requests[5m]))
+              > 0.20
+              and sum(rate(nginx_ingress_controller_requests[5m])) > 1
+            for: 10m
+            labels:
+              severity: info
+            annotations:
+              summary: "NGINX Ingress 4xx 증가"
+              description: |
+                NGINX Ingress 4xx 비율이 20%를 초과했습니다.
+
+          - alert: NginxHigh5xxRate
+            expr: |
+              sum(rate(nginx_ingress_controller_requests{status=~"5.."}[5m]))
+              /
+              sum(rate(nginx_ingress_controller_requests[5m]))
+              > 0.05
+              and sum(rate(nginx_ingress_controller_requests[5m])) > 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "NGINX Ingress 5xx 증가"
+              description: |
+                NGINX Ingress 5xx 비율이 5%를 초과했습니다.
 
   # alerting_rules.yml:
   #   groups:

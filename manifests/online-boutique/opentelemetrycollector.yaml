@@ -1,0 +1,68 @@
+# Online Boutique chart의 opentelemetrycollector Deployment 오버라이드
+# init 컨테이너가 설정 파일을 append(>>) 하면 재실행 시 YAML 중복으로 CrashLoop 발생
+# overwrite(>)로 고정하여 동일 문제가 재발하지 않도록 처리
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opentelemetrycollector
+  namespace: online-boutique
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opentelemetrycollector
+  template:
+    metadata:
+      labels:
+        app: opentelemetrycollector
+    spec:
+      serviceAccountName: opentelemetrycollector
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      initContainers:
+        - name: otel-gateway-init
+          image: busybox:latest@sha256:e3652a00a2fabd16ce889f0aa32c38eec347b997e73bd09e69c962ec7f8732ee
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              sed "s/PROJECT_ID/$(curl -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/project/project-id)/" /template/collector-gateway-config-template.yaml > /conf/collector-gateway-config.yaml
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            privileged: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: collector-gateway-config-template
+              mountPath: /template
+            - name: collector-gateway-config
+              mountPath: /conf
+      containers:
+        - name: otel-gateway
+          image: otel/opentelemetry-collector-contrib:0.139.0@sha256:faf125d656fa47cea568b2f3b4494efd2525083bc75c1e96038bc23f05cd68fd
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config=/conf/collector-gateway-config.yaml
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            privileged: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: collector-gateway-config
+              mountPath: /conf
+      volumes:
+        - name: collector-gateway-config-template
+          configMap:
+            name: collector-gateway-config-template
+            items:
+              - key: collector-gateway-config-template.yaml
+                path: collector-gateway-config-template.yaml
+        - name: collector-gateway-config
+          emptyDir: {}

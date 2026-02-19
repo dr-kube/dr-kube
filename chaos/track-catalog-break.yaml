@@ -1,0 +1,42 @@
+# 복합 트랙 2: catalog 장애 + edge 과부하
+# productcatalog DNS 오류 + frontend/cart 리소스 압박
+apiVersion: chaos-mesh.org/v1alpha1
+kind: DNSChaos
+metadata:
+  name: track-catalog-dns-error
+  namespace: chaos-mesh
+spec:
+  action: error
+  mode: all
+  duration: 5m
+  patterns:
+    - ".*"
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: productcatalogservice
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: track-edge-resource-pressure
+  namespace: chaos-mesh
+spec:
+  mode: all
+  duration: 5m
+  selector:
+    namespaces:
+      - online-boutique
+    expressionSelectors:
+      - key: app
+        operator: In
+        values:
+          - frontend
+          - cartservice
+  stressors:
+    cpu:
+      workers: 1
+    memory:
+      workers: 2
+      size: 96M

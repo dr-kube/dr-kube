@@ -29,3 +29,4 @@ spec:
       - PruneLast=true
       - ApplyOutOfSyncOnly=true
       - Replace=false
+      - ParallelismsLimit=10

@@ -1,0 +1,19 @@
+# Chaos Mesh 실험: 결제 지연 -> 타임아웃 전파
+# 방법: paymentservice에 2000ms NetworkChaos 지연 적용
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: boutique-payment-delay
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 3m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: paymentservice
+  delay:
+    latency: "2000ms"
+    jitter: "200ms"

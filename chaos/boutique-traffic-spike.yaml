@@ -1,0 +1,26 @@
+# Chaos Mesh 실험: 트래픽 급증 시뮬레이션 (다중 서비스 리소스 고갈)
+# 방법: frontend + cartservice + checkoutservice 동시 StressChaos(CPU+Memory)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: boutique-traffic-spike
+  namespace: chaos-mesh
+spec:
+  mode: all
+  duration: 3m
+  selector:
+    namespaces:
+      - online-boutique
+    expressionSelectors:
+      - key: app
+        operator: In
+        values:
+          - frontend
+          - cartservice
+          - checkoutservice
+  stressors:
+    cpu:
+      workers: 1
+    memory:
+      workers: 2
+      size: 128M
