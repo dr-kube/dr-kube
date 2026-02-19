@@ -37,6 +37,7 @@ env/
 .env.local
 .env.*.local
 *.env
+*.env*
 
 # IDE
 .vscode/

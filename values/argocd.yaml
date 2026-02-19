@@ -11,6 +11,11 @@ configs:
       url: https://github.com/dr-kube/dr-kube.git
       name: dr-kube
       type: git
+  cm:
+    # CRD metadata.annotations can exceed 262144 bytes (e.g. applicationsets.argoproj.io); ignore to avoid sync failure
+    resource.customizations.ignoreResourceUpdates.apiextensions.k8s.io_CustomResourceDefinition: |
+      jqPathExpressions:
+        - '.metadata.annotations'
 
 controller:
   resources:
@@ -80,7 +85,56 @@ server:
       cpu: 85m
       memory: 100Mi
 
+
 notifications:
+  enabled: true
+  cm:
+    create: true
+  # All applications use dr-kube webhook (no need to annotate each Application)
+  subscriptions: |
+    - recipients:
+      - dr-kube
+      triggers:
+      - on-out-of-sync
+      - on-sync-failed
+      - on-health-degraded
+  # Webhook URL: default Windows. For WSL replace url host with output of hostname -I. For in-cluster agent use e.g. http://dr-kube-agent.agent.svc:8080/webhook/argocd
+  notifiers:
+    "service.webhook.dr-kube": |
+      url: "http://host.docker.internal:8080/webhook/argocd"
+      headers:
+        - name: Content-Type
+          value: application/json
+  templates:
+    # id includes revision/startedAt so _processed_alerts dedupe does not skip same-app repeat events
+    "template.app-out-of-sync": |
+      webhook:
+        dr-kube:
+          method: POST
+          body: |
+            {"id":"argocd-{{.app.metadata.name}}-out-of-sync-{{.app.status.sync.revision}}","type":"argocd_out_of_sync","namespace":"{{.app.metadata.namespace}}","resource":"{{.app.metadata.name}}","error_message":"OutOfSync","logs":["{{.app.status.sync.revision}}"],"timestamp":"","values_file":"values/{{.app.metadata.name}}.yaml"}
+    "template.app-sync-failed": |
+      webhook:
+        dr-kube:
+          method: POST
+          body: |
+            {"id":"argocd-{{.app.metadata.name}}-sync-failed-{{.app.status.operationState.startedAt}}","type":"argocd_sync_failed","namespace":"{{.app.metadata.namespace}}","resource":"{{.app.metadata.name}}","error_message":"Sync failed","logs":["{{.app.status.operationState.message}}"],"timestamp":"{{.app.status.operationState.startedAt}}","values_file":"values/{{.app.metadata.name}}.yaml"}
+    "template.app-health-degraded": |
+      webhook:
+        dr-kube:
+          method: POST
+          body: |
+            {"id":"argocd-{{.app.metadata.name}}-health-degraded-{{.app.status.sync.revision}}","type":"argocd_health_degraded","namespace":"{{.app.metadata.namespace}}","resource":"{{.app.metadata.name}}","error_message":"Health Degraded","logs":["{{.app.status.health.message}}"],"timestamp":"","values_file":"values/{{.app.metadata.name}}.yaml"}
+  triggers:
+    "trigger.on-out-of-sync": |
+      - when: app.status.sync.status == 'OutOfSync'
+        send: [app-out-of-sync]
+    "trigger.on-sync-failed": |
+      - when: app.status?.operationState.phase in ['Error', 'Failed']
+        send: [app-sync-failed]
+    "trigger.on-health-degraded": |
+      - when: app.status.health.status == 'Degraded'
+        send: [app-health-degraded]
   resources:
     requests:
       cpu: 50m

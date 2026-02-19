@@ -43,6 +43,20 @@ def process_issue(issue_data: dict, with_pr: bool = False):
             logger.info(f"처리 완료: {issue_data['id']} - status={result.get('status')}")
             if result.get("pr_url"):
                 logger.info(f"PR 생성됨: {result['pr_url']}")
+            # 분석 결과 요약 (LLM이 한 일을 로그로 남김)
+            if result.get("root_cause"):
+                logger.info(f"[분석] 근본 원인: {result['root_cause']}")
+            if result.get("suggestions"):
+                for i, s in enumerate(result["suggestions"][:5], 1):
+                    logger.info(f"[분석] 해결책 {i}: {s}")
+    except (ConnectionRefusedError, OSError) as e:
+        if getattr(e, "errno", None) == 111 or isinstance(e, ConnectionRefusedError):
+            logger.error(
+                f"처리 실패: {issue_data['id']} - Connection refused. "
+                "LLM 연결 실패 가능성: Ollama 미실행 시 GEMINI_API_KEY 설정, 또는 Ollama 실행 확인."
+            )
+        else:
+            logger.error(f"처리 실패: {issue_data['id']} - {e}")
     except Exception as e:
         logger.error(f"처리 중 예외: {issue_data['id']} - {e}")
 
@@ -332,6 +346,23 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
         "skipped_group_cooldown": skipped_group_cooldown,
         "skipped_batch_limit": skipped_batch_limit,
     }
+
+
+@app.post("/webhook/argocd")
+async def argocd_webhook(request: Request, background_tasks: BackgroundTasks):
+    """ArgoCD Notifications webhook (sync-failed, health-degraded). Body = single issue_data JSON."""
+    body = await request.json()
+    issue_id = body.get("id") or "argocd-unknown"
+    logger.info(f"ArgoCD 이벤트 수신: {issue_id} (type={body.get('type', '')})")
+
+    if issue_id in _processed_alerts:
+        logger.info(f"중복 스킵: {issue_id}")
+        return {"status": "accepted", "queued": 0, "reason": "duplicate"}
+
+    _processed_alerts.add(issue_id)
+    with_pr = os.getenv("AUTO_PR", "false").lower() == "true"
+    background_tasks.add_task(process_issue, body, with_pr)
+    return {"status": "accepted", "queued": 1, "id": issue_id}
 
 
 def main():
