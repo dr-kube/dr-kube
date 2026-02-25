@@ -254,11 +254,41 @@ serverFiles:
         static_configs:
           - targets:
               - "otel-jaeger-forwarder.online-boutique.svc.cluster.local:9464"
+
+      # ArgoCD Application Controller 메트릭 (argocd_app_info: sync_status, health_status)
+      - job_name: "argocd-application-controller"
+        static_configs:
+          - targets:
+              - "argocd-application-controller-metrics.argocd.svc.cluster.local:8082"
   # ===========================================
   # alert rule 설정
   # ============================================
   alerting_rules.yml:
     groups:
+      - name: argocd-app.rules
+        rules:
+          - alert: ArgoCDAppDegraded
+            expr: argocd_app_info{health_status="Degraded"} == 1
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: "ArgoCD Application Health Degraded"
+              description: |
+                ArgoCD Application {{ $labels.name }} (namespace {{ $labels.namespace }})
+                health_status is Degraded.
+
+          - alert: ArgoCDAppOutOfSync
+            expr: argocd_app_info{sync_status="OutOfSync"} == 1
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: "ArgoCD Application OutOfSync"
+              description: |
+                ArgoCD Application {{ $labels.name }} (namespace {{ $labels.namespace }})
+                sync_status is OutOfSync.
+
       - name: container-oom.rules
         rules:
           - alert: ContainerOOMKilled
