@@ -7,6 +7,7 @@ from fastapi import FastAPI, BackgroundTasks, Request
 from dotenv import load_dotenv
 
 from dr_kube.converter import convert_alertmanager_payload
+from dr_kube.converter import convert_argocd_event
 from dr_kube.converter import derive_values_file
 from dr_kube.graph import create_graph
 
@@ -26,6 +27,7 @@ DEFAULT_DEDUP_COOLDOWN_MINUTES = int(os.getenv("DEDUP_COOLDOWN_MINUTES", "60"))
 _daily_usage = {"date": datetime.now(timezone.utc).date().isoformat(), "count": 0}
 _processed_fingerprints: dict[str, datetime] = {}
 _recent_pr_groups: dict[str, datetime] = {}
+_processed_alerts: set = set()
 
 app = FastAPI(title="DR-Kube Webhook Server")
 
@@ -352,8 +354,9 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
 async def argocd_webhook(request: Request, background_tasks: BackgroundTasks):
     """ArgoCD Notifications webhook (sync-failed, health-degraded). Body = single issue_data JSON."""
     body = await request.json()
-    issue_id = body.get("id") or "argocd-unknown"
-    logger.info(f"ArgoCD 이벤트 수신: {issue_id} (type={body.get('type', '')})")
+    issue = convert_argocd_event(body)
+    issue_id = issue.get("id", "argocd-unknown")
+    logger.info(f"ArgoCD 이벤트 수신: {issue_id} (type={issue.get('type', '')})")
 
     if issue_id in _processed_alerts:
         logger.info(f"중복 스킵: {issue_id}")
@@ -361,7 +364,7 @@ async def argocd_webhook(request: Request, background_tasks: BackgroundTasks):
 
     _processed_alerts.add(issue_id)
     with_pr = os.getenv("AUTO_PR", "false").lower() == "true"
-    background_tasks.add_task(process_issue, body, with_pr)
+    background_tasks.add_task(process_issue, issue, with_pr)
     return {"status": "accepted", "queued": 1, "id": issue_id}
 
 

@@ -17,7 +17,7 @@ from pathlib import Path
 from langgraph.graph import StateGraph, END
 from dr_kube.state import IssueState
 from dr_kube.llm import get_llm
-from dr_kube.prompts import ANALYZE_AND_FIX_PROMPT, ANALYZE_ONLY_PROMPT
+from dr_kube.prompts import ANALYZE_AND_FIX_PROMPT, ANALYZE_ONLY_PROMPT, ARGOCD_ANALYZE_PROMPT
 from dr_kube.github import GitHubClient, generate_branch_name, generate_pr_body
 
 # 프로젝트 루트 경로 (agent/dr_kube/graph.py → dr-kube/)
@@ -301,9 +301,14 @@ def analyze_and_fix(state: IssueState) -> IssueState:
         return state
 
     issue = state["issue_data"]
+    issue_type = issue.get("type", "")
     target_file = state.get("target_file", "")
     original_yaml = state.get("original_yaml", "")
     logs_text = "\n".join(issue.get("logs", []))
+
+    # ArgoCD 이벤트: 전용 프롬프트로 분석만 수행, PR 경로 타지 않음
+    if issue_type.startswith("argocd_"):
+        return _analyze_argocd(state)
 
     # target_file이 없으면 분석만 수행
     if not target_file or not original_yaml:
@@ -369,6 +374,34 @@ def analyze_and_fix(state: IssueState) -> IssueState:
         }
     except Exception as e:
         return {"error": f"분석 + 수정안 생성 실패: {str(e)}", "status": "error"}
+
+
+def _analyze_argocd(state: IssueState) -> IssueState:
+    """ArgoCD 이벤트 전용: ARGOCD_ANALYZE_PROMPT로 분석만 수행, status done으로 PR 경로 미진입"""
+    issue = state["issue_data"]
+    logs_text = "\n".join(issue.get("logs", []))
+
+    prompt = ARGOCD_ANALYZE_PROMPT.format(
+        type=issue.get("type", "unknown"),
+        namespace=issue.get("namespace", "default"),
+        resource=issue.get("resource", "unknown"),
+        error_message=issue.get("error_message", ""),
+        logs=logs_text,
+    )
+
+    try:
+        llm = get_llm()
+        response = llm.invoke(prompt)
+        result = _extract_llm_content(response)
+        return {
+            "analysis": result,
+            "root_cause": _parse_field(result, r"근본 원인:\s*(.+?)(?:\n|$)") or "분석 결과를 파싱할 수 없습니다",
+            "severity": _parse_severity(result),
+            "suggestions": _parse_suggestions(result) or ["로그를 더 확인하세요"],
+            "status": "done",
+        }
+    except Exception as e:
+        return {"error": f"ArgoCD 분석 실패: {str(e)}", "status": "error"}
 
 
 def _analyze_only(state: IssueState) -> IssueState:
