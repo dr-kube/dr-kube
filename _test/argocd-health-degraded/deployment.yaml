@@ -1,0 +1,26 @@
+# Test workload: Pod never becomes Ready so ArgoCD reports Health Degraded.
+# Used to verify agent webhook + ARGOCD_ANALYZE_PROMPT for health-degraded events.
+# Delete _test/argocd-health-degraded/ and the Application after testing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: never-ready
+  namespace: argocd-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: never-ready
+  template:
+    metadata:
+      labels:
+        app: never-ready
+    spec:
+      containers:
+        - name: main
+          image: nginx:alpine
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "exit 1"]
+            initialDelaySeconds: 2
+            periodSeconds: 5
