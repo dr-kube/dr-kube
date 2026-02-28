@@ -139,10 +139,10 @@ alertmanager:
           - severity="warning"
         equal: ["namespace", "pod"]
     receivers:
-      # Agent 전용 receiver (LLM 비용 절약을 위해 critical만 사용)
+      # Agent 전용 receiver. 클러스터 밖(호스트) Agent: host.docker.internal. 클러스터 내 Agent: http://dr-kube-agent.monitoring.svc.cluster.local:8080/webhook/alertmanager
       - name: "agent-critical"
         webhook_configs:
-          - url: "http://dr-kube-agent.monitoring.svc.cluster.local:8080/webhook/alertmanager"
+          - url: "http://host.docker.internal:8080/webhook/alertmanager"
             send_resolved: false  # firing만 분석
       # Slack 사용 시: secret 생성 후 receiver를 slack로 바꾸고 아래 주석 해제
       # - name: "slack"
