@@ -113,6 +113,13 @@ alertmanager:
           group_wait: 90s
           group_interval: 10m
           repeat_interval: 6h
+        # ArgoCD 앱 알림(OutOfSync/Degraded)도 Agent 웹훅으로 전달
+        - matchers:
+            - alertname=~"ArgoCDApp.*"
+          receiver: "agent-critical"
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 1h
         - matchers:
             - severity="warning"
           receiver: "null"
