@@ -17,8 +17,10 @@ configs:
       jqPathExpressions:
         - '.metadata.annotations'
 
-# controller.metrics.enabled is true by default; Prometheus scrapes argocd-application-controller-metrics.argocd.svc.cluster.local:8082
+# Prometheus scrape: argocd-application-controller-metrics.argocd.svc.cluster.local:8082
 controller:
+  metrics:
+    enabled: true
   resources:
     requests:
       cpu: 500m
