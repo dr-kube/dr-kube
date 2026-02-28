@@ -193,7 +193,7 @@ adservice:
 # ============================================
 redis:
   enabled: true
-  replicas: 1
+  replicas: 3
   resources:
     requests:
       cpu: 50m
@@ -201,9 +201,6 @@ redis:
     limits:
       cpu: 100m
       memory: 128Mi
-  service:
-    type: ClusterIP
-    port: 6379
 
 # ============================================
 # LoadGenerator (비활성화 - 수동 테스트)
