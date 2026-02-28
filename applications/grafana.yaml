@@ -15,7 +15,7 @@ spec:
           - $values/values/grafana.yaml
 
     - repoURL: https://github.com/dr-kube/dr-kube.git
-      targetRevision: main
+      targetRevision: mon-8
       ref: values
 
   destination:
