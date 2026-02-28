@@ -193,7 +193,13 @@ adservice:
 # ============================================
 redis:
   enabled: true
-  replicas: 1
+  replicas: 2
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  livenessProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 20
   resources:
     requests:
       cpu: 50m
