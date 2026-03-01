@@ -22,14 +22,14 @@ googleCloudOperations:
 # ============================================
 frontend:
   enabled: true
-  replicas: 1
+  replicas: 3
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
-      memory: 128Mi # ← 에이전트가 수정할 대상 (OOMKilled 유발)
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi # ← 메모리 사용률 93.9% 대응 (2배 증설)
   externalService: false
   service:
     type: ClusterIP
@@ -40,14 +40,14 @@ frontend:
 # ============================================
 cartservice:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 7070
@@ -57,14 +57,14 @@ cartservice:
 # ============================================
 productcatalogservice:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 3550
