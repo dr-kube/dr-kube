@@ -692,6 +692,857 @@ dashboards:
           "uid": "dr-kube-overview",
           "version": 1
         }
+    nginx-ingress-observability:
+      json: |
+        {
+          "editable": true,
+          "schemaVersion": 38,
+          "tags": [
+            "dr-kube",
+            "nginx",
+            "ingress"
+          ],
+          "templating": {
+            "list": [
+              {
+                "current": {
+                  "selected": false,
+                  "text": "All",
+                  "value": ".*"
+                },
+                "datasource": "Prometheus",
+                "definition": "label_values(nginx_ingress_controller_requests, ingress)",
+                "hide": 0,
+                "includeAll": true,
+                "label": "Ingress",
+                "multi": false,
+                "name": "ingress",
+                "options": [],
+                "query": {
+                  "query": "label_values(nginx_ingress_controller_requests, ingress)",
+                  "refId": "IngressVariableQuery"
+                },
+                "refresh": 2,
+                "regex": "",
+                "type": "query"
+              }
+            ]
+          },
+          "time": {
+            "from": "now-6h",
+            "to": "now"
+          },
+          "title": "Nginx Ingress Observability",
+          "uid": "dr-kube-nginx-ingress",
+          "panels": [
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 16,
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "stacking": {
+                      "mode": "normal"
+                    }
+                  },
+                  "unit": "reqps"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 0
+              },
+              "id": 1,
+              "options": {
+                "legend": {
+                  "displayMode": "table",
+                  "placement": "right"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum by (status) (rate(nginx_ingress_controller_requests{ingress=~\"$ingress\"}[5m]))",
+                  "legendFormat": "{{status}}",
+                  "refId": "A"
+                }
+              ],
+              "title": "HTTP Status Code Distribution",
+              "type": "timeseries"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 12,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
+                  "unit": "reqps"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 0
+              },
+              "id": 2,
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(nginx_ingress_controller_requests{ingress=~\"$ingress\"}[5m]))",
+                  "legendFormat": "requests/sec",
+                  "refId": "A"
+                }
+              ],
+              "title": "Ingress Request Rate",
+              "type": "timeseries"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 8,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 16,
+                "x": 0,
+                "y": 8
+              },
+              "id": 3,
+              "options": {
+                "legend": {
+                  "displayMode": "table",
+                  "placement": "right"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "histogram_quantile(0.50, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket{ingress=~\"$ingress\"}[5m])))",
+                  "legendFormat": "p50",
+                  "refId": "A"
+                },
+                {
+                  "expr": "histogram_quantile(0.95, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket{ingress=~\"$ingress\"}[5m])))",
+                  "legendFormat": "p95",
+                  "refId": "B"
+                },
+                {
+                  "expr": "histogram_quantile(0.99, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket{ingress=~\"$ingress\"}[5m])))",
+                  "legendFormat": "p99",
+                  "refId": "C"
+                }
+              ],
+              "title": "Ingress Request Latency",
+              "type": "timeseries"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "decimals": 2,
+                  "max": 1,
+                  "min": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 0.1
+                      },
+                      {
+                        "color": "red",
+                        "value": 0.2
+                      }
+                    ]
+                  },
+                  "unit": "percentunit"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 16,
+                "y": 8
+              },
+              "id": 4,
+              "options": {
+                "orientation": "auto",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showThresholdLabels": false,
+                "showThresholdMarkers": true
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(nginx_ingress_controller_requests{ingress=~\"$ingress\",status=~\"4..\"}[5m])) / clamp_min(sum(rate(nginx_ingress_controller_requests{ingress=~\"$ingress\"}[5m])), 0.001)",
+                  "legendFormat": "4xx",
+                  "refId": "A"
+                },
+                {
+                  "expr": "sum(rate(nginx_ingress_controller_requests{ingress=~\"$ingress\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(nginx_ingress_controller_requests{ingress=~\"$ingress\"}[5m])), 0.001)",
+                  "legendFormat": "5xx",
+                  "refId": "B"
+                }
+              ],
+              "title": "Error Rate (4xx/5xx)",
+              "type": "gauge"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 16,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 16
+              },
+              "id": 5,
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum by (state) (nginx_ingress_controller_nginx_process_connections{state=~\"active|reading|writing|waiting\"})",
+                  "legendFormat": "{{state}}",
+                  "refId": "A"
+                }
+              ],
+              "title": "Nginx Connections",
+              "type": "timeseries"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 10,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 16
+              },
+              "id": 6,
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "histogram_quantile(0.95, sum by (le) (rate(nginx_ingress_controller_response_duration_seconds_bucket{ingress=~\"$ingress\"}[5m])))",
+                  "legendFormat": "upstream p95",
+                  "refId": "A"
+                }
+              ],
+              "title": "Upstream Response Time",
+              "type": "timeseries"
+            }
+          ]
+        }
+    service-health-red:
+      json: |
+        {
+          "editable": true,
+          "schemaVersion": 38,
+          "tags": [
+            "dr-kube",
+            "tempo",
+            "service-health"
+          ],
+          "templating": {
+            "list": [
+              {
+                "current": {
+                  "selected": false,
+                  "text": "All",
+                  "value": ".*"
+                },
+                "datasource": "Prometheus",
+                "definition": "label_values(traces_spanmetrics_calls_total, service)",
+                "hide": 0,
+                "includeAll": true,
+                "label": "Service",
+                "multi": false,
+                "name": "service",
+                "options": [],
+                "query": {
+                  "query": "label_values(traces_spanmetrics_calls_total, service)",
+                  "refId": "ServiceVariableQuery"
+                },
+                "refresh": 2,
+                "regex": "",
+                "type": "query"
+              }
+            ]
+          },
+          "time": {
+            "from": "now-6h",
+            "to": "now"
+          },
+          "title": "Service Health (RED)",
+          "uid": "dr-kube-service-red",
+          "panels": [
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      }
+                    ]
+                  },
+                  "unit": "reqps"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 0,
+                "y": 0
+              },
+              "id": 1,
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(traces_spanmetrics_calls_total{service=~\"$service\"}[5m]))",
+                  "refId": "A"
+                }
+              ],
+              "title": "Request Rate",
+              "type": "stat"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "decimals": 2,
+                  "max": 1,
+                  "min": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 0.02
+                      },
+                      {
+                        "color": "red",
+                        "value": 0.05
+                      }
+                    ]
+                  },
+                  "unit": "percentunit"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 6,
+                "y": 0
+              },
+              "id": 2,
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(traces_spanmetrics_calls_total{service=~\"$service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum(rate(traces_spanmetrics_calls_total{service=~\"$service\"}[5m])), 0.001)",
+                  "refId": "A"
+                }
+              ],
+              "title": "Error Rate",
+              "type": "stat"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 1
+                      },
+                      {
+                        "color": "red",
+                        "value": 3
+                      }
+                    ]
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 12,
+                "y": 0
+              },
+              "id": 3,
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "center",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                }
+              },
+              "targets": [
+                {
+                  "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=~\"$service\"}[5m])))",
+                  "refId": "A"
+                }
+              ],
+              "title": "Latency p95",
+              "type": "stat"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "red",
+                        "value": null
+                      },
+                      {
+                        "color": "green",
+                        "value": 1
+                      }
+                    ]
+                  },
+                  "unit": "none"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 5,
+                "w": 6,
+                "x": 18,
+                "y": 0
+              },
+              "id": 4,
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum(rate(traces_spanmetrics_calls_total{service=~\"$service\"}[5m])) > bool 0",
+                  "refId": "A"
+                }
+              ],
+              "title": "Traffic Present",
+              "type": "stat"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 12,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
+                  "unit": "reqps"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 5
+              },
+              "id": 5,
+              "options": {
+                "legend": {
+                  "displayMode": "table",
+                  "placement": "right"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum by (service) (rate(traces_spanmetrics_calls_total{service=~\"$service\"}[5m]))",
+                  "legendFormat": "{{service}}",
+                  "refId": "A"
+                }
+              ],
+              "title": "Requests Over Time",
+              "type": "timeseries"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 10,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
+                  "unit": "percentunit"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 5
+              },
+              "id": 6,
+              "options": {
+                "legend": {
+                  "displayMode": "table",
+                  "placement": "right"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "sum by (service) (rate(traces_spanmetrics_calls_total{service=~\"$service\",status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum by (service) (rate(traces_spanmetrics_calls_total{service=~\"$service\"}[5m])), 0.001)",
+                  "legendFormat": "{{service}}",
+                  "refId": "A"
+                }
+              ],
+              "title": "Error Rate Trend",
+              "type": "timeseries"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 8,
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 13
+              },
+              "id": 7,
+              "options": {
+                "legend": {
+                  "displayMode": "table",
+                  "placement": "right"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              },
+              "targets": [
+                {
+                  "expr": "histogram_quantile(0.50, sum by (le, service) (rate(traces_spanmetrics_latency_bucket{service=~\"$service\"}[5m])))",
+                  "legendFormat": "{{service}} p50",
+                  "refId": "A"
+                },
+                {
+                  "expr": "histogram_quantile(0.95, sum by (le, service) (rate(traces_spanmetrics_latency_bucket{service=~\"$service\"}[5m])))",
+                  "legendFormat": "{{service}} p95",
+                  "refId": "B"
+                },
+                {
+                  "expr": "histogram_quantile(0.99, sum by (le, service) (rate(traces_spanmetrics_latency_bucket{service=~\"$service\"}[5m])))",
+                  "legendFormat": "{{service}} p99",
+                  "refId": "C"
+                }
+              ],
+              "title": "Latency Distribution",
+              "type": "timeseries"
+            }
+          ]
+        }
+    service-dependency-map:
+      json: |
+        {
+          "editable": true,
+          "schemaVersion": 38,
+          "tags": [
+            "dr-kube",
+            "tempo",
+            "service-map"
+          ],
+          "time": {
+            "from": "now-1h",
+            "to": "now"
+          },
+          "title": "Service Dependency Map",
+          "uid": "dr-kube-service-map",
+          "panels": [
+            {
+              "datasource": {
+                "type": "tempo",
+                "uid": "tempo-uid"
+              },
+              "gridPos": {
+                "h": 14,
+                "w": 24,
+                "x": 0,
+                "y": 0
+              },
+              "id": 1,
+              "options": {
+                "nodes": {
+                  "mainStatUnit": "reqps",
+                  "secondaryStatUnit": "s"
+                }
+              },
+              "targets": [
+                {
+                  "queryType": "serviceMap",
+                  "refId": "A",
+                  "serviceMapQuery": ""
+                }
+              ],
+              "title": "Tempo Service Graph",
+              "type": "nodeGraph"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  },
+                  "unit": "reqps"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 14
+              },
+              "id": 2,
+              "options": {
+                "showHeader": true
+              },
+              "targets": [
+                {
+                  "expr": "sum by (service, peer_service) (rate(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\"}[5m]))",
+                  "format": "table",
+                  "instant": true,
+                  "legendFormat": "{{service}} -> {{peer_service}}",
+                  "refId": "A"
+                }
+              ],
+              "title": "Top Service Calls (RPS)",
+              "type": "table"
+            },
+            {
+              "datasource": "Prometheus",
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  },
+                  "unit": "percentunit"
+                },
+                "overrides": []
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 14
+              },
+              "id": 3,
+              "options": {
+                "showHeader": true
+              },
+              "targets": [
+                {
+                  "expr": "sum by (service, peer_service) (rate(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\",status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum by (service, peer_service) (rate(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\"}[5m])), 0.001)",
+                  "format": "table",
+                  "instant": true,
+                  "legendFormat": "{{service}} -> {{peer_service}}",
+                  "refId": "A"
+                }
+              ],
+              "title": "Dependency Error Rate",
+              "type": "table"
+            }
+          ]
+        }
 # # https://artifacthub.io/packages/helm/grafana/grafana
 # global:
 #   imageRegistry: null
