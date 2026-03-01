@@ -29,7 +29,7 @@ frontend:
       memory: 64Mi
     limits:
       cpu: 100m
-      memory: 128Mi # ← 에이전트가 수정할 대상 (OOMKilled 유발)
+      memory: 256Mi # ← 에이전트가 수정할 대상 (OOMKilled 유발)
   externalService: false
   service:
     type: ClusterIP
