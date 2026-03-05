@@ -15,7 +15,7 @@ spec:
           - $values/values/argocd.yaml
 
     - repoURL: https://github.com/dr-kube/dr-kube.git
-      targetRevision: mon-8
+      targetRevision: main
       ref: values
 
   destination:

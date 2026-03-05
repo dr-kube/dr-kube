@@ -18,7 +18,7 @@ spec:
       recurse: true
     path: applications
     repoURL: https://github.com/dr-kube/dr-kube.git
-    targetRevision: mon-8
+    targetRevision: main
   syncPolicy:
     automated:
       prune: true
