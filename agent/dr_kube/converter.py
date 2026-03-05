@@ -1,5 +1,6 @@
 """Alertmanager 페이로드 → 이슈 JSON 변환기"""
 import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -117,3 +118,30 @@ def convert_alertmanager_payload(payload: dict) -> list[dict]:
         if alert.get("status") == "firing":
             issues.append(convert_alert_to_issue(alert))
     return issues
+
+
+def convert_argocd_event(payload: dict) -> dict:
+    """ArgoCD Notifications webhook body (single event) -> issue schema."""
+    resource = payload.get("resource", "unknown")
+    namespace = payload.get("namespace", "default")
+    raw_id = payload.get("id")
+    fingerprint = raw_id or hashlib.md5(
+        json.dumps(payload, sort_keys=True, default=str).encode()
+    ).hexdigest()[:16]
+    logs = payload.get("logs", [])
+    if not isinstance(logs, list):
+        logs = [str(logs)] if logs else []
+    values_file = payload.get("values_file", "").strip()
+    if not values_file:
+        values_file = derive_values_file(resource, namespace)
+    return {
+        "id": raw_id or f"argocd-{fingerprint}",
+        "fingerprint": fingerprint,
+        "type": payload.get("type", "argocd_unknown"),
+        "namespace": namespace,
+        "resource": resource,
+        "error_message": payload.get("error_message", ""),
+        "logs": logs,
+        "timestamp": payload.get("timestamp", ""),
+        "values_file": values_file,
+    }

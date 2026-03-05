@@ -1,0 +1,21 @@
+# Test Application: triggers ArgoCD sync-failed so agent webhook/LLM can be verified.
+# Sync fails because source.path points to a non-existent directory.
+# Delete this file or the Application after testing.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-webhook-test
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dr-kube/dr-kube.git
+    targetRevision: main
+    path: _test/argocd-sync-fail
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
