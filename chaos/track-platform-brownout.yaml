@@ -1,11 +1,12 @@
 # 복합 트랙 3: 플랫폼 전반 브라운아웃
-# 다중 서비스 stress + payment/redis 지연으로 SLO 악화 유도
+# 다중 서비스 패킷 손실 + DNS 장애 + pod kill로 광범위한 에러 유도
 apiVersion: chaos-mesh.org/v1alpha1
-kind: StressChaos
+kind: NetworkChaos
 metadata:
-  name: track-platform-traffic-spike
+  name: track-platform-network-loss
   namespace: chaos-mesh
 spec:
+  action: loss
   mode: all
   duration: 7m
   selector:
@@ -15,48 +16,41 @@ spec:
       - key: app
         operator: In
         values:
-          - frontend
-          - cartservice
-          - checkoutservice
-  stressors:
-    cpu:
-      workers: 2
-    memory:
-      workers: 2
-      size: 128M
+          - paymentservice
+          - redis-cart
+          - currencyservice
+  loss:
+    loss: "60"
+    correlation: "25"
 ---
 apiVersion: chaos-mesh.org/v1alpha1
-kind: NetworkChaos
+kind: DNSChaos
 metadata:
-  name: track-platform-payment-delay
+  name: track-platform-dns-error
   namespace: chaos-mesh
 spec:
-  action: delay
+  action: error
   mode: all
   duration: 7m
+  patterns:
+    - ".*"
   selector:
     namespaces:
       - online-boutique
     labelSelectors:
-      app: paymentservice
-  delay:
-    latency: "1500ms"
-    jitter: "200ms"
+      app: checkoutservice
 ---
 apiVersion: chaos-mesh.org/v1alpha1
-kind: NetworkChaos
+kind: PodChaos
 metadata:
-  name: track-platform-redis-delay
+  name: track-platform-pod-kill
   namespace: chaos-mesh
 spec:
-  action: delay
-  mode: all
-  duration: 7m
+  action: pod-kill
+  mode: one
+  duration: 3m
   selector:
     namespaces:
       - online-boutique
     labelSelectors:
-      app: redis-cart
-  delay:
-    latency: "1000ms"
-    jitter: "100ms"
+      app: recommendationservice

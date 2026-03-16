@@ -1,5 +1,5 @@
 # Chaos Mesh 실험: DNS 장애 -> 서비스 디스커버리 실패
-# 방법: productcatalogservice에 DNSChaos(DNS 응답 에러) 적용
+# 방법: frontend에 DNSChaos 적용 -> 모든 backend 서비스 호출 시 DNS 해석 실패
 apiVersion: chaos-mesh.org/v1alpha1
 kind: DNSChaos
 metadata:
@@ -15,4 +15,4 @@ spec:
     namespaces:
       - online-boutique
     labelSelectors:
-      app: productcatalogservice
+      app: frontend
