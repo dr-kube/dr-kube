@@ -4,29 +4,39 @@ import json
 import re
 from pathlib import Path
 
-# alertname → issue type 매핑 (values/prometheus.yaml의 15개 alert rule 전부)
+# alertname → issue type 매핑 (Prometheus metric alerts + Loki log alerts)
 ALERT_TYPE_MAP = {
-    # 컨테이너 리소스
+    # 컨테이너 리소스 (Prometheus)
     "ContainerOOMKilled": "oom",
     "HighMemoryUsage": "oom",
     "CPUThrottling": "cpu_throttle",
-    # 파드 상태
+    # 파드 상태 (Prometheus)
     "PodCrashLooping": "pod_crash",
     "PodNotReady": "pod_unhealthy",
     "ContainerWaiting": "container_waiting",
-    # 디플로이먼트
+    # 디플로이먼트 (Prometheus)
     "DeploymentReplicasMismatch": "replicas_mismatch",
-    # 노드
+    # 노드 (Prometheus)
     "NodeHighCPU": "node_resource",
-    # 서비스 레벨 (span metrics 기반)
+    # 서비스 레벨 (Prometheus, span metrics 기반)
     "ServiceHighLatencyP99": "service_latency",
     "ServiceHighErrorRate": "service_error",
     "ServiceDown": "service_down",
     "UpstreamConnectionError": "upstream_error",
-    # Nginx Ingress
+    # Nginx Ingress (Prometheus)
     "NginxHighLatency": "nginx_latency",
     "NginxHigh4xxRate": "nginx_error",
     "NginxHigh5xxRate": "nginx_error",
+    # Loki log-based alerts
+    "LogDNSResolutionFailure": "log_dns_failure",
+    "LogConnectionRefused": "log_connection_error",
+    "LogGRPCUnavailable": "log_grpc_error",
+    "LogTimeoutDetected": "log_timeout",
+    "LogRedisConnectionError": "log_redis_error",
+    "LogOOMSignal": "log_oom_signal",
+    "LogFatalOrPanic": "log_fatal",
+    "LogErrorSpike": "log_error_spike",
+    "LogHTTP5xxErrors": "log_http_5xx",
 }
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -83,7 +93,7 @@ def convert_alert_to_issue(alert: dict) -> dict:
     alertname = labels.get("alertname", "Unknown")
     namespace = labels.get("namespace", "default")
 
-    # 리소스명 추출: pod → deployment → service 순 fallback
+    # 리소스명 추출: pod → deployment → service → app 순 fallback
     pod = labels.get("pod", "")
     if pod:
         resource = extract_resource_name(pod)
@@ -91,6 +101,8 @@ def convert_alert_to_issue(alert: dict) -> dict:
         resource = labels["deployment"]
     elif labels.get("service"):
         resource = labels["service"]
+    elif labels.get("app"):
+        resource = labels["app"]
     else:
         resource = "unknown"
 

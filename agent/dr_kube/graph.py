@@ -2,23 +2,35 @@
 
 워크플로우:
   with_pr=True:
-    load_issue → analyze_and_fix(LLM 1회) → validate → create_pr → END
-                                               ↓ 실패 (< 3회)
-                                             analyze_and_fix (재시도)
-                                               ↓ 실패 (>= 3회)
-                                             error_end → END
+    load_issue → investigate(LLM+tools) → analyze_and_fix → validate → create_pr → END
+                                                              ↓ 실패 (< 3회)
+                                                            analyze_and_fix (재시도)
+                                                              ↓ 실패 (>= 3회)
+                                                            error_end → END
   with_pr=False:
-    load_issue → analyze_and_fix → END
+    load_issue → investigate → analyze_and_fix → END
 """
 import json
+import logging
+import os
 import re
 import yaml
 from pathlib import Path
 from langgraph.graph import StateGraph, END
 from dr_kube.state import IssueState
 from dr_kube.llm import get_llm
-from dr_kube.prompts import ANALYZE_AND_FIX_PROMPT, ANALYZE_ONLY_PROMPT, ARGOCD_ANALYZE_PROMPT
+from dr_kube.prompts import (
+    INVESTIGATE_PROMPT,
+    ANALYZE_AND_FIX_PROMPT,
+    ANALYZE_ONLY_PROMPT,
+    ARGOCD_ANALYZE_PROMPT,
+)
+from dr_kube.tools import ALL_TOOLS
 from dr_kube.github import GitHubClient, generate_branch_name, generate_pr_body
+
+logger = logging.getLogger("dr-kube-investigate")
+
+MAX_INVESTIGATE_ITERATIONS = int(os.getenv("MAX_INVESTIGATE_ITERATIONS", "5"))
 
 # 프로젝트 루트 경로 (agent/dr_kube/graph.py → dr-kube/)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -295,6 +307,199 @@ def load_issue(state: IssueState) -> IssueState:
     }
 
 
+def investigate(state: IssueState) -> IssueState:
+    """LLM + tools: alert 기반으로 Loki/Prometheus/K8s를 조회하여 증거 수집"""
+    if state.get("status") == "error":
+        return state
+
+    issue = state["issue_data"]
+    alert_id = issue.get("id", "unknown")
+    issue_type = issue.get("type", "unknown")
+    resource = issue.get("resource", "unknown")
+    namespace = issue.get("namespace", "default")
+    logs_text = "\n".join(issue.get("logs", []))
+
+    logger.info("[investigate] investigation start: alert_id=%s type=%s resource=%s",
+                alert_id, issue_type, resource)
+
+    prompt = INVESTIGATE_PROMPT.format(
+        type=issue_type,
+        namespace=namespace,
+        resource=resource,
+        error_message=issue.get("error_message", ""),
+        logs=logs_text,
+    )
+
+    try:
+        llm = get_llm()
+        llm_with_tools = llm.bind_tools(ALL_TOOLS)
+    except Exception as e:
+        logger.error("[investigate] LLM/tool binding failed: %s", e)
+        return {
+            "investigation_summary": f"investigation failed: {e}",
+            "unavailable_evidence": ["LLM tool binding failed"],
+            "status": "investigated",
+        }
+
+    messages = [{"role": "user", "content": prompt}]
+    evidence_logs: list[str] = []
+    evidence_metrics: dict = {}
+    evidence_pod_status: dict = {}
+    unavailable: list[str] = []
+    tool_map = {t.name: t for t in ALL_TOOLS}
+    investigation_summary = ""
+
+    for iteration in range(1, MAX_INVESTIGATE_ITERATIONS + 1):
+        logger.info("[investigate] iteration %d/%d", iteration, MAX_INVESTIGATE_ITERATIONS)
+        try:
+            response = llm_with_tools.invoke(messages)
+        except Exception as e:
+            logger.error("[investigate] LLM invoke failed at iteration %d: %s", iteration, e)
+            unavailable.append(f"LLM invoke failed at iteration {iteration}: {e}")
+            break
+
+        if not response.tool_calls:
+            investigation_summary = _extract_llm_content(response)
+            logger.info("[investigate] LLM decided to finish investigation")
+            break
+
+        messages.append(response)
+
+        for tc in response.tool_calls:
+            tool_name = tc["name"]
+            tool_args = tc["args"]
+            logger.info("[investigate] LLM decided: call %s(%s)", tool_name, json.dumps(tool_args, ensure_ascii=False))
+
+            tool_fn = tool_map.get(tool_name)
+            if not tool_fn:
+                err_msg = f"Unknown tool: {tool_name}"
+                logger.warning("[investigate] %s", err_msg)
+                messages.append({"role": "tool", "content": err_msg, "tool_call_id": tc["id"]})
+                continue
+
+            try:
+                tool_result = tool_fn.invoke(tool_args)
+            except Exception as e:
+                tool_result = json.dumps({"error": f"Tool execution error: {e}"})
+                logger.warning("[investigate] tool_call: %s -> exception (%s)", tool_name, e)
+
+            messages.append({"role": "tool", "content": str(tool_result), "tool_call_id": tc["id"]})
+
+            _collect_evidence(
+                tool_name, tool_args, tool_result,
+                evidence_logs, evidence_metrics, evidence_pod_status, unavailable,
+            )
+    else:
+        logger.info("[investigate] max iterations (%d) reached", MAX_INVESTIGATE_ITERATIONS)
+
+    success_count = sum([
+        1 if evidence_logs else 0,
+        1 if evidence_metrics else 0,
+        1 if evidence_pod_status else 0,
+    ])
+    total_sources = 3
+    logger.info("[investigate] investigation complete: success %d/%d, failures: %s",
+                success_count, total_sources,
+                unavailable if unavailable else "none")
+    if investigation_summary:
+        logger.info("[investigate] investigation_summary: %s", investigation_summary[:200])
+
+    return {
+        "evidence_logs": evidence_logs,
+        "evidence_metrics": evidence_metrics,
+        "evidence_pod_status": evidence_pod_status,
+        "investigation_summary": investigation_summary,
+        "unavailable_evidence": unavailable,
+        "status": "investigated",
+    }
+
+
+def _collect_evidence(
+    tool_name: str, tool_args: dict, tool_result: str,
+    evidence_logs: list[str], evidence_metrics: dict,
+    evidence_pod_status: dict, unavailable: list[str],
+) -> None:
+    """Parse tool result and dispatch to the appropriate evidence bucket."""
+    try:
+        parsed = json.loads(tool_result) if isinstance(tool_result, str) else tool_result
+    except (json.JSONDecodeError, TypeError):
+        parsed = {"raw": str(tool_result)}
+
+    has_error = isinstance(parsed, dict) and "error" in parsed
+    is_empty = isinstance(parsed, dict) and parsed.get("count", -1) == 0
+
+    if tool_name == "query_loki_logs":
+        if has_error or is_empty:
+            desc = parsed.get("error") or parsed.get("note", "empty result")
+            unavailable.append(f"Loki logs ({tool_args.get('app', '?')}, pattern={tool_args.get('pattern', '?')}): {desc}")
+        elif isinstance(parsed, dict):
+            for line in parsed.get("result", []):
+                if line not in evidence_logs:
+                    evidence_logs.append(line)
+
+    elif tool_name == "query_prometheus":
+        if has_error or is_empty:
+            desc = parsed.get("error") or parsed.get("note", "empty result")
+            unavailable.append(f"Prometheus ({tool_args.get('query', '?')}): {desc}")
+        elif isinstance(parsed, dict):
+            query_key = tool_args.get("query", "unknown")[:80]
+            evidence_metrics[query_key] = parsed.get("result", [])
+
+    elif tool_name == "get_pod_status":
+        if has_error or is_empty:
+            desc = parsed.get("error") or parsed.get("note", "empty result")
+            unavailable.append(f"Pod status ({tool_args.get('app', '?')}): {desc}")
+        elif isinstance(parsed, dict):
+            app_key = tool_args.get("app", "unknown")
+            evidence_pod_status[app_key] = parsed.get("result", [])
+
+
+def _format_evidence(state: IssueState) -> tuple[str, str]:
+    """Format evidence and unavailable info into prompt-ready strings."""
+    parts = []
+
+    logs = state.get("evidence_logs", [])
+    if logs:
+        parts.append("### Loki Logs")
+        for line in logs[:30]:
+            parts.append(f"  - {line[:300]}")
+
+    metrics = state.get("evidence_metrics", {})
+    if metrics:
+        parts.append("### Prometheus Metrics")
+        for query, results in metrics.items():
+            parts.append(f"  Query: {query}")
+            for r in results[:10]:
+                if isinstance(r, dict):
+                    metric_labels = r.get("metric", {})
+                    value = r.get("value", "N/A")
+                    parts.append(f"    {metric_labels} = {value}")
+                else:
+                    parts.append(f"    {r}")
+
+    pod_status = state.get("evidence_pod_status", {})
+    if pod_status:
+        parts.append("### Pod Status")
+        for app, pods in pod_status.items():
+            parts.append(f"  App: {app}")
+            for p in pods[:5]:
+                if isinstance(p, dict):
+                    parts.append(f"    {p.get('name', '?')}: phase={p.get('phase', '?')}, "
+                                 f"containers={p.get('containers', [])}, "
+                                 f"failedConditions={p.get('failedConditions', [])}")
+
+    summary = state.get("investigation_summary", "")
+    if summary:
+        parts.append(f"### Investigation Summary\n{summary}")
+
+    evidence_text = "\n".join(parts) if parts else "No evidence collected."
+
+    unavailable_list = state.get("unavailable_evidence", [])
+    unavailable_text = "\n".join(f"- {item}" for item in unavailable_list) if unavailable_list else "None"
+
+    return evidence_text, unavailable_text
+
+
 def analyze_and_fix(state: IssueState) -> IssueState:
     """LLM 1회 호출로 이슈 분석 + YAML 수정안 생성"""
     if state.get("status") == "error":
@@ -331,12 +536,16 @@ def analyze_and_fix(state: IssueState) -> IssueState:
             "status": "analyzed",
         }
 
+    evidence_text, unavailable_text = _format_evidence(state)
+
     prompt = ANALYZE_AND_FIX_PROMPT.format(
         type=issue.get("type", "unknown"),
         namespace=issue.get("namespace", "default"),
         resource=issue.get("resource", "unknown"),
         error_message=issue.get("error_message", ""),
         logs=logs_text,
+        evidence=evidence_text,
+        unavailable=unavailable_text,
         target_file=target_file,
         current_yaml=original_yaml,
     )
@@ -408,6 +617,7 @@ def _analyze_only(state: IssueState) -> IssueState:
     """values 파일이 없는 이슈의 분석만 수행"""
     issue = state["issue_data"]
     logs_text = "\n".join(issue.get("logs", []))
+    evidence_text, unavailable_text = _format_evidence(state)
 
     prompt = ANALYZE_ONLY_PROMPT.format(
         type=issue.get("type", "unknown"),
@@ -415,6 +625,8 @@ def _analyze_only(state: IssueState) -> IssueState:
         resource=issue.get("resource", "unknown"),
         error_message=issue.get("error_message", ""),
         logs=logs_text,
+        evidence=evidence_text,
+        unavailable=unavailable_text,
     )
 
     try:
@@ -588,6 +800,7 @@ def create_graph(with_pr: bool = False):
     workflow = StateGraph(IssueState)
 
     workflow.add_node("load_issue", load_issue)
+    workflow.add_node("investigate", investigate)
     workflow.add_node("analyze_and_fix", analyze_and_fix)
 
     if with_pr:
@@ -596,7 +809,8 @@ def create_graph(with_pr: bool = False):
         workflow.add_node("error_end", error_end)
 
         workflow.set_entry_point("load_issue")
-        workflow.add_edge("load_issue", "analyze_and_fix")
+        workflow.add_edge("load_issue", "investigate")
+        workflow.add_edge("investigate", "analyze_and_fix")
 
         workflow.add_conditional_edges(
             "analyze_and_fix",
@@ -614,7 +828,8 @@ def create_graph(with_pr: bool = False):
         workflow.add_edge("error_end", END)
     else:
         workflow.set_entry_point("load_issue")
-        workflow.add_edge("load_issue", "analyze_and_fix")
+        workflow.add_edge("load_issue", "investigate")
+        workflow.add_edge("investigate", "analyze_and_fix")
         workflow.add_edge("analyze_and_fix", END)
 
     return workflow.compile()

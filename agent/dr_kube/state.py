@@ -26,7 +26,14 @@ class IssueState(TypedDict, total=False):
     pr_url: str  # 생성된 PR URL
     pr_number: int  # PR 번호
 
+    # investigate 결과
+    evidence_logs: list[str]
+    evidence_metrics: dict
+    evidence_pod_status: dict
+    investigation_summary: str
+    unavailable_evidence: list[str]
+
     # 워크플로우 제어
     retry_count: int  # 검증 실패 재시도 횟수 (최대 3)
-    status: str  # loaded, analyzed, validated, pr_created, done, error
+    status: str  # loaded, investigated, analyzed, validated, pr_created, done, error
     error: str  # 에러 메시지 (있을 경우)
