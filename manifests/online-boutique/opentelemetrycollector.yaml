@@ -1,6 +1,35 @@
-# Online Boutique chart의 opentelemetrycollector Deployment 오버라이드
-# init 컨테이너가 설정 파일을 append(>>) 하면 재실행 시 YAML 중복으로 CrashLoop 발생
-# overwrite(>)로 고정하여 동일 문제가 재발하지 않도록 처리
+# Online Boutique chart의 opentelemetrycollector 오버라이드
+# 로컬 Kind 환경: GCP googlecloud exporter → Tempo otlp exporter로 교체
+# init 컨테이너의 GCP 메타데이터 조회 제거 (로컬 환경에서 실패)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: collector-gateway-config-template
+  namespace: online-boutique
+data:
+  collector-gateway-config-template.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      batch:
+    exporters:
+      otlp/tempo:
+        endpoint: tempo.monitoring.svc.cluster.local:4317
+        tls:
+          insecure: true
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlp/tempo]
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,7 +59,7 @@ spec:
             - /bin/sh
             - -c
             - |
-              sed "s/PROJECT_ID/$(curl -H 'Metadata-Flavor: Google' http://metadata.google.internal/computeMetadata/v1/project/project-id)/" /template/collector-gateway-config-template.yaml > /conf/collector-gateway-config.yaml
+              cp /template/collector-gateway-config-template.yaml /conf/collector-gateway-config.yaml
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
