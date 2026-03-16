@@ -26,30 +26,14 @@ frontend:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi # ← 기존 64Mi에서 상향
+      memory: 128Mi # ← 기존 64Mi에서 128Mi로 상향
     limits:
       cpu: 100m
-      memory: 256Mi # ← 기존 128Mi에서 상향
+      memory: 256Mi # ← 기존 128Mi에서 256Mi로 상향 (OOMKilled 방지)
   externalService: false
   service:
     type: ClusterIP
     port: 80
-  livenessProbe:
-    httpGet:
-      path: /_healthz
-      port: 8080
-    initialDelaySeconds: 30 # ← 기존 10s에서 상향
-    timeoutSeconds: 5       # ← 기존 1s에서 상향
-    periodSeconds: 10
-    failureThreshold: 5     # ← 기존 3에서 상향
-  readinessProbe:
-    httpGet:
-      path: /_healthz
-      port: 8080
-    initialDelaySeconds: 30 # ← 기존 10s에서 상향
-    timeoutSeconds: 5       # ← 기존 1s에서 상향
-    periodSeconds: 10
-    failureThreshold: 5     # ← 기존 3에서 상향
 
 # ============================================
 # Cart Service (Redis 기반인거 같음)
@@ -107,7 +91,7 @@ currencyservice:
 # ============================================
 paymentservice:
   enabled: true
-  replicas: 1
+  replicas: 2 # ← 기존 1에서 2로 확장 (부하 분산)
   resources:
     requests:
       cpu: 50m
@@ -118,6 +102,8 @@ paymentservice:
   service:
     type: ClusterIP
     port: 8081
+  env:
+    GRPC_TIMEOUT_MS: 3000 # ← 기존 값에서 3000ms로 증가 (latency 문제 해결)
 
 # ============================================
 # Shipping Service
@@ -169,6 +155,20 @@ checkoutservice:
   service:
     type: ClusterIP
     port: 5050
+  livenessProbe:
+    grpc: <pod>:5050
+    initialDelaySeconds: 30 # ← 기존 0에서 30으로 증가
+    timeoutSeconds: 5       # ← 기존 1에서 5로 증가
+    periodSeconds: 10
+    successThreshold: 1
+    failureThreshold: 5     # ← 기존 3에서 5로 증가
+  readinessProbe:
+    grpc: <pod>:5050
+    initialDelaySeconds: 30 # ← 기존 0에서 30으로 증가
+    timeoutSeconds: 5       # ← 기존 1에서 5로 증가
+    periodSeconds: 10
+    successThreshold: 1
+    failureThreshold: 5     # ← 기존 3에서 5로 증가
 
 # ============================================
 # Recommendation Service
