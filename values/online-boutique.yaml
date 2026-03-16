@@ -22,14 +22,14 @@ googleCloudOperations:
 # ============================================
 frontend:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi # ← 기존 64Mi에서 상향
+      memory: 192Mi # ← 기존 128Mi에서 상향
     limits:
       cpu: 100m
-      memory: 256Mi # ← 기존 128Mi에서 상향
+      memory: 384Mi # ← 기존 256Mi에서 상향
   externalService: false
   service:
     type: ClusterIP
