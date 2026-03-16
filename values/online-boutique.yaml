@@ -23,6 +23,8 @@ googleCloudOperations:
 frontend:
   enabled: true
   replicas: 1
+  image:
+    tag: v0.10.1
   resources:
     requests:
       cpu: 50m
@@ -30,6 +32,16 @@ frontend:
     limits:
       cpu: 100m
       memory: 128Mi # ← 에이전트가 수정할 대상 (OOMKilled 유발)
+  livenessProbe:
+    initialDelaySeconds: 30  # ← 앱 시작이 느릴 때 너무 짧으면 false kill
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5
+  readinessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 5
   externalService: false
   service:
     type: ClusterIP
@@ -41,6 +53,8 @@ frontend:
 cartservice:
   enabled: true
   replicas: 1
+  image:
+    tag: v0.10.1
   resources:
     requests:
       cpu: 50m
@@ -48,6 +62,9 @@ cartservice:
     limits:
       cpu: 100m
       memory: 128Mi
+  env:
+    - name: REDIS_ADDR
+      value: "redis-cart:6379"
   service:
     type: ClusterIP
     port: 7070
@@ -58,6 +75,8 @@ cartservice:
 productcatalogservice:
   enabled: true
   replicas: 1
+  image:
+    tag: v0.10.1
   resources:
     requests:
       cpu: 50m
@@ -65,6 +84,16 @@ productcatalogservice:
     limits:
       cpu: 100m
       memory: 128Mi
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
   service:
     type: ClusterIP
     port: 3550
@@ -92,6 +121,8 @@ currencyservice:
 paymentservice:
   enabled: true
   replicas: 1
+  image:
+    tag: v0.10.1
   resources:
     requests:
       cpu: 50m
@@ -99,6 +130,11 @@ paymentservice:
     limits:
       cpu: 100m
       memory: 128Mi
+  env:
+    - name: DISABLE_PROFILER
+      value: "1"
+    - name: PORT
+      value: "8081"
   service:
     type: ClusterIP
     port: 8081
@@ -143,6 +179,8 @@ emailservice:
 checkoutservice:
   enabled: true
   replicas: 1
+  image:
+    tag: v0.10.1
   resources:
     requests:
       cpu: 50m
@@ -150,6 +188,13 @@ checkoutservice:
     limits:
       cpu: 100m
       memory: 128Mi
+  env:
+    - name: GRPC_TIMEOUT_MS
+      value: "500"  # ← 너무 짧으면 downstream 서비스 timeout 유발
+    - name: PAYMENT_SERVICE_ADDR
+      value: "paymentservice:8081"
+    - name: CART_SERVICE_ADDR
+      value: "cartservice:7070"
   service:
     type: ClusterIP
     port: 5050
