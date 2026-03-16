@@ -102,6 +102,9 @@ paymentservice:
   service:
     type: ClusterIP
     port: 8081
+  env:
+    - name: PORT
+      value: "8081" # ← 누락된 PORT 환경변수 추가
 
 # ============================================
 # Shipping Service
