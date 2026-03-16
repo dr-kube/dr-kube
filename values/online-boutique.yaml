@@ -9,6 +9,10 @@
 # collector 자체는 manifests/online-boutique/otel-collector.yaml 에서 배포
 opentelemetryCollector:
   create: true
+  config:
+    exporters:
+      googlecloud:
+        enabled: false # Google Cloud Exporter 비활성화
 
 # tracing=true → 각 서비스에 ENABLE_TRACING=1 환경변수 설정
 # (GCP 전용 기능이 아님, 트레이스 활성화 플래그)
