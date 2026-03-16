@@ -39,9 +39,16 @@ loki:
     volume_enabled: true
     retention_period: 672h
 
-#  rulerConfig:
-#    storage:
-#      type: local
+  rulerConfig:
+    storage:
+      type: local
+      local:
+        directory: /var/loki/rules
+    alertmanager_url: http://prometheus-alertmanager.monitoring.svc.cluster.local:9093
+    ring:
+      kvstore:
+        store: inmemory
+    enable_api: true
 
 singleBinary:
   replicas: 1
@@ -49,6 +56,14 @@ singleBinary:
     enabled: true
     size: 10Gi
     storageClass: standard
+  extraVolumeMounts:
+    - name: alerting-rules
+      mountPath: /var/loki/rules/fake
+      readOnly: true
+  extraVolumes:
+    - name: alerting-rules
+      configMap:
+        name: loki-alerting-rules
 
 resultsCache:
   enabled: false
@@ -68,3 +83,160 @@ read:
   replicas: 0
 backend:
   replicas: 0
+
+extraObjects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: loki-alerting-rules
+      namespace: monitoring
+    data:
+      rules.yaml: |
+        groups:
+          # ---------------------------------------------------------
+          # 1. DNS Resolution Failure
+          # ---------------------------------------------------------
+          - name: log-dns-failure
+            rules:
+              - alert: LogDNSResolutionFailure
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique"} |~ "(?i)(no such host|NXDOMAIN|dns.*error|lookup.*failed|server misbehaving)" [5m])
+                  ) > 3
+                for: 1m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "DNS resolution failure detected in logs"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} logged DNS resolution errors ({{ "{{" }} $value {{ "}}" }} occurrences in 5m)'
+
+          # ---------------------------------------------------------
+          # 2. Connection Errors (TCP/gRPC)
+          # ---------------------------------------------------------
+          - name: log-connection-error
+            rules:
+              - alert: LogConnectionRefused
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique"} |~ "(?i)(connection refused|connection reset|connect: connection)" [5m])
+                  ) > 5
+                for: 1m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "Connection refused/reset detected in logs"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} has connection errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
+
+              - alert: LogGRPCUnavailable
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique"} |~ "(?i)(rpc error.*unavailable|transport.*closing|grpc.*failed)" [5m])
+                  ) > 5
+                for: 1m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "gRPC unavailable errors in logs"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} has gRPC errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
+
+          # ---------------------------------------------------------
+          # 3. Timeout / Deadline Exceeded
+          # ---------------------------------------------------------
+          - name: log-timeout
+            rules:
+              - alert: LogTimeoutDetected
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique"} |~ "(?i)(timeout|deadline exceeded|context canceled|context deadline)" [5m])
+                  ) > 5
+                for: 1m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "Timeout/deadline errors in logs"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} logged timeout errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
+
+          # ---------------------------------------------------------
+          # 4. Redis Errors
+          # ---------------------------------------------------------
+          - name: log-redis-error
+            rules:
+              - alert: LogRedisConnectionError
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique"} |~ "(?i)(redis.*timeout|redis.*refused|WRONGPASS|redis.*error|could not connect to redis)" [5m])
+                  ) > 3
+                for: 1m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "Redis connection error in logs"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} failed to connect to Redis ({{ "{{" }} $value {{ "}}" }} in 5m)'
+
+          # ---------------------------------------------------------
+          # 5. OOM / Memory Pressure
+          # ---------------------------------------------------------
+          - name: log-resource-pressure
+            rules:
+              - alert: LogOOMSignal
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique"} |~ "(?i)(out of memory|cannot allocate|memory allocation failed|OOMKilled|killed process)" [5m])
+                  ) > 0
+                for: 0m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "OOM/memory pressure signal in logs"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} shows memory pressure signs'
+
+          # ---------------------------------------------------------
+          # 6. Fatal / Panic (Immediate)
+          # ---------------------------------------------------------
+          - name: log-fatal-panic
+            rules:
+              - alert: LogFatalOrPanic
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique", level=~"fatal|panic"} [5m])
+                  ) > 0
+                for: 0m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "Fatal/panic log detected"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} emitted fatal/panic level log'
+
+          # ---------------------------------------------------------
+          # 7. Error Level Log Detected
+          # ---------------------------------------------------------
+          - name: log-error-level
+            rules:
+              - alert: LogErrorDetected
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique", level="error"} [3m])
+                  ) > 3
+                for: 0m
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "Error level logs detected"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} emitted error level logs ({{ "{{" }} $value {{ "}}" }} occurrences in 3m)'
+
+          # ---------------------------------------------------------
+          # 8. HTTP 5xx in Application Logs
+          # ---------------------------------------------------------
+          - name: log-http-5xx
+            rules:
+              - alert: LogHTTP5xxErrors
+                expr: |
+                  sum by (namespace, app) (
+                    count_over_time({namespace="online-boutique"} |~ "(?i)(status[=: ]*5\\d{2}|HTTP 5\\d{2}|\\\"(500|502|503|504)\\\")" [5m])
+                  ) > 10
+                for: 2m
+                labels:
+                  severity: warning
+                annotations:
+                  summary: "HTTP 5xx errors in logs"
+                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} logged HTTP 5xx responses ({{ "{{" }} $value {{ "}}" }} in 5m)'
