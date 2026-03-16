@@ -86,6 +86,14 @@ spec:
               value: "200"
             - name: HIGH_DEDUP_COOLDOWN_MINUTES
               value: "10"
+            - name: LOKI_URL
+              value: "http://loki.monitoring:3100"
+            - name: PROMETHEUS_URL
+              value: "http://prometheus-server.monitoring:9090"
+            - name: MAX_INVESTIGATE_ITERATIONS
+              value: "5"
+            - name: TOOL_TIMEOUT_SECONDS
+              value: "10"
           resources:
             requests:
               cpu: 100m

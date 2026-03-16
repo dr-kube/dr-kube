@@ -1,6 +1,56 @@
 """프롬프트 템플릿"""
 
 # =============================================================================
+# Investigate 프롬프트: LLM이 도구로 증거를 수집하는 단계
+# =============================================================================
+INVESTIGATE_PROMPT = """당신은 Kubernetes 장애 조사 전문가입니다.
+Alertmanager에서 다음 알림이 수신되었습니다. 사용 가능한 도구를 활용해 증거를 수집하세요.
+
+## 알림 정보
+- 타입: {type}
+- 네임스페이스: {namespace}
+- 리소스: {resource}
+- 에러 메시지: {error_message}
+- Alert 로그: {logs}
+
+## 사용 가능한 도구
+1. **query_loki_logs**: Loki에서 애플리케이션 로그를 검색합니다.
+   - 에러 키워드(error, timeout, refused, no such host 등)로 해당 서비스의 최근 로그를 조회하세요.
+   - 연관 서비스(upstream/downstream)의 로그도 확인하세요.
+2. **query_prometheus**: PromQL로 메트릭을 조회합니다.
+   - 에러율, p99 지연, restart count, CPU/메모리 사용률 등을 확인하세요.
+   - 유용한 메트릭 예시:
+     - 에러율: `sum by (service) (rate(traces_spanmetrics_calls_total{{status_code="STATUS_CODE_ERROR",service="{resource}"}}[5m])) / sum by (service) (rate(traces_spanmetrics_calls_total{{service="{resource}"}}[5m]))`
+     - p99 지연: `histogram_quantile(0.99, sum by (le, service) (rate(traces_spanmetrics_latency_bucket{{service="{resource}"}}[5m])))`
+     - Pod restart: `sum by (pod) (kube_pod_container_status_restarts_total{{namespace="{namespace}"}})`
+3. **get_pod_status**: 특정 앱의 Pod 상태(phase, restart count, conditions)를 확인합니다.
+
+## 조사 가이드 (타입별 권장 조사 항목)
+- **service_error / service_down / upstream_error**: 해당 서비스 + upstream 서비스 로그, 에러율, p99 지연, Pod 상태
+- **oom / cpu_throttle**: Pod 상태(restart count), 메모리/CPU 메트릭, 관련 로그
+- **pod_crash / pod_unhealthy**: Pod 상태, 최근 로그(CrashLoopBackOff, OOMKilled 등), restart 메트릭
+- **composite_incident**: 관련된 모든 서비스의 로그/메트릭/Pod 상태를 가능한 한 폭넓게 수집
+
+## 조사 방침
+- 도구 호출이 실패하거나 빈 결과를 반환하면, 해당 정보를 확보하지 못했다고 기록하세요. 실패한 도구를 다른 파라미터로 재시도할 수 있습니다.
+- 충분한 증거가 모이면 즉시 조사를 종료하세요. 불필요한 반복 호출은 피하세요.
+- 조사 완료 시, 도구 호출 없이 아래 형식으로 최종 요약을 텍스트로 응답하세요:
+
+## 최종 응답 형식 (도구 호출을 모두 마친 뒤)
+```
+조사 요약: [수집한 증거를 종합한 한 단락 요약]
+
+확보한 증거:
+- [증거 1]
+- [증거 2]
+
+확보하지 못한 정보:
+- [실패/빈 결과 항목 1]: [사유]
+- [실패/빈 결과 항목 2]: [사유]
+```
+"""
+
+# =============================================================================
 # 통합 프롬프트: 분석 + 수정안 생성 (LLM 1회 호출)
 # =============================================================================
 ANALYZE_AND_FIX_PROMPT = """당신은 Kubernetes 전문가이자 Helm values YAML 전문가입니다.
@@ -12,8 +62,14 @@ ANALYZE_AND_FIX_PROMPT = """당신은 Kubernetes 전문가이자 Helm values YAM
 - 리소스: {resource}
 - 에러 메시지: {error_message}
 
-## 로그
+## Alert 로그
 {logs}
+
+## 수집된 증거
+{evidence}
+
+## 확보하지 못한 정보
+{unavailable}
 
 ## 현재 values 파일
 파일: {target_file}
@@ -27,6 +83,8 @@ ANALYZE_AND_FIX_PROMPT = """당신은 Kubernetes 전문가이자 Helm values YAM
 근본 원인: [한 문장으로 핵심만 설명]
 
 심각도: [critical/high/medium/low 중 하나]
+
+판단 근거 제한사항: [확보하지 못한 정보가 있다면, 어떤 정보 없이 판단했는지와 해당 정보가 있었다면 판단이 달라졌을 가능성을 명시. 모든 정보를 확보했다면 "없음"으로 작성]
 
 해결책:
 1. [핵심 해결 방법 한 줄]
@@ -64,8 +122,14 @@ ANALYZE_ONLY_PROMPT = """당신은 Kubernetes 전문가입니다.
 - 리소스: {resource}
 - 에러 메시지: {error_message}
 
-## 로그
+## Alert 로그
 {logs}
+
+## 수집된 증거
+{evidence}
+
+## 확보하지 못한 정보
+{unavailable}
 
 ## 요청사항
 다음 형식으로 **간결하게** 응답해주세요:
@@ -73,6 +137,8 @@ ANALYZE_ONLY_PROMPT = """당신은 Kubernetes 전문가입니다.
 근본 원인: [한 문장으로 핵심만 설명]
 
 심각도: [critical/high/medium/low 중 하나]
+
+판단 근거 제한사항: [확보하지 못한 정보가 있다면, 어떤 정보 없이 판단했는지와 해당 정보가 있었다면 판단이 달라졌을 가능성을 명시. 모든 정보를 확보했다면 "없음"으로 작성]
 
 해결책:
 1. [즉시 조치: 핵심 해결 방법 한 줄]
