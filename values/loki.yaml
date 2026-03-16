@@ -211,21 +211,21 @@ extraObjects:
                   description: "{{ $labels.app }} in {{ $labels.namespace }} emitted fatal/panic level log"
 
           # ---------------------------------------------------------
-          # 7. Error Log Spike (Anomaly)
+          # 7. Error Level Log Detected
           # ---------------------------------------------------------
-          - name: log-error-spike
+          - name: log-error-level
             rules:
-              - alert: LogErrorSpike
+              - alert: LogErrorDetected
                 expr: |
                   sum by (namespace, app) (
-                    count_over_time({namespace="online-boutique", level="error"} [5m])
-                  ) > 30
-                for: 2m
+                    count_over_time({namespace="online-boutique", level="error"} [3m])
+                  ) > 3
+                for: 0m
                 labels:
-                  severity: warning
+                  severity: critical
                 annotations:
-                  summary: "Error log spike detected"
-                  description: "{{ $labels.app }} in {{ $labels.namespace }} error logs spiked ({{ $value }} in 5m)"
+                  summary: "Error level logs detected"
+                  description: "{{ $labels.app }} in {{ $labels.namespace }} emitted error level logs ({{ $value }} occurrences in 3m)"
 
           # ---------------------------------------------------------
           # 8. HTTP 5xx in Application Logs

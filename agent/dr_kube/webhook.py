@@ -263,8 +263,25 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
     """Alertmanager 웹훅 수신"""
     payload = await request.json()
 
+    raw_alerts = payload.get("alerts", [])
+    total = len(raw_alerts)
+
+    for idx, raw in enumerate(raw_alerts, 1):
+        labels = raw.get("labels", {})
+        annotations = raw.get("annotations", {})
+        alertname = labels.get("alertname", "Unknown")
+        severity = labels.get("severity", "unknown")
+        namespace = labels.get("namespace", "unknown")
+        status = raw.get("status", "unknown")
+        source = "loki" if alertname.startswith("Log") else "prometheus"
+        logger.info(
+            "[Alert %d/%d] source=%s alertname=%s severity=%s "
+            "namespace=%s status=%s summary=%s",
+            idx, total, source, alertname, severity,
+            namespace, status, annotations.get("summary", ""),
+        )
+
     issues = convert_alertmanager_payload(payload)
-    total = len(payload.get("alerts", []))
     logger.info(f"알림 수신: {total}건, 처리 대상(firing): {len(issues)}건")
 
     with_pr = os.getenv("AUTO_PR", "false").lower() == "true"
@@ -356,7 +373,14 @@ async def argocd_webhook(request: Request, background_tasks: BackgroundTasks):
     body = await request.json()
     issue = convert_argocd_event(body)
     issue_id = issue.get("id", "argocd-unknown")
-    logger.info(f"ArgoCD 이벤트 수신: {issue_id} (type={issue.get('type', '')})")
+    logger.info(
+        "[Alert] source=argocd type=%s namespace=%s resource=%s id=%s message=%s",
+        issue.get("type", ""),
+        issue.get("namespace", ""),
+        issue.get("resource", ""),
+        issue_id,
+        issue.get("error_message", ""),
+    )
 
     if issue_id in _processed_alerts:
         logger.info(f"중복 스킵: {issue_id}")

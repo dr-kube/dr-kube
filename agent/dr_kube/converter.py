@@ -35,7 +35,7 @@ ALERT_TYPE_MAP = {
     "LogRedisConnectionError": "log_redis_error",
     "LogOOMSignal": "log_oom_signal",
     "LogFatalOrPanic": "log_fatal",
-    "LogErrorSpike": "log_error_spike",
+    "LogErrorDetected": "log_error_detected",
     "LogHTTP5xxErrors": "log_http_5xx",
 }
 
