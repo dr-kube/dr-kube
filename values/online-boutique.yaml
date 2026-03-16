@@ -158,17 +158,31 @@ emailservice:
 # ============================================
 checkoutservice:
   enabled: true
-  replicas: 1
+  replicas: 2 # ← 기존 1에서 증설
   resources:
     requests:
       cpu: 50m
-      memory: 64Mi
+      memory: 96Mi # ← 기존 64Mi에서 상향
     limits:
       cpu: 100m
-      memory: 128Mi
+      memory: 192Mi # ← 기존 128Mi에서 상향
   service:
     type: ClusterIP
     port: 5050
+  livenessProbe:
+    grpc:
+      port: 5050
+    initialDelaySeconds: 0
+    timeoutSeconds: 5 # ← 기존 1s에서 상향
+    periodSeconds: 10
+    failureThreshold: 5 # ← 기존 3에서 상향
+  readinessProbe:
+    grpc:
+      port: 5050
+    initialDelaySeconds: 0
+    timeoutSeconds: 5 # ← 기존 1s에서 상향
+    periodSeconds: 10
+    failureThreshold: 5 # ← 기존 3에서 상향
 
 # ============================================
 # Recommendation Service
