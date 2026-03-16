@@ -26,14 +26,30 @@ frontend:
   resources:
     requests:
       cpu: 50m
-      memory: 64Mi
+      memory: 128Mi # ← 기존 64Mi에서 상향
     limits:
       cpu: 100m
-      memory: 128Mi # ← 에이전트가 수정할 대상 (OOMKilled 유발)
+      memory: 256Mi # ← 기존 128Mi에서 상향
   externalService: false
   service:
     type: ClusterIP
     port: 80
+  livenessProbe:
+    httpGet:
+      path: /_healthz
+      port: 8080
+    initialDelaySeconds: 30 # ← 기존 10s에서 상향
+    timeoutSeconds: 5       # ← 기존 1s에서 상향
+    periodSeconds: 10
+    failureThreshold: 5     # ← 기존 3에서 상향
+  readinessProbe:
+    httpGet:
+      path: /_healthz
+      port: 8080
+    initialDelaySeconds: 30 # ← 기존 10s에서 상향
+    timeoutSeconds: 5       # ← 기존 1s에서 상향
+    periodSeconds: 10
+    failureThreshold: 5     # ← 기존 3에서 상향
 
 # ============================================
 # Cart Service (Redis 기반인거 같음)
