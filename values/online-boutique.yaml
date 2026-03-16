@@ -142,7 +142,7 @@ emailservice:
 # ============================================
 checkoutservice:
   enabled: true
-  replicas: 1
+  replicas: 2 # ← 부하 분산을 위해 레플리카 증설
   resources:
     requests:
       cpu: 50m
@@ -153,6 +153,8 @@ checkoutservice:
   service:
     type: ClusterIP
     port: 5050
+  env:
+    GRPC_TIMEOUT_MS: 2000 # ← GRPC 타임아웃 상향
 
 # ============================================
 # Recommendation Service
