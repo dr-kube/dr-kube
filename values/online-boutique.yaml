@@ -22,14 +22,14 @@ googleCloudOperations:
 # ============================================
 frontend:
   enabled: true
-  replicas: 2
+  replicas: 1
   resources:
     requests:
       cpu: 50m
-      memory: 192Mi # ← 기존 128Mi에서 상향
+      memory: 128Mi # ← 기존 64Mi에서 상향
     limits:
       cpu: 100m
-      memory: 384Mi # ← 기존 256Mi에서 상향
+      memory: 256Mi # ← 기존 128Mi에서 상향
   externalService: false
   service:
     type: ClusterIP
@@ -107,7 +107,7 @@ currencyservice:
 # ============================================
 paymentservice:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
       cpu: 50m
@@ -118,6 +118,23 @@ paymentservice:
   service:
     type: ClusterIP
     port: 8081
+  livenessProbe:
+    grpc:
+      port: 50051
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 10
+    failureThreshold: 5
+  readinessProbe:
+    grpc:
+      port: 50051
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
+    periodSeconds: 10
+    failureThreshold: 5
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
 
 # ============================================
 # Shipping Service
