@@ -3,7 +3,7 @@
 # 이슈 다양성을 위해 probe, env, replicas, HPA, PDB 설정 포함
 
 images:
-  repository: gcr.io/google-samples/microservices-demo
+  repository: us-central1-docker.pkg.dev/google-samples/microservices-demo
   tag: v0.10.4
 
 opentelemetryCollector:
