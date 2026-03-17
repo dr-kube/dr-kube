@@ -9,46 +9,44 @@ load_dotenv()
 def get_llm() -> BaseChatModel:
     """환경변수에 따라 LLM 인스턴스 반환
 
-    우선순위: GitHub Copilot → Gemini → Ollama (로컬)
+    LLM_PROVIDER 우선순위: copilot → github → gemini → ollama
+    LLM_PROVIDER 미설정 시: COPILOT_TOKEN → GEMINI_API_KEY → Ollama 순 자동 감지
+    (GITHUB_TOKEN은 git 용도로만 사용 — LLM 자동 감지에서 제외)
     """
-    # GitHub Copilot API (OAuth gho_ 토큰 - Copilot Pro 전용 모델 접근)
-    copilot_token = os.getenv("COPILOT_TOKEN")
-    if copilot_token:
-        from langchain_openai import ChatOpenAI
+    provider = os.getenv("LLM_PROVIDER", "").lower()
 
+    # GitHub Copilot Pro API
+    if provider == "copilot" or (not provider and os.getenv("COPILOT_TOKEN")):
+        from langchain_openai import ChatOpenAI
         return ChatOpenAI(
-            model=os.getenv("COPILOT_MODEL", "gpt-5.3-codex"),
+            model=os.getenv("COPILOT_MODEL", "gpt-4o"),
             base_url="https://api.githubcopilot.com",
-            api_key=copilot_token,
+            api_key=os.getenv("COPILOT_TOKEN"),
             temperature=0.3,
         )
 
-    # GitHub Models (PAT로 사용 가능한 Azure AI 호환 API)
-    github_token = os.getenv("GITHUB_TOKEN")
-    if github_token:
+    # GitHub Models (Azure AI 호환)
+    if provider == "github":
         from langchain_openai import ChatOpenAI
-
         return ChatOpenAI(
             model=os.getenv("COPILOT_MODEL", "gpt-4o"),
             base_url="https://models.inference.ai.azure.com",
-            api_key=github_token,
+            api_key=os.getenv("GITHUB_TOKEN"),
             temperature=0.3,
         )
 
-    # GOOGLE_API_KEY가 설정되어 있으면 Gemini 사용
+    # Gemini
     api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-    if api_key:
+    if provider == "gemini" or (not provider and api_key):
         from langchain_google_genai import ChatGoogleGenerativeAI
-
         return ChatGoogleGenerativeAI(
-            model=os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"),
+            model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
             google_api_key=api_key,
             temperature=0.3,
         )
 
     # 폴백: Ollama (로컬)
     from langchain_ollama import ChatOllama
-
     return ChatOllama(
         model=os.getenv("OLLAMA_MODEL", "llama3.2"),
         temperature=0.3,

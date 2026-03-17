@@ -46,9 +46,9 @@ spec:
               mountPath: /workspace
           env:
             - name: LLM_PROVIDER
-              value: "gemini"
-            - name: GEMINI_MODEL
-              value: "gemini-3-flash-preview"
+              value: "github"
+            - name: COPILOT_MODEL
+              value: "gpt-4o"
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:
