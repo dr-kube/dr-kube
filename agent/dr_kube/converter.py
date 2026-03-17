@@ -295,11 +295,13 @@ def enrich_with_kubectl(issue: dict) -> dict:
 
 
 def convert_alertmanager_payload(payload: dict) -> list[dict]:
-    """Alertmanager 웹훅 페이로드 → 이슈 JSON 리스트 (firing만 처리, kubectl enrichment 포함)"""
+    """Alertmanager 웹훅 페이로드 → 이슈 JSON 리스트 (firing만 처리).
+
+    kubectl enrichment는 process_issue() 백그라운드 태스크에서 수행 (응답 지연 방지).
+    """
     issues = []
     for alert in payload.get("alerts", []):
         if alert.get("status") == "firing":
             issue = convert_alert_to_issue(alert)
-            issue = enrich_with_kubectl(issue)
             issues.append(issue)
     return issues

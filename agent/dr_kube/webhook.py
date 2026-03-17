@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 from fastapi import FastAPI, BackgroundTasks, Request, HTTPException
 from dotenv import load_dotenv
 
-from dr_kube.converter import convert_alertmanager_payload
+from dr_kube.converter import convert_alertmanager_payload, enrich_with_kubectl
 from dr_kube.converter import derive_values_file
 from dr_kube.graph import create_graph
 import dr_kube.slack as slack_client
@@ -60,6 +60,11 @@ def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
     """
     issue_id = issue_data["id"]
     logger.info(f"처리 시작: {issue_id} (type={issue_data['type']}, with_pr={with_pr})")
+
+    # kubectl enrichment (pod 상태, 로그, 이벤트) — 백그라운드에서 실행
+    if not issue_data.get("_enriched"):
+        issue_data = enrich_with_kubectl(issue_data)
+        issue_data["_enriched"] = True
 
     # 코파일럿 모드: 항상 분석만 먼저
     copilot = _copilot_mode()
