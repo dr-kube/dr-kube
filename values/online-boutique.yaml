@@ -62,11 +62,11 @@ cartService:
   replicas: 1
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
       cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
   extraEnv:
     - name: REDIS_CONNECT_TIMEOUT_MS
       value: "500"
