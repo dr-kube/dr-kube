@@ -164,7 +164,7 @@ currencyService:
 paymentService:
   create: true
   name: paymentservice
-  replicas: 1
+  replicas: 2
   resources:
     requests:
       cpu: 50m
@@ -174,25 +174,25 @@ paymentService:
       memory: 128Mi
   extraEnv:
     - name: PAYMENT_GRPC_TIMEOUT_MS
-      value: "1000"
+      value: "2500"
     - name: MAX_PAYMENT_RETRIES
-      value: "2"
+      value: "4"
   livenessProbe:
     grpc:
       port: 50051
-    initialDelaySeconds: 10
-    timeoutSeconds: 2       # 타이트 → CrashLoop 유발 가능
+    initialDelaySeconds: 30
+    timeoutSeconds: 5       # 타이트 → CrashLoop 유발 가능
     periodSeconds: 10
-    failureThreshold: 3     # 3회 실패 → 재시작 → 카스케이드 장애
+    failureThreshold: 5     # 3회 실패 → 재시작 → 카스케이드 장애
   readinessProbe:
     grpc:
       port: 50051
-    initialDelaySeconds: 10
-    timeoutSeconds: 2
+    initialDelaySeconds: 30
+    timeoutSeconds: 5
     periodSeconds: 10
-    failureThreshold: 3
+    failureThreshold: 5
   podDisruptionBudget:
-    enabled: false
+    enabled: true
     minAvailable: 1
 
 # ============================================
