@@ -18,16 +18,16 @@ inventoryService:
       memory: 128Mi
   # ★ 에이전트 수정 대상: 너무 낮은 값들이 의도적으로 설정됨
   config:
-    upstreamTimeoutMs: 1200
-    upstreamMaxRetries: 2
+    upstreamTimeoutMs: 1000
+    upstreamMaxRetries: 1
     upstreamRetryBackoffMs: 200
-    circuitBreakerFailureThreshold: 10
-    circuitBreakerRecoveryTimeoutS: 30
-    circuitBreakerHalfOpenMaxCalls: 5
-    cacheTtlSeconds: 120
-    cacheMaxSize: 500
-    maxConcurrentRequests: 100
-    requestQueueSize: 200
+    circuitBreakerFailureThreshold: 8
+    circuitBreakerRecoveryTimeoutS: 60
+    circuitBreakerHalfOpenMaxCalls: 3
+    cacheTtlSeconds: 60
+    cacheMaxSize: 1000
+    maxConcurrentRequests: 50
+    requestQueueSize: 100
   livenessProbe:
     httpGet:
       path: /healthz
@@ -35,7 +35,7 @@ inventoryService:
     initialDelaySeconds: 10
     timeoutSeconds: 2
     periodSeconds: 10
-    failureThreshold: 5
+    failureThreshold: 3
   readinessProbe:
     httpGet:
       path: /readyz
@@ -43,7 +43,7 @@ inventoryService:
     initialDelaySeconds: 5
     timeoutSeconds: 2
     periodSeconds: 10
-    failureThreshold: 5
+    failureThreshold: 3
 
 # ============================================================
 # recommendation-proxy
