@@ -12,6 +12,7 @@ COPY --from=builder /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 COPY src/ ./src/
 USER app
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/src
 EXPOSE 8002
 HEALTHCHECK --interval=10s --timeout=3s CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/healthz')"
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--app-dir", "/app/src"]
