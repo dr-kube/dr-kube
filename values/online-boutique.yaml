@@ -1,10 +1,11 @@
-# Google Online Boutique 데모 앱
-# https://github.com/GoogleCloudPlatform/microservices-demo
-# OCI Helm Chart: oci://us-docker.pkg.dev/online-boutique-ci/charts/onlineboutique
+# Google Online Boutique — 로컬 차트 values
+# helm-chart/online-boutique/ 로컬 차트 사용 (원격 차트 대체)
+# 이슈 다양성을 위해 probe, env, replicas, HPA, PDB 설정 포함
 
-# ============================================
-# OpenTelemetry → Tempo 트레이싱
-# ============================================
+images:
+  repository: gcr.io/google-samples/microservices-demo
+  tag: v0.10.4
+
 opentelemetryCollector:
   create: true
 
@@ -14,10 +15,11 @@ googleCloudOperations:
   metrics: false
 
 # ============================================
-# Frontend  (HTTP 서비스 — 사용자 직접 노출)
+# Frontend  (HTTP — 사용자 직접 노출)
 # ============================================
 frontend:
-  enabled: true
+  create: true
+  name: frontend
   replicas: 1
   resources:
     requests:
@@ -26,15 +28,9 @@ frontend:
     limits:
       cpu: 200m
       memory: 192Mi
-  externalService: false
-  service:
-    type: ClusterIP
-    port: 80
-  env:
+  extraEnv:
     - name: FRONTEND_REQUEST_TIMEOUT
-      value: "10"           # 초 단위, checkout/catalog 응답 대기 상한
-    - name: ENABLE_PROFILER
-      value: "0"
+      value: "10"
   livenessProbe:
     httpGet:
       path: /_healthz
@@ -52,16 +48,17 @@ frontend:
     periodSeconds: 10
     failureThreshold: 3
   autoscaling:
-    enabled: false          # OOM/고부하 시 HPA 활성화 검토
+    enabled: false
     minReplicas: 1
-    maxReplicas: 3
+    maxReplicas: 4
     targetCPUUtilizationPercentage: 70
 
 # ============================================
-# Cart Service  (Redis 의존 — 세션 유지 중요)
+# Cart Service  (Redis 의존 — 세션 유지)
 # ============================================
-cartservice:
-  enabled: true
+cartService:
+  create: true
+  name: cartservice
   replicas: 1
   resources:
     requests:
@@ -70,16 +67,11 @@ cartservice:
     limits:
       cpu: 100m
       memory: 128Mi
-  env:
-    - name: REDIS_ADDR
-      value: "redis-cart:6379"
+  extraEnv:
     - name: REDIS_CONNECT_TIMEOUT_MS
-      value: "500"          # Redis 연결 타임아웃 (ms)
+      value: "500"
     - name: REDIS_MAX_RETRIES
       value: "3"
-  service:
-    type: ClusterIP
-    port: 7070
   livenessProbe:
     grpc:
       port: 7070
@@ -96,10 +88,11 @@ cartservice:
     failureThreshold: 3
 
 # ============================================
-# Product Catalog Service  (정적 카탈로그 로드)
+# Product Catalog Service
 # ============================================
-productcatalogservice:
-  enabled: true
+productCatalogService:
+  create: true
+  name: productcatalogservice
   replicas: 1
   resources:
     requests:
@@ -108,14 +101,11 @@ productcatalogservice:
     limits:
       cpu: 100m
       memory: 128Mi
-  env:
+  extraEnv:
     - name: CATALOG_FETCH_TIMEOUT_MS
-      value: "800"          # 카탈로그 JSON 로드 타임아웃
+      value: "800"
     - name: MAX_CONCURRENT_REQUESTS
-      value: "50"           # 동시 요청 상한
-  service:
-    type: ClusterIP
-    port: 3550
+      value: "50"
   livenessProbe:
     grpc:
       port: 3550
@@ -137,10 +127,11 @@ productcatalogservice:
     targetCPUUtilizationPercentage: 70
 
 # ============================================
-# Currency Service  (환율 변환 — 경량 서비스)
+# Currency Service
 # ============================================
-currencyservice:
-  enabled: true
+currencyService:
+  create: true
+  name: currencyservice
   replicas: 1
   resources:
     requests:
@@ -149,12 +140,9 @@ currencyservice:
     limits:
       cpu: 100m
       memory: 128Mi
-  env:
+  extraEnv:
     - name: CURRENCY_TIMEOUT_MS
       value: "500"
-  service:
-    type: ClusterIP
-    port: 7000
   livenessProbe:
     grpc:
       port: 7000
@@ -171,10 +159,11 @@ currencyservice:
     failureThreshold: 3
 
 # ============================================
-# Payment Service  (결제 — 가장 중요한 서비스)
+# Payment Service  (결제 — 가장 중요)
 # ============================================
-paymentservice:
-  enabled: true
+paymentService:
+  create: true
+  name: paymentservice
   replicas: 1
   resources:
     requests:
@@ -183,39 +172,35 @@ paymentservice:
     limits:
       cpu: 100m
       memory: 128Mi
-  env:
+  extraEnv:
     - name: PAYMENT_GRPC_TIMEOUT_MS
-      value: "1000"         # 외부 결제 API 호출 타임아웃
+      value: "1000"
     - name: MAX_PAYMENT_RETRIES
       value: "2"
-    - name: DISABLE_PROFILER
-      value: "1"
-  service:
-    type: ClusterIP
-    port: 8081
   livenessProbe:
     grpc:
-      port: 8081
+      port: 50051
     initialDelaySeconds: 10
-    timeoutSeconds: 2       # 타이트한 타임아웃 → CrashLoop 유발 가능
+    timeoutSeconds: 2       # 타이트 → CrashLoop 유발 가능
     periodSeconds: 10
-    failureThreshold: 3     # 3회 실패 시 재시작 → 카스케이드 장애 원인
+    failureThreshold: 3     # 3회 실패 → 재시작 → 카스케이드 장애
   readinessProbe:
     grpc:
-      port: 8081
+      port: 50051
     initialDelaySeconds: 10
     timeoutSeconds: 2
     periodSeconds: 10
     failureThreshold: 3
   podDisruptionBudget:
-    enabled: false          # 장애 시 minAvailable: 1 활성화 검토
+    enabled: false
     minAvailable: 1
 
 # ============================================
-# Shipping Service  (배송비 계산)
+# Shipping Service
 # ============================================
-shippingservice:
-  enabled: true
+shippingService:
+  create: true
+  name: shippingservice
   replicas: 1
   resources:
     requests:
@@ -224,12 +209,9 @@ shippingservice:
     limits:
       cpu: 100m
       memory: 128Mi
-  env:
+  extraEnv:
     - name: SHIPPING_GRPC_TIMEOUT_MS
       value: "800"
-  service:
-    type: ClusterIP
-    port: 50051
   livenessProbe:
     grpc:
       port: 50051
@@ -246,10 +228,11 @@ shippingservice:
     failureThreshold: 3
 
 # ============================================
-# Email Service  (비동기 알림 — 느린 SMTP)
+# Email Service  (비동기 — SMTP 느림)
 # ============================================
-emailservice:
-  enabled: true
+emailService:
+  create: true
+  name: emailservice
   replicas: 1
   resources:
     requests:
@@ -258,36 +241,32 @@ emailservice:
     limits:
       cpu: 100m
       memory: 128Mi
-  env:
+  extraEnv:
     - name: SMTP_TIMEOUT_SEC
-      value: "5"            # SMTP 연결 타임아웃
+      value: "5"
     - name: EMAIL_MAX_RETRIES
       value: "2"
-    - name: DISABLE_PROFILER
-      value: "1"
-  service:
-    type: ClusterIP
-    port: 5000
   livenessProbe:
     grpc:
-      port: 5000
+      port: 8080
     initialDelaySeconds: 10
     timeoutSeconds: 3
     periodSeconds: 15
-    failureThreshold: 5     # 비동기 서비스라 여유있게
+    failureThreshold: 5
   readinessProbe:
     grpc:
-      port: 5000
+      port: 8080
     initialDelaySeconds: 10
     timeoutSeconds: 3
     periodSeconds: 15
     failureThreshold: 5
 
 # ============================================
-# Checkout Service  (결제 오케스트레이터 — 여러 서비스 호출)
+# Checkout Service  (결제 오케스트레이터)
 # ============================================
-checkoutservice:
-  enabled: true
+checkoutService:
+  create: true
+  name: checkoutservice
   replicas: 1
   resources:
     requests:
@@ -296,14 +275,11 @@ checkoutservice:
     limits:
       cpu: 100m
       memory: 128Mi
-  env:
+  extraEnv:
     - name: CHECKOUT_GRPC_TIMEOUT_MS
-      value: "2000"         # 하위 서비스 전체 호출 포함 타임아웃
+      value: "2000"
     - name: PAYMENT_SERVICE_TIMEOUT_MS
-      value: "1500"         # payment 전용 타임아웃
-  service:
-    type: ClusterIP
-    port: 5050
+      value: "1500"
   livenessProbe:
     grpc:
       port: 5050
@@ -323,10 +299,11 @@ checkoutservice:
     minAvailable: 1
 
 # ============================================
-# Recommendation Service  (ML 모델 서빙 — 메모리 많이 씀)
+# Recommendation Service  (ML 모델 서빙)
 # ============================================
-recommendationservice:
-  enabled: true
+recommendationService:
+  create: true
+  name: recommendationservice
   replicas: 1
   resources:
     requests:
@@ -335,18 +312,13 @@ recommendationservice:
     limits:
       cpu: 200m
       memory: 128Mi         # ML 모델 로드 시 OOM 가능
-  env:
+  extraEnv:
     - name: RECOMMENDATION_MAX_RESULTS
       value: "5"
-    - name: DISABLE_PROFILER
-      value: "1"
-  service:
-    type: ClusterIP
-    port: 8080
   livenessProbe:
     grpc:
       port: 8080
-    initialDelaySeconds: 15 # 모델 로드 시간 필요
+    initialDelaySeconds: 15
     timeoutSeconds: 2
     periodSeconds: 10
     failureThreshold: 3
@@ -357,17 +329,18 @@ recommendationservice:
     timeoutSeconds: 2
     periodSeconds: 10
     failureThreshold: 3
-  startupProbe:             # 모델 초기화 최대 90초 허용
+  startupProbe:
     grpc:
       port: 8080
     failureThreshold: 9
     periodSeconds: 10
 
 # ============================================
-# Ad Service  (광고 서빙 — JVM 기반)
+# Ad Service  (JVM 기반 — 느린 기동)
 # ============================================
-adservice:
-  enabled: true
+adService:
+  create: true
+  name: adservice
   replicas: 1
   resources:
     requests:
@@ -375,19 +348,14 @@ adservice:
       memory: 128Mi
     limits:
       cpu: 200m
-      memory: 256Mi         # JVM heap 포함
-  env:
-    - name: PORT
-      value: "9555"
-    - name: JAVA_TOOL_OPTIONS  # JVM 힙 사이즈 명시 — OOM 시 조정 대상
+      memory: 256Mi
+  extraEnv:
+    - name: JAVA_TOOL_OPTIONS
       value: "-Xmx128m -Xms64m"
-  service:
-    type: ClusterIP
-    port: 9555
   livenessProbe:
     grpc:
       port: 9555
-    initialDelaySeconds: 20 # JVM 시작 시간
+    initialDelaySeconds: 20
     timeoutSeconds: 3
     periodSeconds: 15
     failureThreshold: 3
@@ -398,18 +366,18 @@ adservice:
     timeoutSeconds: 3
     periodSeconds: 15
     failureThreshold: 3
-  startupProbe:             # JVM cold start 최대 120초
+  startupProbe:
     grpc:
       port: 9555
     failureThreshold: 12
     periodSeconds: 10
 
 # ============================================
-# Redis  (Cart 세션 저장소 — 단일 장애점)
+# Redis  (단일 장애점)
 # ============================================
 redis:
-  enabled: true
-  replicas: 1
+  create: true
+  name: redis-cart
   resources:
     requests:
       cpu: 50m
@@ -417,31 +385,10 @@ redis:
     limits:
       cpu: 100m
       memory: 128Mi
-  env:
-    - name: REDIS_MAX_MEMORY
-      value: "96mb"         # 메모리 한도 (limit보다 작게 유지)
-    - name: REDIS_MAX_MEMORY_POLICY
-      value: "allkeys-lru"
-  service:
-    type: ClusterIP
-    port: 6379
-  livenessProbe:
-    tcpSocket:
-      port: 6379
-    initialDelaySeconds: 10
-    timeoutSeconds: 2
-    periodSeconds: 10
-    failureThreshold: 3
-  readinessProbe:
-    tcpSocket:
-      port: 6379
-    initialDelaySeconds: 5
-    timeoutSeconds: 1
-    periodSeconds: 5
-    failureThreshold: 3
 
 # ============================================
-# LoadGenerator (비활성화 - 카오스 테스트로 대체)
+# LoadGenerator (비활성화)
 # ============================================
-loadgenerator:
-  enabled: false
+loadGenerator:
+  create: false
+  name: loadgenerator

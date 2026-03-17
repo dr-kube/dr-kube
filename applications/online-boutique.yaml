@@ -10,9 +10,11 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
-      targetRevision: v0.10.4
-      path: helm-chart
+    # 로컬 차트 사용 (원격 GoogleCloudPlatform 차트 대체)
+    # templates에 replicas/env/probe/HPA/PDB 지원 추가
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      path: helm-chart/online-boutique
       helm:
         valueFiles:
           - $values/values/online-boutique.yaml
