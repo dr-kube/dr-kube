@@ -165,11 +165,11 @@ apply() {
     # Slack Webhook → monitoring 네임스페이스
     if [ -n "$SLACK_URL" ]; then
         kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
-        kubectl create secret generic alertmanager-slack \
+        kubectl create secret generic alertmanager-slack-webhook \
             --namespace monitoring \
             --from-literal=webhook-url="$SLACK_URL" \
             --dry-run=client -o yaml | kubectl apply -f -
-        log_success "Secret 생성: monitoring/alertmanager-slack"
+        log_success "Secret 생성: monitoring/alertmanager-slack-webhook"
     fi
 
     # Cloudflare Token → cert-manager 네임스페이스
