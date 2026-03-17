@@ -1,18 +1,16 @@
-# Chaos Mesh 실험: DNS 장애 -> 서비스 디스커버리 실패
-# 방법: frontend에 DNSChaos 적용 -> 모든 backend 서비스 호출 시 DNS 해석 실패
+# Chaos Mesh 실험: 서비스 디스커버리 실패
+# 방법: productcatalogservice pod kill -> frontend/recommendation에서 gRPC 연결 에러 발생
 apiVersion: chaos-mesh.org/v1alpha1
-kind: DNSChaos
+kind: PodChaos
 metadata:
   name: boutique-dns-failure
   namespace: chaos-mesh
 spec:
-  action: error
+  action: pod-kill
   mode: all
   duration: 3m
-  patterns:
-    - ".*"
   selector:
     namespaces:
       - online-boutique
     labelSelectors:
-      app: frontend
+      app: productcatalogservice
