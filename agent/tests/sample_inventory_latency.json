@@ -1,0 +1,45 @@
+{
+  "receiver": "dr-kube-webhook",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ServiceHighLatencyP99",
+        "namespace": "dr-kube-services",
+        "service": "inventory-service",
+        "deployment": "inventory-service",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "inventory-service P99 latency > 2000ms",
+        "description": "inventory-service P99 응답시간이 2340ms로 임계값(2000ms)을 초과했습니다. upstream_timeout_ms=300 설정이 너무 낮아 재시도 누적으로 레이턴시가 증가하고 있습니다."
+      },
+      "startsAt": "2026-03-17T12:00:00Z",
+      "fingerprint": "inv-latency-001"
+    },
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ServiceHighErrorRate",
+        "namespace": "dr-kube-services",
+        "service": "inventory-service",
+        "deployment": "inventory-service",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "inventory-service 5xx error rate 18%",
+        "description": "circuit_breaker_failure_threshold=3으로 설정되어 upstream 일시 장애 시 서킷이 너무 빨리 OPEN됩니다. 현재 18%의 요청이 503(Circuit Open) 에러로 응답 중입니다."
+      },
+      "startsAt": "2026-03-17T12:00:30Z",
+      "fingerprint": "inv-error-001"
+    }
+  ],
+  "groupLabels": {
+    "namespace": "dr-kube-services",
+    "service": "inventory-service"
+  },
+  "commonLabels": {
+    "namespace": "dr-kube-services"
+  }
+}

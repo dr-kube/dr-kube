@@ -40,6 +40,10 @@ ONLINE_BOUTIQUE_SERVICES = {
     "recommendationservice", "adservice", "redis-cart", "loadgenerator",
 }
 
+DR_KUBE_SERVICES = {
+    "inventory-service", "recommendation-proxy", "order-validator",
+}
+
 
 def extract_resource_name(pod_name: str) -> str:
     """파드명에서 Deployment/StatefulSet 이름 추출
@@ -71,7 +75,10 @@ def derive_values_file(resource: str, namespace: str = "") -> str:
     # 2. Online Boutique 서비스 매칭
     if resource in ONLINE_BOUTIQUE_SERVICES:
         return "values/online-boutique.yaml"
-    # 3. 네임스페이스 기반 fallback
+    # 3. DR-Kube 커스텀 서비스 매칭
+    if resource in DR_KUBE_SERVICES or namespace == "dr-kube-services":
+        return "values/dr-kube-services.yaml"
+    # 4. 네임스페이스 기반 fallback
     if namespace == "online-boutique":
         return "values/online-boutique.yaml"
     return ""
