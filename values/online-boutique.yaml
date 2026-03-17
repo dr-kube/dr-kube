@@ -76,16 +76,16 @@ cartService:
     grpc:
       port: 7070
     initialDelaySeconds: 15
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     periodSeconds: 10
-    failureThreshold: 3
+    failureThreshold: 5
   readinessProbe:
     grpc:
       port: 7070
     initialDelaySeconds: 15
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     periodSeconds: 10
-    failureThreshold: 3
+    failureThreshold: 5
 
 # ============================================
 # Product Catalog Service
