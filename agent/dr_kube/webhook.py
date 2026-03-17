@@ -32,33 +32,48 @@ app = FastAPI(title="DR-Kube Webhook Server")
 
 def process_issue(issue_data: dict, with_pr: bool = False):
     """이슈를 LangGraph 파이프라인으로 처리"""
-    logger.info(f"처리 시작: {issue_data['id']} (type={issue_data['type']}, with_pr={with_pr})")
+    iid = issue_data.get("id", "?")
+    itype = issue_data.get("type", "unknown")
+    resource = issue_data.get("resource", "unknown")
+    ns = issue_data.get("namespace", "default")
+    logger.info(
+        "[process] START id=%s type=%s resource=%s ns=%s with_pr=%s",
+        iid, itype, resource, ns, with_pr,
+    )
+    if issue_data.get("logs"):
+        logger.info("[process] context logs count=%d", len(issue_data["logs"]))
     try:
+        logger.info("[process] creating graph (with_pr=%s)...", with_pr)
         graph = create_graph(with_pr=with_pr)
+        logger.info("[process] graph.invoke() starting...")
         result = graph.invoke({"issue_data": issue_data})
+        logger.info("[process] graph.invoke() finished, status=%s", result.get("status"))
 
         if result.get("error"):
-            logger.error(f"처리 실패: {issue_data['id']} - {result['error']}")
+            logger.error("[process] FAIL id=%s error=%s", iid, result["error"])
         else:
-            logger.info(f"처리 완료: {issue_data['id']} - status={result.get('status')}")
+            logger.info("[process] DONE id=%s status=%s", iid, result.get("status"))
             if result.get("pr_url"):
-                logger.info(f"PR 생성됨: {result['pr_url']}")
-            # 분석 결과 요약 (LLM이 한 일을 로그로 남김)
+                logger.info("[process] PR created: %s", result["pr_url"])
             if result.get("root_cause"):
-                logger.info(f"[분석] 근본 원인: {result['root_cause']}")
+                logger.info("[process] root_cause: %s", result["root_cause"])
+            if result.get("severity"):
+                logger.info("[process] severity: %s", result["severity"])
             if result.get("suggestions"):
                 for i, s in enumerate(result["suggestions"][:5], 1):
-                    logger.info(f"[분석] 해결책 {i}: {s}")
+                    logger.info("[process] suggestion %d: %s", i, s)
+            if result.get("fix_description"):
+                logger.info("[process] fix_description: %s", result["fix_description"])
     except (ConnectionRefusedError, OSError) as e:
         if getattr(e, "errno", None) == 111 or isinstance(e, ConnectionRefusedError):
             logger.error(
-                f"처리 실패: {issue_data['id']} - Connection refused. "
-                "LLM 연결 실패 가능성: Ollama 미실행 시 GEMINI_API_KEY 설정, 또는 Ollama 실행 확인."
+                "[process] FAIL id=%s Connection refused. "
+                "Check GEMINI_API_KEY or Ollama status.", iid,
             )
         else:
-            logger.error(f"처리 실패: {issue_data['id']} - {e}")
+            logger.error("[process] FAIL id=%s error=%s", iid, e)
     except Exception as e:
-        logger.error(f"처리 중 예외: {issue_data['id']} - {e}")
+        logger.exception("[process] EXCEPTION id=%s", iid)
 
 
 def _reset_daily_usage_if_needed() -> None:
@@ -260,10 +275,26 @@ async def health():
 async def alertmanager_webhook(request: Request, background_tasks: BackgroundTasks):
     """Alertmanager 웹훅 수신"""
     payload = await request.json()
+    raw_alerts = payload.get("alerts", [])
+    total = len(raw_alerts)
+
+    for idx, raw in enumerate(raw_alerts, 1):
+        labels = raw.get("labels", {})
+        annotations = raw.get("annotations", {})
+        alertname = labels.get("alertname", "Unknown")
+        severity = labels.get("severity", "unknown")
+        namespace = labels.get("namespace", "unknown")
+        status = raw.get("status", "unknown")
+        source = "loki" if alertname.startswith("Log") else "prometheus"
+        logger.info(
+            "[webhook] alert %d/%d source=%s alertname=%s severity=%s "
+            "ns=%s status=%s summary=%s",
+            idx, total, source, alertname, severity,
+            namespace, status, annotations.get("summary", ""),
+        )
 
     issues = convert_alertmanager_payload(payload)
-    total = len(payload.get("alerts", []))
-    logger.info(f"알림 수신: {total}건, 처리 대상(firing): {len(issues)}건")
+    logger.info("[webhook] received=%d, firing(to process)=%d", total, len(issues))
 
     with_pr = os.getenv("AUTO_PR", "false").lower() == "true"
     composite_mode = os.getenv("COMPOSITE_INCIDENT_MODE", "true").lower() == "true"

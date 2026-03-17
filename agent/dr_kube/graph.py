@@ -11,6 +11,7 @@
     load_issue → analyze_and_fix → END
 """
 import json
+import logging
 import re
 import yaml
 from pathlib import Path
@@ -19,6 +20,8 @@ from dr_kube.state import IssueState
 from dr_kube.llm import get_llm
 from dr_kube.prompts import ANALYZE_AND_FIX_PROMPT, ANALYZE_ONLY_PROMPT
 from dr_kube.github import GitHubClient, generate_branch_name, generate_pr_body
+
+logger = logging.getLogger("dr-kube-graph")
 
 # 프로젝트 루트 경로 (agent/dr_kube/graph.py → dr-kube/)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -258,8 +261,11 @@ def _validate_remediation_policy(issue_type: str, changed_paths: list[str]) -> s
 
 def load_issue(state: IssueState) -> IssueState:
     """이슈 파일 로드 + target_file 해석 + original_yaml 읽기"""
+    logger.info("[load_issue] START")
     if state.get("issue_data"):
         issue_data = state["issue_data"]
+        logger.info("[load_issue] issue_data from state: id=%s type=%s resource=%s",
+                     issue_data.get("id"), issue_data.get("type"), issue_data.get("resource"))
     else:
         try:
             with open(state["issue_file"], "r", encoding="utf-8") as f:
@@ -286,6 +292,7 @@ def load_issue(state: IssueState) -> IssueState:
         else:
             target_file = ""  # 파일 없으면 analyze-only 전환
 
+    logger.info("[load_issue] DONE target_file=%s yaml_len=%d", target_file, len(original_yaml))
     return {
         "issue_data": issue_data,
         "target_file": target_file,
@@ -297,7 +304,10 @@ def load_issue(state: IssueState) -> IssueState:
 
 def analyze_and_fix(state: IssueState) -> IssueState:
     """LLM 1회 호출로 이슈 분석 + YAML 수정안 생성"""
+    logger.info("[analyze_and_fix] START issue=%s retry=%d",
+                state.get("issue_data", {}).get("id", "?"), state.get("retry_count", 0))
     if state.get("status") == "error":
+        logger.warning("[analyze_and_fix] SKIP (previous error)")
         return state
 
     issue = state["issue_data"]
@@ -307,12 +317,14 @@ def analyze_and_fix(state: IssueState) -> IssueState:
 
     # target_file이 없으면 분석만 수행
     if not target_file or not original_yaml:
+        logger.info("[analyze_and_fix] no target_file, switching to analyze_only")
         return _analyze_only(state)
 
     # PR 품질 안정화를 위해 crash/error 계열은 규칙 기반 우선 처리
     rule_result = _rule_based_fix(issue, original_yaml)
     if rule_result is not None:
         fix_content, fix_description, root_cause = rule_result
+        logger.info("[analyze_and_fix] rule_based_fix applied: %s", fix_description)
         return {
             "analysis": f"rule_based_fix applied for {issue.get('type', 'unknown')}",
             "root_cause": root_cause,
@@ -326,6 +338,8 @@ def analyze_and_fix(state: IssueState) -> IssueState:
             "status": "analyzed",
         }
 
+    logger.info("[analyze_and_fix] LLM call: type=%s resource=%s target=%s",
+                issue.get("type"), issue.get("resource"), target_file)
     prompt = ANALYZE_AND_FIX_PROMPT.format(
         type=issue.get("type", "unknown"),
         namespace=issue.get("namespace", "default"),
@@ -338,8 +352,11 @@ def analyze_and_fix(state: IssueState) -> IssueState:
 
     try:
         llm = get_llm()
+        logger.info("[analyze_and_fix] LLM invoke start...")
         response = llm.invoke(prompt)
+        logger.info("[analyze_and_fix] LLM invoke done")
         result = _extract_llm_content(response)
+        logger.info("[analyze_and_fix] LLM response length=%d", len(result))
 
         # 파싱
         root_cause = _parse_field(result, r"근본 원인:\s*(.+?)(?:\n|$)")
@@ -349,6 +366,7 @@ def analyze_and_fix(state: IssueState) -> IssueState:
         fix_description = _parse_field(result, r"변경 설명:\s*(.+?)(?:\n|$)") or "자동 생성된 수정안"
 
         if not fix_content:
+            logger.warning("[analyze_and_fix] YAML block not found in LLM response")
             return {
                 "analysis": result,
                 "root_cause": root_cause or "분석 결과를 파싱할 수 없습니다",
@@ -358,6 +376,8 @@ def analyze_and_fix(state: IssueState) -> IssueState:
                 "status": "error",
             }
 
+        logger.info("[analyze_and_fix] DONE severity=%s root_cause=%s fix_desc=%s",
+                     severity, root_cause[:80] if root_cause else "N/A", fix_description)
         return {
             "analysis": result,
             "root_cause": root_cause or "분석 결과를 파싱할 수 없습니다",
@@ -368,6 +388,7 @@ def analyze_and_fix(state: IssueState) -> IssueState:
             "status": "analyzed",
         }
     except Exception as e:
+        logger.exception("[analyze_and_fix] EXCEPTION")
         return {"error": f"분석 + 수정안 생성 실패: {str(e)}", "status": "error"}
 
 
@@ -375,6 +396,8 @@ def _analyze_only(state: IssueState) -> IssueState:
     """values 파일이 없는 이슈의 분석만 수행"""
     issue = state["issue_data"]
     logs_text = "\n".join(issue.get("logs", []))
+    logger.info("[analyze_only] START type=%s resource=%s",
+                issue.get("type"), issue.get("resource"))
 
     prompt = ANALYZE_ONLY_PROMPT.format(
         type=issue.get("type", "unknown"),
@@ -386,22 +409,31 @@ def _analyze_only(state: IssueState) -> IssueState:
 
     try:
         llm = get_llm()
+        logger.info("[analyze_only] LLM invoke start...")
         response = llm.invoke(prompt)
+        logger.info("[analyze_only] LLM invoke done")
         result = _extract_llm_content(response)
 
+        root_cause = _parse_field(result, r"근본 원인:\s*(.+?)(?:\n|$)") or "분석 결과를 파싱할 수 없습니다"
+        severity = _parse_severity(result)
+        suggestions = _parse_suggestions(result) or ["로그를 더 확인하세요"]
+        logger.info("[analyze_only] DONE severity=%s root_cause=%s suggestions=%d",
+                     severity, root_cause[:80], len(suggestions))
         return {
             "analysis": result,
-            "root_cause": _parse_field(result, r"근본 원인:\s*(.+?)(?:\n|$)") or "분석 결과를 파싱할 수 없습니다",
-            "severity": _parse_severity(result),
-            "suggestions": _parse_suggestions(result) or ["로그를 더 확인하세요"],
+            "root_cause": root_cause,
+            "severity": severity,
+            "suggestions": suggestions,
             "status": "done",
         }
     except Exception as e:
+        logger.exception("[analyze_only] EXCEPTION")
         return {"error": f"분석 실패: {str(e)}", "status": "error"}
 
 
 def validate(state: IssueState) -> IssueState:
     """YAML 수정안 검증: 문법 + 변경 확인"""
+    logger.info("[validate] START retry=%d", state.get("retry_count", 0))
     fix_content = state.get("fix_content", "")
     original_yaml = state.get("original_yaml", "")
     retry_count = state.get("retry_count", 0)
@@ -410,8 +442,10 @@ def validate(state: IssueState) -> IssueState:
     try:
         parsed = yaml.safe_load(fix_content)
         if parsed is None:
+            logger.warning("[validate] FAIL: empty YAML")
             return {"retry_count": retry_count + 1, "error": "YAML 파싱 결과가 비어있습니다", "status": "validation_failed"}
     except yaml.YAMLError as e:
+        logger.warning("[validate] FAIL: YAML syntax error: %s", e)
         return {"retry_count": retry_count + 1, "error": f"YAML 문법 오류: {str(e)}", "status": "validation_failed"}
 
     issue = state.get("issue_data", {})
@@ -448,6 +482,7 @@ def validate(state: IssueState) -> IssueState:
                 "status": "validation_failed",
             }
 
+    logger.info("[validate] PASS")
     return {"status": "validated"}
 
 
@@ -457,12 +492,15 @@ def error_end(state: IssueState) -> IssueState:
     error_msg = state.get("error", "알 수 없는 오류")
     if retry_count >= MAX_RETRIES:
         error_msg = f"검증 {MAX_RETRIES}회 실패 후 종료: {error_msg}"
+    logger.error("[error_end] %s", error_msg)
     return {"status": "error", "error": error_msg}
 
 
 def create_pr(state: IssueState) -> IssueState:
     """GitHub PR 생성"""
+    logger.info("[create_pr] START")
     if state.get("error"):
+        logger.warning("[create_pr] SKIP (previous error: %s)", state.get("error"))
         return state
 
     issue = state.get("issue_data", {})
@@ -470,6 +508,7 @@ def create_pr(state: IssueState) -> IssueState:
     fix_content = state.get("fix_content", "")
 
     if not target_file or not fix_content:
+        logger.warning("[create_pr] SKIP (no target_file or fix_content)")
         return {"error": "수정할 파일 또는 내용이 없습니다", "status": "error"}
 
     # 브랜치명 생성
@@ -507,8 +546,10 @@ def create_pr(state: IssueState) -> IssueState:
         gh.cleanup()
 
         if not success:
+            logger.error("[create_pr] PR creation failed: %s", pr_url)
             return {"error": f"PR 생성 실패: {pr_url}", "status": "error"}
 
+        logger.info("[create_pr] DONE pr_url=%s pr_number=%s", pr_url, pr_number)
         return {
             "branch_name": branch_name,
             "pr_url": pr_url,
@@ -517,6 +558,7 @@ def create_pr(state: IssueState) -> IssueState:
         }
     except Exception as e:
         gh.cleanup()
+        logger.exception("[create_pr] EXCEPTION")
         return {"error": f"PR 생성 중 오류: {str(e)}", "status": "error"}
 
 
