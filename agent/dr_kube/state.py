@@ -11,8 +11,13 @@ class IssueState(TypedDict, total=False):
 
     # 분류 (classify_issue 출력)
     route: str  # argocd, analyze_only, rule_based, llm
-    target_file: str   # 수정할 values 파일 경로
+    target_file: str   # 수정할 values 파일 경로 (주 파일)
     original_yaml: str  # 원본 YAML (validate에서 diff 비교용)
+
+    # 소스코드 동시 수정 (DR-Kube 커스텀 서비스)
+    source_file: str        # 소스코드 config.py 경로 (없으면 빈 문자열)
+    original_source: str    # 원본 config.py 내용
+    fix_source: str         # 수정된 config.py 내용
 
     # 분석 결과
     root_cause: str

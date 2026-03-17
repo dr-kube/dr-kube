@@ -44,6 +44,13 @@ DR_KUBE_SERVICES = {
     "inventory-service", "recommendation-proxy", "order-validator",
 }
 
+# DR-Kube 커스텀 서비스 → 소스코드 config.py 경로 매핑
+DR_KUBE_SOURCE_FILES: dict[str, str] = {
+    "inventory-service":   "services/inventory-service/src/config.py",
+    "recommendation-proxy": "services/recommendation-proxy/src/config.py",
+    "order-validator":     "services/order-validator/src/config.py",
+}
+
 
 def extract_resource_name(pod_name: str) -> str:
     """파드명에서 Deployment/StatefulSet 이름 추출
@@ -58,6 +65,11 @@ def extract_resource_name(pod_name: str) -> str:
     # StatefulSet suffix 제거
     result = re.sub(r"-\d+$", "", pod_name)
     return result
+
+
+def derive_source_file(resource: str) -> str:
+    """리소스명으로 소스코드 config.py 경로 반환. 없으면 빈 문자열."""
+    return DR_KUBE_SOURCE_FILES.get(resource, "")
 
 
 def derive_values_file(resource: str, namespace: str = "") -> str:

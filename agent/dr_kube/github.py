@@ -46,6 +46,25 @@ class GitHubClient:
             success, msg = self._run_git("checkout", branch_name)
         return success, msg
 
+    def commit_files_and_push(
+        self, file_paths: list[str], commit_message: str, branch_name: str
+    ) -> tuple[bool, str]:
+        """여러 파일을 하나의 커밋으로 처리 후 푸시"""
+        for file_path in file_paths:
+            success, msg = self._run_git("add", file_path)
+            if not success:
+                return False, f"git add 실패 ({file_path}): {msg}"
+
+        success, msg = self._run_git("commit", "-m", commit_message)
+        if not success:
+            return False, f"git commit 실패: {msg}"
+
+        success, msg = self._run_git("push", "-u", "origin", branch_name)
+        if not success:
+            return False, f"git push 실패: {msg}"
+
+        return True, "커밋 및 푸시 완료"
+
     def commit_and_push(
         self, file_path: str, commit_message: str, branch_name: str
     ) -> tuple[bool, str]:
@@ -179,7 +198,7 @@ def generate_pr_body(state: dict) -> str:
         state.get('fix_content', ''),
     )
 
-    return f"""## DR-Kube 자동 수정
+    body = f"""## DR-Kube 자동 수정
 
 ### 이슈 정보
 | 항목 | 값 |
@@ -192,13 +211,26 @@ def generate_pr_body(state: dict) -> str:
 ### 근본 원인
 {state.get('root_cause', 'N/A')}
 
-### 변경 내용
-`{state.get('target_file', 'N/A')}`
+### 변경 내용 — `{state.get('target_file', 'N/A')}`
 
 ```diff
 {diff}
 ```
-
----
-> 이 PR은 DR-Kube 에이전트에 의해 자동 생성되었습니다.
 """
+
+    # 소스코드 수정이 있으면 추가
+    source_file = state.get('source_file', '')
+    fix_source = state.get('fix_source', '')
+    original_source = state.get('original_source', '')
+    if source_file and fix_source:
+        source_diff = _generate_diff(original_source, fix_source)
+        body += f"""
+### 변경 내용 — `{source_file}`
+
+```diff
+{source_diff}
+```
+"""
+
+    body += "\n---\n> 이 PR은 DR-Kube 에이전트에 의해 자동 생성되었습니다.\n"
+    return body

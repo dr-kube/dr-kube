@@ -224,3 +224,73 @@ PR 리뷰어의 피드백을 반영하여 수정안을 재생성해주세요.
 - GitOps 원칙 준수: kubectl 명령어 포함 금지
 - 전체 파일 내용을 YAML 블록에 포함
 """
+
+# =============================================================================
+# 소스코드 + values 동시 수정 프롬프트
+# DR-Kube 커스텀 서비스(inventory-service 등)용
+# values YAML은 ConfigMap → 환경변수로 즉시 반영,
+# config.py는 기본값을 코드에도 영구 반영
+# =============================================================================
+SOURCE_AND_VALUES_FIX_PROMPT = """당신은 Python 백엔드 전문가이자 Kubernetes 운영 전문가입니다.
+다음 K8s 이슈를 해결하기 위해 Helm values 파일과 Python 설정 파일을 동시에 수정해주세요.
+{retry_context}
+## 이슈 정보
+- 타입: {type}
+- 네임스페이스: {namespace}
+- 리소스: {resource}
+- 에러 메시지: {error_message}
+
+## 로그
+{logs}
+
+## 현재 Helm values 파일
+파일: {target_file}
+```yaml
+{current_yaml}
+```
+
+## 현재 Python 설정 파일
+파일: {source_file}
+```python
+{current_source}
+```
+
+## 요청사항
+다음 형식으로 **정확하게** 응답해주세요:
+
+근본 원인: [한 문장으로 핵심만 설명]
+
+심각도: [아래 기준 중 하나 선택]
+  - critical: 서비스 전체 중단 (replicas=0, CrashLoopBackOff 전파, 결제/주문 불가)
+  - high: 주요 기능 장애 (OOMKilled 반복, 지속적 재시작, 주요 서비스 응답 불가)
+  - medium: 성능 저하 (CPU throttle, 높은 레이턴시, 간헐적 오류)
+  - low: 경고 수준 (리소스 여유 부족, 단발성 이벤트, 자동 복구됨)
+
+해결책:
+1. [핵심 해결 방법 한 줄]
+2. [재발 방지 방법 한 줄]
+
+```yaml
+[전체 수정된 values YAML 내용]
+```
+
+```python
+[전체 수정된 config.py 내용]
+```
+
+변경 설명: [영어, 30자 이내, 예: "fix timeout and circuit breaker thresholds"]
+
+**주의**:
+- YAML 블록: values 파일 전체 내용 포함 (구조 유지, {resource} 서비스 config만 수정)
+- Python 블록: config.py 전체 내용 포함 (주석 유지, 상수값만 수정)
+- values의 config.* 값과 config.py의 상수값은 반드시 동일하게 맞출 것
+- kubectl 명령어 포함 금지 (GitOps 원칙)
+- resources/limits/requests 변경 금지 (config.* 상수값만 수정)
+
+## 수정 가이드
+- 타임아웃 관련 이슈: timeout_ms 값을 2배 이상으로 상향
+- 서킷 브레이커 조기 OPEN: failure_threshold를 5 이상으로 상향, recovery_timeout 완화
+- 레이턴시 누적: max_retries 줄이거나 retry_backoff_ms 상향
+- 503/capacity 부족: max_concurrent_requests 상향, replicas 1 증설
+- 메모리 압박: cache_max_size/entries 축소, cache_ttl 단축
+"""

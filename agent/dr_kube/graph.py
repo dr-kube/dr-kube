@@ -22,7 +22,7 @@ from pathlib import Path
 from langgraph.graph import StateGraph, END
 from dr_kube.state import IssueState
 from dr_kube.llm import get_llm
-from dr_kube.prompts import LLM_FIX_PROMPT, ANALYZE_ONLY_PROMPT, ARGOCD_ANALYZE_PROMPT, PR_REVIEW_RESPONSE_PROMPT
+from dr_kube.prompts import LLM_FIX_PROMPT, ANALYZE_ONLY_PROMPT, ARGOCD_ANALYZE_PROMPT, PR_REVIEW_RESPONSE_PROMPT, SOURCE_AND_VALUES_FIX_PROMPT
 from dr_kube.github import GitHubClient, generate_branch_name, generate_pr_body
 
 # 프로젝트 루트 경로 (agent/dr_kube/graph.py → dr-kube/)
@@ -122,6 +122,12 @@ def _parse_suggestions(text: str) -> list[str]:
 def _parse_yaml_block(text: str) -> str:
     """YAML 코드 블록 추출"""
     match = re.search(r"```yaml\n(.*?)```", text, re.DOTALL)
+    return match.group(1).strip() if match else ""
+
+
+def _parse_python_block(text: str) -> str:
+    """Python 코드 블록 추출"""
+    match = re.search(r"```python\n(.*?)```", text, re.DOTALL)
     return match.group(1).strip() if match else ""
 
 
@@ -300,7 +306,7 @@ def load_issue(state: IssueState) -> IssueState:
     # target_file 결정 (이슈에 명시된 값 우선, 없으면 converter에서 추론)
     target_file = issue_data.get("values_file", "")
     if not target_file:
-        from dr_kube.converter import derive_values_file
+        from dr_kube.converter import derive_values_file, derive_source_file
         target_file = derive_values_file(
             issue_data.get("resource", ""),
             issue_data.get("namespace", ""),
@@ -316,6 +322,16 @@ def load_issue(state: IssueState) -> IssueState:
         else:
             target_file = ""  # 파일 없으면 analyze_only로 전환
 
+    # source_file 결정 및 원본 읽기 (DR-Kube 커스텀 서비스)
+    from dr_kube.converter import derive_source_file
+    source_file = derive_source_file(issue_data.get("resource", ""))
+    original_source = ""
+    if source_file:
+        source_path = PROJECT_ROOT / source_file
+        if source_path.exists():
+            with open(source_path, "r", encoding="utf-8") as f:
+                original_source = f.read()
+
     # 수정 요청 시 주입된 review 컨텍스트 추출 (webhook이 issue_data에 임시 삽입)
     pr_review_comment = issue_data.pop("_review_comment", "")
     previous_fix_content = issue_data.pop("_previous_fix", "")
@@ -324,6 +340,8 @@ def load_issue(state: IssueState) -> IssueState:
         "issue_data": issue_data,
         "target_file": target_file,
         "original_yaml": original_yaml,
+        "source_file": source_file,
+        "original_source": original_source,
         "retry_count": 0,
         "pr_review_comment": pr_review_comment,
         "previous_fix_content": previous_fix_content,
@@ -447,6 +465,8 @@ def llm_fix(state: IssueState) -> IssueState:
     issue = state["issue_data"]
     target_file = state.get("target_file", "")
     original_yaml = state.get("original_yaml", "")
+    source_file = state.get("source_file", "")
+    original_source = state.get("original_source", "")
     retry_count = state.get("retry_count", 0)
     validation_error = state.get("validation_error", "")
     pr_review_comment = state.get("pr_review_comment", "")
@@ -473,16 +493,31 @@ def llm_fix(state: IssueState) -> IssueState:
                 f"\n[이전 시도 오류 - 반드시 수정]\n{validation_error}\n"
             )
 
-        prompt = LLM_FIX_PROMPT.format(
-            retry_context=retry_context,
-            type=issue.get("type", "unknown"),
-            namespace=issue.get("namespace", "default"),
-            resource=issue.get("resource", "unknown"),
-            error_message=issue.get("error_message", ""),
-            logs=logs_text,
-            target_file=target_file,
-            current_yaml=original_yaml,
-        )
+        # 소스코드가 있으면 values + Python 동시 수정 프롬프트 사용
+        if source_file and original_source:
+            prompt = SOURCE_AND_VALUES_FIX_PROMPT.format(
+                retry_context=retry_context,
+                type=issue.get("type", "unknown"),
+                namespace=issue.get("namespace", "default"),
+                resource=issue.get("resource", "unknown"),
+                error_message=issue.get("error_message", ""),
+                logs=logs_text,
+                target_file=target_file,
+                current_yaml=original_yaml,
+                source_file=source_file,
+                current_source=original_source,
+            )
+        else:
+            prompt = LLM_FIX_PROMPT.format(
+                retry_context=retry_context,
+                type=issue.get("type", "unknown"),
+                namespace=issue.get("namespace", "default"),
+                resource=issue.get("resource", "unknown"),
+                error_message=issue.get("error_message", ""),
+                logs=logs_text,
+                target_file=target_file,
+                current_yaml=original_yaml,
+            )
 
     try:
         llm = get_llm()
@@ -493,6 +528,7 @@ def llm_fix(state: IssueState) -> IssueState:
         severity = _parse_severity(result)
         suggestions = _parse_suggestions(result)
         fix_content = _parse_yaml_block(result)
+        fix_source = _parse_python_block(result) if source_file else ""
         raw_desc = _parse_field(result, r"변경 설명:\s*(.+?)(?:\n|$)") or "자동 생성된 수정안"
         # LLM이 마크다운 bold/italic을 넣을 수 있어서 제거
         fix_description = re.sub(r"[*_`#~]", "", raw_desc).strip()
@@ -511,6 +547,7 @@ def llm_fix(state: IssueState) -> IssueState:
             "severity": severity,
             "suggestions": suggestions or ["로그를 더 확인하세요"],
             "fix_content": fix_content,
+            "fix_source": fix_source,
             "fix_description": fix_description,
             "fix_method": "llm",
             "status": "analyzed",
@@ -591,6 +628,17 @@ def validate(state: IssueState) -> IssueState:
         if policy_error:
             return _fail(policy_error)
 
+    # 5. Python 소스코드 문법 검증 (있는 경우)
+    fix_source = state.get("fix_source", "")
+    if fix_source:
+        import ast
+        try:
+            ast.parse(fix_source)
+        except SyntaxError as e:
+            return _fail(f"Python 문법 오류: {e}")
+        if fix_source == state.get("original_source", ""):
+            return _fail("Python 수정안이 원본과 동일합니다")
+
     return {"status": "validated"}
 
 
@@ -611,17 +659,29 @@ def create_pr(state: IssueState) -> IssueState:
     )
     gh = GitHubClient(str(PROJECT_ROOT))
 
+    source_file = state.get("source_file", "")
+    fix_source = state.get("fix_source", "")
+
     try:
         success, msg = gh.create_branch(branch_name)
         if not success:
             return {"error": f"브랜치 생성 실패: {msg}", "status": "error"}
 
+        # values 파일 쓰기
         target_path = PROJECT_ROOT / target_file
         with open(target_path, "w", encoding="utf-8") as f:
             f.write(fix_content)
 
+        # 소스코드 파일 쓰기 (있는 경우)
+        files_to_commit = [target_file]
+        if source_file and fix_source:
+            source_path = PROJECT_ROOT / source_file
+            with open(source_path, "w", encoding="utf-8") as f:
+                f.write(fix_source)
+            files_to_commit.append(source_file)
+
         commit_message = f"fix({issue.get('resource', 'unknown')}): {state.get('fix_description', '자동 수정')}"
-        success, msg = gh.commit_and_push(target_file, commit_message, branch_name)
+        success, msg = gh.commit_files_and_push(files_to_commit, commit_message, branch_name)
         if not success:
             gh.cleanup()
             return {"error": f"커밋/푸시 실패: {msg}", "status": "error"}
