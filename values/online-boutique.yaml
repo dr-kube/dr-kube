@@ -20,7 +20,7 @@ googleCloudOperations:
 frontend:
   create: true
   name: frontend
-  replicas: 1
+  replicas: 2  # 기존 1 → 2로 증설
   resources:
     requests:
       cpu: 50m
@@ -38,7 +38,7 @@ frontend:
     initialDelaySeconds: 10
     timeoutSeconds: 2
     periodSeconds: 10
-    failureThreshold: 3
+    failureThreshold: 5  # 기존 3 → 5로 상향
   readinessProbe:
     httpGet:
       path: /_healthz
@@ -46,7 +46,7 @@ frontend:
     initialDelaySeconds: 10
     timeoutSeconds: 2
     periodSeconds: 10
-    failureThreshold: 3
+    failureThreshold: 5  # 기존 3 → 5로 상향
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -93,7 +93,7 @@ cartService:
 productCatalogService:
   create: true
   name: productcatalogservice
-  replicas: 1
+  replicas: 2  # 기존 1 → 2로 증설
   resources:
     requests:
       cpu: 50m
@@ -109,17 +109,17 @@ productCatalogService:
   livenessProbe:
     grpc:
       port: 3550
-    initialDelaySeconds: 10
-    timeoutSeconds: 2
+    initialDelaySeconds: 30  # 기존 10 → 30으로 상향
+    timeoutSeconds: 5        # 기존 2 → 5로 상향
     periodSeconds: 10
-    failureThreshold: 3
+    failureThreshold: 5      # 기존 3 → 5로 상향
   readinessProbe:
     grpc:
       port: 3550
-    initialDelaySeconds: 10
-    timeoutSeconds: 2
+    initialDelaySeconds: 30  # 기존 10 → 30으로 상향
+    timeoutSeconds: 5        # 기존 2 → 5로 상향
     periodSeconds: 10
-    failureThreshold: 3
+    failureThreshold: 5      # 기존 3 → 5로 상향
   autoscaling:
     enabled: false
     minReplicas: 1
@@ -181,9 +181,9 @@ paymentService:
     grpc:
       port: 50051
     initialDelaySeconds: 30
-    timeoutSeconds: 5       # 타이트 → CrashLoop 유발 가능
+    timeoutSeconds: 5
     periodSeconds: 10
-    failureThreshold: 5     # 3회 실패 → 재시작 → 카스케이드 장애
+    failureThreshold: 5
   readinessProbe:
     grpc:
       port: 50051
@@ -311,7 +311,7 @@ recommendationService:
       memory: 64Mi
     limits:
       cpu: 200m
-      memory: 128Mi         # ML 모델 로드 시 OOM 가능
+      memory: 128Mi
   extraEnv:
     - name: RECOMMENDATION_MAX_RESULTS
       value: "5"
