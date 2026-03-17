@@ -1,12 +1,12 @@
 # 복합 트랙 2: catalog 장애 + 연쇄 에러
-# productcatalog pod kill + frontend→backend 네트워크 차단
+# productcatalog 지속 장애 + frontend→currencyservice 네트워크 차단
 apiVersion: chaos-mesh.org/v1alpha1
 kind: PodChaos
 metadata:
-  name: track-catalog-pod-kill
+  name: track-catalog-pod-failure
   namespace: chaos-mesh
 spec:
-  action: pod-kill
+  action: pod-failure
   mode: all
   duration: 5m
   selector:
