@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-webhook agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
+.PHONY: help agent-setup agent-webhook agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status services-build services-load services-deploy service-rebuild services-status
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -232,3 +232,40 @@ chaos-status: ## Chaos 실험 상태 확인
 	@echo ""
 	@echo "📊 영향받는 Pod 상태:"
 	@kubectl get pods -n online-boutique -l "app in (frontend,cartservice,checkoutservice,productcatalogservice,paymentservice,redis-cart)" -o wide
+
+# =============================================================================
+# DR-Kube 커스텀 서비스 (services/)
+# =============================================================================
+KIND_CLUSTER ?= dr-kube
+SERVICES := inventory-service recommendation-proxy order-validator
+
+services-build: ## 커스텀 서비스 Docker 이미지 빌드
+	@for svc in $(SERVICES); do \
+		echo "Building dr-kube/$$svc:latest ..."; \
+		docker build -t dr-kube/$$svc:latest services/$$svc; \
+	done
+	@echo "Build complete"
+
+services-load: ## Kind 클러스터에 이미지 로드
+	@for svc in $(SERVICES); do \
+		echo "Loading dr-kube/$$svc:latest → kind-$(KIND_CLUSTER)"; \
+		kind load docker-image dr-kube/$$svc:latest --name $(KIND_CLUSTER); \
+	done
+	@echo "All images loaded"
+
+services-deploy: services-build services-load ## 빌드 + Kind 로드 + ArgoCD 배포
+	@kubectl apply -f applications/dr-kube-services.yaml
+	@echo "ArgoCD Application 등록 완료. 동기화 대기 중..."
+	@kubectl -n argocd wait --for=condition=available deployment/argocd-server --timeout=30s 2>/dev/null || true
+	@argocd app sync dr-kube-services --grpc-web 2>/dev/null || echo "argocd CLI 없으면 UI에서 수동 Sync"
+
+# 단일 서비스 재빌드 + 재배포. 사용: make service-rebuild SVC=inventory-service
+service-rebuild: ## 단일 서비스 재빌드 + Kind 로드 + rollout restart (SVC=서비스명)
+	@if [ -z "$(SVC)" ]; then echo "SVC=서비스명 필요. 예: make service-rebuild SVC=inventory-service"; exit 1; fi
+	docker build -t dr-kube/$(SVC):latest services/$(SVC)
+	kind load docker-image dr-kube/$(SVC):latest --name $(KIND_CLUSTER)
+	kubectl rollout restart deployment/$(SVC) -n dr-kube-services
+	kubectl rollout status deployment/$(SVC) -n dr-kube-services
+
+services-status: ## 커스텀 서비스 Pod/Service 상태
+	@kubectl get pods,svc -n dr-kube-services -o wide 2>/dev/null || echo "dr-kube-services 네임스페이스 없음 (make services-deploy 먼저 실행)"

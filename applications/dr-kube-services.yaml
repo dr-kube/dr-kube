@@ -1,0 +1,32 @@
+# ArgoCD Application: DR-Kube 커스텀 서비스
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dr-kube-services
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      path: helm-chart/dr-kube-services
+      helm:
+        valueFiles:
+          - $values/values/dr-kube-services.yaml
+
+    - repoURL: https://github.com/dr-kube/dr-kube.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dr-kube-services
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

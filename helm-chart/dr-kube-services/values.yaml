@@ -1,0 +1,138 @@
+# DR-Kube 커스텀 서비스 기본값
+# 실제 값은 values/dr-kube-services.yaml 에서 오버라이드
+
+# ============================================================
+# inventory-service
+# ============================================================
+inventoryService:
+  enabled: true
+  name: inventory-service
+  image:
+    repository: dr-kube/inventory-service
+    tag: latest
+    pullPolicy: Never   # Kind 로컬 이미지
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  # ★ 에이전트 수정 대상: config.py 상수와 1:1 대응
+  config:
+    upstreamTimeoutMs: 500
+    upstreamMaxRetries: 2
+    upstreamRetryBackoffMs: 200
+    circuitBreakerFailureThreshold: 5
+    circuitBreakerRecoveryTimeoutS: 30
+    circuitBreakerHalfOpenMaxCalls: 3
+    cacheTtlSeconds: 60
+    cacheMaxSize: 1000
+    maxConcurrentRequests: 50
+    requestQueueSize: 100
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8000
+    initialDelaySeconds: 10
+    timeoutSeconds: 3
+    periodSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8000
+    initialDelaySeconds: 5
+    timeoutSeconds: 3
+    periodSeconds: 10
+    failureThreshold: 3
+
+# ============================================================
+# recommendation-proxy
+# ============================================================
+recommendationProxy:
+  enabled: true
+  name: recommendation-proxy
+  image:
+    repository: dr-kube/recommendation-proxy
+    tag: latest
+    pullPolicy: Never
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  config:
+    cacheTtlSeconds: 300
+    cacheMaxEntries: 500
+    recommendationTimeoutMs: 800
+    recommendationMaxRetries: 3
+    maxRecommendationsPerRequest: 10
+    batchSize: 5
+    maxConcurrentRequests: 40
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8001
+    initialDelaySeconds: 10
+    timeoutSeconds: 3
+    periodSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8001
+    initialDelaySeconds: 5
+    timeoutSeconds: 3
+    periodSeconds: 10
+    failureThreshold: 3
+
+# ============================================================
+# order-validator
+# ============================================================
+orderValidator:
+  enabled: true
+  name: order-validator
+  image:
+    repository: dr-kube/order-validator
+    tag: latest
+    pullPolicy: Never
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  config:
+    maxOrderAmountUsd: "10000.0"
+    minOrderAmountUsd: "0.01"
+    paymentValidationTimeoutMs: 1000
+    duplicateCheckWindowSeconds: 60
+    duplicateCacheMaxEntries: 10000
+    validationMaxRetries: 2
+    retryBackoffBaseMs: 200
+    retryMaxBackoffMs: 2000
+    maxConcurrentValidations: 30
+    validationQueueTimeoutMs: 500
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8002
+    initialDelaySeconds: 10
+    timeoutSeconds: 3
+    periodSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8002
+    initialDelaySeconds: 5
+    timeoutSeconds: 3
+    periodSeconds: 10
+    failureThreshold: 3

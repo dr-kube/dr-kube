@@ -1,0 +1,5 @@
+apiVersion: v2
+name: dr-kube-services
+description: DR-Kube 커스텀 마이크로서비스 (inventory-service, recommendation-proxy, order-validator)
+version: 0.1.0
+appVersion: "latest"

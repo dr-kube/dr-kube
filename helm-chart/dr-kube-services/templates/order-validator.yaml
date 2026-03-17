@@ -1,0 +1,74 @@
+{{- if .Values.orderValidator.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-validator-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: order-validator
+    {{- include "dr-kube-services.labels" . | nindent 4 }}
+data:
+  MAX_ORDER_AMOUNT_USD: {{ .Values.orderValidator.config.maxOrderAmountUsd | quote }}
+  MIN_ORDER_AMOUNT_USD: {{ .Values.orderValidator.config.minOrderAmountUsd | quote }}
+  PAYMENT_VALIDATION_TIMEOUT_MS: {{ .Values.orderValidator.config.paymentValidationTimeoutMs | quote }}
+  DUPLICATE_CHECK_WINDOW_SECONDS: {{ .Values.orderValidator.config.duplicateCheckWindowSeconds | quote }}
+  DUPLICATE_CACHE_MAX_ENTRIES: {{ .Values.orderValidator.config.duplicateCacheMaxEntries | quote }}
+  VALIDATION_MAX_RETRIES: {{ .Values.orderValidator.config.validationMaxRetries | quote }}
+  RETRY_BACKOFF_BASE_MS: {{ .Values.orderValidator.config.retryBackoffBaseMs | quote }}
+  RETRY_MAX_BACKOFF_MS: {{ .Values.orderValidator.config.retryMaxBackoffMs | quote }}
+  MAX_CONCURRENT_VALIDATIONS: {{ .Values.orderValidator.config.maxConcurrentValidations | quote }}
+  VALIDATION_QUEUE_TIMEOUT_MS: {{ .Values.orderValidator.config.validationQueueTimeoutMs | quote }}
+  SERVER_PORT: "8002"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-validator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: order-validator
+    {{- include "dr-kube-services.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.orderValidator.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: order-validator
+  template:
+    metadata:
+      labels:
+        app: order-validator
+      annotations:
+        checksum/config: {{ toJson .Values.orderValidator.config | sha256sum }}
+    spec:
+      containers:
+        - name: order-validator
+          image: {{ .Values.orderValidator.image.repository }}:{{ .Values.orderValidator.image.tag }}
+          imagePullPolicy: {{ .Values.orderValidator.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 8002
+          envFrom:
+            - configMapRef:
+                name: order-validator-config
+          resources:
+            {{- toYaml .Values.orderValidator.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.orderValidator.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.orderValidator.readinessProbe | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-validator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: order-validator
+    {{- include "dr-kube-services.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: order-validator
+  ports:
+    - port: 8002
+      targetPort: 8002
+{{- end }}

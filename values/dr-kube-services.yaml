@@ -1,0 +1,127 @@
+# DR-Kube 커스텀 서비스 values
+# ★ DR-Kube 에이전트 수정 대상 파일
+# helm-chart/dr-kube-services/ 로컬 차트 사용
+
+# ============================================================
+# inventory-service
+# ============================================================
+inventoryService:
+  enabled: true
+  name: inventory-service
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  # ★ 에이전트 수정 대상: 너무 낮은 값들이 의도적으로 설정됨
+  config:
+    upstreamTimeoutMs: 300        # 낮음 → ServiceHighLatencyP99 유발 가능
+    upstreamMaxRetries: 1         # 낮음 → 일시 장애에 취약
+    upstreamRetryBackoffMs: 100
+    circuitBreakerFailureThreshold: 3   # 낮음 → 잦은 circuit open 위험
+    circuitBreakerRecoveryTimeoutS: 30
+    circuitBreakerHalfOpenMaxCalls: 2
+    cacheTtlSeconds: 30           # 낮음 → upstream 과부하 위험
+    cacheMaxSize: 500
+    maxConcurrentRequests: 20     # 낮음 → 503 에러 위험
+    requestQueueSize: 50
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8000
+    initialDelaySeconds: 10
+    timeoutSeconds: 2
+    periodSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8000
+    initialDelaySeconds: 5
+    timeoutSeconds: 2
+    periodSeconds: 10
+    failureThreshold: 3
+
+# ============================================================
+# recommendation-proxy
+# ============================================================
+recommendationProxy:
+  enabled: true
+  name: recommendation-proxy
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi   # ML 서비스 연동 시 메모리 증가 위험
+  config:
+    cacheTtlSeconds: 60           # 낮음 → recommendationservice 과부하 위험
+    cacheMaxEntries: 200          # 낮음 → 캐시 효율 저하
+    recommendationTimeoutMs: 500  # 낮음 → 레이턴시 alert 유발 가능
+    recommendationMaxRetries: 2
+    maxRecommendationsPerRequest: 10
+    batchSize: 5
+    maxConcurrentRequests: 20
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8001
+    initialDelaySeconds: 10
+    timeoutSeconds: 2
+    periodSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8001
+    initialDelaySeconds: 5
+    timeoutSeconds: 2
+    periodSeconds: 10
+    failureThreshold: 3
+
+# ============================================================
+# order-validator
+# ============================================================
+orderValidator:
+  enabled: true
+  name: order-validator
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  config:
+    maxOrderAmountUsd: "10000.0"
+    minOrderAmountUsd: "0.01"
+    paymentValidationTimeoutMs: 500   # 낮음 → 결제 검증 실패 위험
+    duplicateCheckWindowSeconds: 60
+    duplicateCacheMaxEntries: 5000
+    validationMaxRetries: 1           # 낮음 → 일시 장애에 취약
+    retryBackoffBaseMs: 100           # 낮음 → upstream 과부하 위험
+    retryMaxBackoffMs: 1000
+    maxConcurrentValidations: 15      # 낮음 → checkout 병목 위험
+    validationQueueTimeoutMs: 300     # 낮음 → 429 에러 위험
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8002
+    initialDelaySeconds: 10
+    timeoutSeconds: 2
+    periodSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8002
+    initialDelaySeconds: 5
+    timeoutSeconds: 2
+    periodSeconds: 10
+    failureThreshold: 3

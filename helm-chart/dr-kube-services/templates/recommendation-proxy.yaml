@@ -1,0 +1,71 @@
+{{- if .Values.recommendationProxy.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recommendation-proxy-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: recommendation-proxy
+    {{- include "dr-kube-services.labels" . | nindent 4 }}
+data:
+  CACHE_TTL_SECONDS: {{ .Values.recommendationProxy.config.cacheTtlSeconds | quote }}
+  CACHE_MAX_ENTRIES: {{ .Values.recommendationProxy.config.cacheMaxEntries | quote }}
+  RECOMMENDATION_TIMEOUT_MS: {{ .Values.recommendationProxy.config.recommendationTimeoutMs | quote }}
+  RECOMMENDATION_MAX_RETRIES: {{ .Values.recommendationProxy.config.recommendationMaxRetries | quote }}
+  MAX_RECOMMENDATIONS_PER_REQUEST: {{ .Values.recommendationProxy.config.maxRecommendationsPerRequest | quote }}
+  BATCH_SIZE: {{ .Values.recommendationProxy.config.batchSize | quote }}
+  MAX_CONCURRENT_REQUESTS: {{ .Values.recommendationProxy.config.maxConcurrentRequests | quote }}
+  SERVER_PORT: "8001"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendation-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: recommendation-proxy
+    {{- include "dr-kube-services.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.recommendationProxy.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: recommendation-proxy
+  template:
+    metadata:
+      labels:
+        app: recommendation-proxy
+      annotations:
+        checksum/config: {{ toJson .Values.recommendationProxy.config | sha256sum }}
+    spec:
+      containers:
+        - name: recommendation-proxy
+          image: {{ .Values.recommendationProxy.image.repository }}:{{ .Values.recommendationProxy.image.tag }}
+          imagePullPolicy: {{ .Values.recommendationProxy.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: recommendation-proxy-config
+          resources:
+            {{- toYaml .Values.recommendationProxy.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.recommendationProxy.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.recommendationProxy.readinessProbe | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommendation-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: recommendation-proxy
+    {{- include "dr-kube-services.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: recommendation-proxy
+  ports:
+    - port: 8001
+      targetPort: 8001
+{{- end }}
