@@ -1,14 +1,16 @@
 {
   "id": "issue-006",
   "type": "pod_unhealthy",
-  "namespace": "production",
-  "resource": "api-gateway-7f8d9c-zxcv",
+  "namespace": "online-boutique",
+  "resource": "frontend",
   "error_message": "Liveness probe failed",
   "logs": [
-    "2026-01-24T12:00:00Z Liveness probe failed: HTTP probe failed with statuscode: 503",
-    "2026-01-24T12:00:00Z Container will be restarted",
-    "2026-01-24T11:59:55Z Warning: Unhealthy - Liveness probe failed: Get \"http://10.1.2.3:8080/healthz\": dial tcp 10.1.2.3:8080: connect: connection refused",
-    "2026-01-24T11:59:50Z Application startup time exceeded liveness probe initial delay"
+    "2026-02-10T08:00:00Z Liveness probe failed: HTTP probe failed with statuscode: 503",
+    "2026-02-10T08:00:00Z Container will be restarted",
+    "2026-02-10T07:59:58Z Warning: Unhealthy - Liveness probe failed: Get \"http://10.1.2.3:8080/_healthz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+    "2026-02-10T07:59:55Z Application startup time exceeded liveness probe initial delay (5s)",
+    "2026-02-10T07:59:50Z frontend service starting up, loading product catalog..."
   ],
-  "timestamp": "2026-01-24T12:00:00Z"
+  "timestamp": "2026-02-10T08:00:00Z",
+  "values_file": "values/online-boutique.yaml"
 }

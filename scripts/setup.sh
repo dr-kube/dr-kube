@@ -1,4 +1,4 @@
-#!/bin/bash
+1#!/bin/bash
 set -e
 
 # 색상 정의

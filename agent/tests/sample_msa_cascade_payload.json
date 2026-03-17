@@ -1,0 +1,97 @@
+{
+  "version": "4",
+  "groupKey": "{}:{namespace=\"online-boutique\"}",
+  "truncatedAlerts": 0,
+  "status": "firing",
+  "receiver": "dr-kube",
+  "groupLabels": {"namespace": "online-boutique"},
+  "commonLabels": {"namespace": "online-boutique"},
+  "commonAnnotations": {},
+  "externalURL": "http://alert.drkube.local",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "PodCrashLoopBackOff",
+        "namespace": "online-boutique",
+        "pod": "paymentservice-6d8f7b9c4-p9xkl",
+        "container": "server",
+        "service": "paymentservice",
+        "severity": "critical"
+      },
+      "annotations": {
+        "summary": "paymentservice CrashLoopBackOff (재시작 12회)",
+        "description": "paymentservice 파드가 CrashLoopBackOff 상태입니다. 최근 10분간 12회 재시작. 결제 API 100% 실패 중."
+      },
+      "startsAt": "2026-03-16T11:00:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "msa-crash-payment-001"
+    },
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ServiceErrorRateHigh",
+        "namespace": "online-boutique",
+        "service": "checkoutservice",
+        "severity": "critical"
+      },
+      "annotations": {
+        "summary": "checkoutservice 5xx 에러율 94% (paymentservice 의존성 실패)",
+        "description": "checkoutservice의 HTTP 5xx 에러율이 94%입니다. paymentservice 호출 타임아웃(deadline exceeded) 로그 다수 확인. 주문 완료 불가 상태."
+      },
+      "startsAt": "2026-03-16T11:01:15Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "msa-error-checkout-001"
+    },
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ServiceHighLatencyP99",
+        "namespace": "online-boutique",
+        "service": "frontend",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "frontend P99 응답시간 8200ms (checkout 의존성 블로킹)",
+        "description": "frontend의 P99 응답시간이 8200ms입니다. /cart/checkout 엔드포인트에서 checkoutservice 응답 대기 중 블로킹 발생. 사용자 이탈율 급증."
+      },
+      "startsAt": "2026-03-16T11:02:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "msa-latency-frontend-001"
+    },
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ContainerOOMKilled",
+        "namespace": "online-boutique",
+        "pod": "recommendationservice-5c9b8d7f2-r3mwz",
+        "container": "server",
+        "service": "recommendationservice",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "recommendationservice OOMKilled (트래픽 급증으로 메모리 초과)",
+        "description": "recommendationservice 컨테이너가 OOMKill 되었습니다. 메모리 limit 64Mi 초과. frontend 재시도 폭주로 인한 트래픽 급증이 원인으로 추정."
+      },
+      "startsAt": "2026-03-16T11:03:30Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "msa-oom-recommendation-001"
+    },
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ServiceHighLatencyP99",
+        "namespace": "online-boutique",
+        "service": "productcatalogservice",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "productcatalogservice P99 3100ms (전체 부하 증가)",
+        "description": "productcatalogservice P99 응답시간 3100ms. 다른 서비스 장애로 인한 재시도 트래픽이 몰려 CPU 사용률 89% 도달. 상품 목록 로딩 지연."
+      },
+      "startsAt": "2026-03-16T11:04:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "msa-latency-catalog-001"
+    }
+  ]
+}

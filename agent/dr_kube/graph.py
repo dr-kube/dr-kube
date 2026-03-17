@@ -2,13 +2,18 @@
 
 워크플로우:
   with_pr=True:
-    load_issue → analyze_and_fix(LLM 1회) → validate → create_pr → END
-                                               ↓ 실패 (< 3회)
-                                             analyze_and_fix (재시도)
-                                               ↓ 실패 (>= 3회)
-                                             error_end → END
+    load_issue → classify_issue → [route]
+      ├── argocd/analyze_only → analyze_only → END
+      ├── rule_based → rule_based_fix → (실패 시 llm_fix) → validate → create_pr → END
+      └── llm → llm_fix → validate → create_pr → END
+                              ↑ (validate 실패, retry < 3)
+                              └── (retry >= 3 → error_end)
+
   with_pr=False:
-    load_issue → analyze_and_fix → END
+    load_issue → classify_issue → [route]
+      ├── argocd/analyze_only → analyze_only → END
+      ├── rule_based → rule_based_fix → END
+      └── llm → llm_fix → END
 """
 import json
 import re
@@ -17,7 +22,7 @@ from pathlib import Path
 from langgraph.graph import StateGraph, END
 from dr_kube.state import IssueState
 from dr_kube.llm import get_llm
-from dr_kube.prompts import ANALYZE_AND_FIX_PROMPT, ANALYZE_ONLY_PROMPT
+from dr_kube.prompts import LLM_FIX_PROMPT, ANALYZE_ONLY_PROMPT, ARGOCD_ANALYZE_PROMPT, PR_REVIEW_RESPONSE_PROMPT
 from dr_kube.github import GitHubClient, generate_branch_name, generate_pr_body
 
 # 프로젝트 루트 경로 (agent/dr_kube/graph.py → dr-kube/)
@@ -76,6 +81,32 @@ def _parse_field(text: str, pattern: str) -> str:
     return match.group(1).strip() if match else ""
 
 
+def _parse_root_cause(text: str) -> str:
+    """근본 원인 추출 - 콜론 뒤 같은 줄 또는 다음 줄 모두 대응.
+
+    LLM이 **근본 원인:** 처럼 bold 마크다운을 쓰거나 영어로 응답하는 경우도 처리.
+    """
+    # 마크다운 bold/italic 제거 후 파싱
+    clean = re.sub(r"\*+", "", text)
+    # 한국어 패턴
+    match = re.search(
+        r"근본 원인:[^\S\n]*\n?([^\n]+(?:\n(?!심각도:|해결책:|```)[^\n]+)*)",
+        clean,
+        re.MULTILINE,
+    )
+    if match:
+        return match.group(1).strip()
+    # 영어 폴백: "Root Cause:" or "Root cause:"
+    match = re.search(
+        r"Root [Cc]ause:[^\S\n]*\n?([^\n]+(?:\n(?!Severity:|Solution:|```)[^\n]+)*)",
+        clean,
+        re.MULTILINE,
+    )
+    if match:
+        return match.group(1).strip()
+    return ""
+
+
 def _parse_severity(text: str) -> str:
     """심각도 파싱"""
     match = re.search(r"심각도:\s*(critical|high|medium|low)", text, re.IGNORECASE)
@@ -129,17 +160,17 @@ def _apply_replica_bumps_text(original_yaml: str, targets: list[str]) -> tuple[s
     return "\n".join(lines), changed
 
 
-def _rule_based_fix(issue: dict, original_yaml: str) -> tuple[str, str, str] | None:
-    """정책 기반 수정안 생성.
+def _try_rule_based_fix(issue: dict, original_yaml: str) -> tuple[str, str, str] | None:
+    """정책 기반 수정안 생성 (LLM 없음).
 
     Returns:
-      (fix_content, fix_description, root_cause) or None
+      (fix_content, fix_description, root_cause) or None if not applicable
     """
     issue_type = issue.get("type", "unknown")
     if issue_type not in POLICY_RESTRICTED_TYPES | {"composite_incident"}:
         return None
     if issue_type == "composite_incident":
-        # 복합 장애는 규칙 기반 replicas-only를 피하고 LLM이 다중 완화책을 생성하게 한다.
+        # 복합 장애는 LLM이 다중 완화책을 생성하게 한다
         return None
 
     try:
@@ -148,8 +179,6 @@ def _rule_based_fix(issue: dict, original_yaml: str) -> tuple[str, str, str] | N
         values_data = {}
     if not isinstance(values_data, dict):
         values_data = {}
-
-    changed_targets: list[str] = []
 
     resource = _normalize_resource_key(issue.get("resource", ""))
     targets = [resource] if resource in (values_data or {}) else []
@@ -161,9 +190,9 @@ def _rule_based_fix(issue: dict, original_yaml: str) -> tuple[str, str, str] | N
 
     fix_content, changed_targets = _apply_replica_bumps_text(original_yaml, targets)
 
-    # 실제 변경이 없다면 규칙 기반 실패로 간주
     if not changed_targets:
         return None
+
     fix_description = f"scale replicas for {', '.join(changed_targets[:2])}"
     root_cause = (
         f"서비스 가용성 저하({issue_type})가 감지되어 "
@@ -208,10 +237,13 @@ def _validate_remediation_policy(issue_type: str, changed_paths: list[str]) -> s
       - 빈 문자열: 통과
     """
     if issue_type == "composite_incident":
-        # 복합 인시던트는 최소 2개 이상의 독립 변경 필요
         unique_roots = {p.split(".", 1)[0] for p in changed_paths if p}
-        if len(unique_roots) < 2 and len(changed_paths) < 2:
-            return "정책 위반: composite_incident 는 최소 2개 이상의 독립 변경이 필요합니다."
+        # 복합 장애는 최소 2개 이상의 서로 다른 서비스에 변경이 있어야 함
+        if len(unique_roots) < 2:
+            return (
+                "정책 위반: composite_incident 는 최소 2개 이상의 서로 다른 서비스에 걸친 변경이 필요합니다. "
+                f"현재 변경된 서비스: {sorted(unique_roots) or '없음'}"
+            )
 
         has_only_resource_tuning = True
         for path in changed_paths:
@@ -220,13 +252,12 @@ def _validate_remediation_policy(issue_type: str, changed_paths: list[str]) -> s
                 has_only_resource_tuning = False
                 break
         if has_only_resource_tuning:
-            return "정책 위반: composite_incident 에서 리소스 튜닝 단독 변경은 금지됩니다."
+            return "정책 위반: composite_incident 에서 리소스 튜닝 단독 변경은 금지됩니다. replicas/probe/timeout 계열을 포함하세요."
         return ""
 
     if issue_type not in POLICY_RESTRICTED_TYPES:
         return ""
 
-    # 금지: 리소스 상향(memory/cpu/limits/requests/resources)
     for path in changed_paths:
         tokens = _path_tokens(path)
         if tokens & POLICY_DENY_TOKENS:
@@ -235,7 +266,6 @@ def _validate_remediation_policy(issue_type: str, changed_paths: list[str]) -> s
                 "replicas/PDB/timeout/retry/circuit-breaker 계열만 허용됩니다."
             )
 
-    # 허용 계열 변경이 최소 1개는 있어야 함
     has_allowed = False
     for path in changed_paths:
         tokens = _path_tokens(path)
@@ -284,73 +314,191 @@ def load_issue(state: IssueState) -> IssueState:
             with open(target_path, "r", encoding="utf-8") as f:
                 original_yaml = f.read()
         else:
-            target_file = ""  # 파일 없으면 analyze-only 전환
+            target_file = ""  # 파일 없으면 analyze_only로 전환
+
+    # 수정 요청 시 주입된 review 컨텍스트 추출 (webhook이 issue_data에 임시 삽입)
+    pr_review_comment = issue_data.pop("_review_comment", "")
+    previous_fix_content = issue_data.pop("_previous_fix", "")
 
     return {
         "issue_data": issue_data,
         "target_file": target_file,
         "original_yaml": original_yaml,
         "retry_count": 0,
+        "pr_review_comment": pr_review_comment,
+        "previous_fix_content": previous_fix_content,
         "status": "loaded",
     }
 
 
-def analyze_and_fix(state: IssueState) -> IssueState:
-    """LLM 1회 호출로 이슈 분석 + YAML 수정안 생성"""
+def classify_issue(state: IssueState) -> IssueState:
+    """이슈 유형 + target_file 기반으로 처리 경로(route) 결정.
+
+    route 값:
+      - argocd: ArgoCD 이벤트 → analyze_only (전용 프롬프트)
+      - analyze_only: values 파일 없음 → analyze_only
+      - rule_based: POLICY_RESTRICTED_TYPES → rule_based_fix 우선
+      - llm: 그 외 → llm_fix
+    """
+    if state.get("status") == "error":
+        return state
+
+    issue = state.get("issue_data", {})
+    issue_type = issue.get("type", "")
+    target_file = state.get("target_file", "")
+    original_yaml = state.get("original_yaml", "")
+
+    if issue_type.startswith("argocd_"):
+        route = "argocd"
+    elif not target_file or not original_yaml:
+        route = "analyze_only"
+    elif issue_type in POLICY_RESTRICTED_TYPES:
+        route = "rule_based"
+    else:
+        route = "llm"
+
+    return {"route": route, "status": "classified"}
+
+
+def analyze_only(state: IssueState) -> IssueState:
+    """LLM 분석만 수행 (YAML 수정 없음).
+
+    ArgoCD 이벤트와 values 파일이 없는 이슈를 공통으로 처리.
+    """
+    if state.get("status") == "error":
+        return state
+
+    issue = state["issue_data"]
+    issue_type = issue.get("type", "")
+    logs_text = "\n".join(issue.get("logs", []))
+
+    if issue_type.startswith("argocd_"):
+        prompt = ARGOCD_ANALYZE_PROMPT.format(
+            type=issue_type,
+            namespace=issue.get("namespace", "default"),
+            resource=issue.get("resource", "unknown"),
+            error_message=issue.get("error_message", ""),
+            logs=logs_text,
+        )
+    else:
+        prompt = ANALYZE_ONLY_PROMPT.format(
+            type=issue_type,
+            namespace=issue.get("namespace", "default"),
+            resource=issue.get("resource", "unknown"),
+            error_message=issue.get("error_message", ""),
+            logs=logs_text,
+        )
+
+    try:
+        llm = get_llm()
+        response = llm.invoke(prompt)
+        result = _extract_llm_content(response)
+        return {
+            "root_cause": _parse_root_cause(result) or "분석 결과를 파싱할 수 없습니다",
+            "severity": _parse_severity(result),
+            "suggestions": _parse_suggestions(result) or ["로그를 더 확인하세요"],
+            "fix_method": "none",
+            "status": "done",
+        }
+    except Exception as e:
+        return {"error": f"분석 실패: {str(e)}", "status": "error"}
+
+
+def rule_based_fix(state: IssueState) -> IssueState:
+    """결정론적 룰 기반 수정안 생성 (LLM 없음).
+
+    성공 시: fix_content, fix_description, root_cause 반환 → validate로 진행
+    실패 시: route='llm' 설정 → llm_fix로 폴백
+    """
+    if state.get("status") == "error":
+        return state
+
+    issue = state["issue_data"]
+    original_yaml = state.get("original_yaml", "")
+
+    result = _try_rule_based_fix(issue, original_yaml)
+    if result is None:
+        # 룰 기반 적용 불가 → LLM으로 폴백
+        return {"route": "llm"}
+
+    fix_content, fix_description, root_cause = result
+    return {
+        "root_cause": root_cause,
+        "severity": "high",
+        "suggestions": [
+            "서비스 레플리카를 증설해 단일 장애점(SPOF)을 줄였습니다.",
+            "후속으로 timeout/retry 정책을 서비스 코드/차트에 반영하세요.",
+        ],
+        "fix_content": fix_content,
+        "fix_description": fix_description,
+        "fix_method": "rule_based",
+        "status": "analyzed",
+    }
+
+
+def llm_fix(state: IssueState) -> IssueState:
+    """LLM으로 이슈 분석 + YAML 수정안 생성.
+
+    retry 시 validation_error를 프롬프트에 주입해 LLM이 오류를 수정하게 한다.
+    """
     if state.get("status") == "error":
         return state
 
     issue = state["issue_data"]
     target_file = state.get("target_file", "")
     original_yaml = state.get("original_yaml", "")
+    retry_count = state.get("retry_count", 0)
+    validation_error = state.get("validation_error", "")
+    pr_review_comment = state.get("pr_review_comment", "")
+    previous_fix_content = state.get("previous_fix_content", "")
     logs_text = "\n".join(issue.get("logs", []))
 
-    # target_file이 없으면 분석만 수행
-    if not target_file or not original_yaml:
-        return _analyze_only(state)
+    # 수정 요청 루프: 이전 fix_content + review comment 있으면 PR_REVIEW_RESPONSE_PROMPT 사용
+    if pr_review_comment and previous_fix_content:
+        prompt = PR_REVIEW_RESPONSE_PROMPT.format(
+            type=issue.get("type", "unknown"),
+            namespace=issue.get("namespace", "default"),
+            resource=issue.get("resource", "unknown"),
+            error_message=issue.get("error_message", ""),
+            target_file=target_file,
+            original_fix=previous_fix_content,
+            pr_review_comment=pr_review_comment,
+            current_yaml=original_yaml,
+        )
+    else:
+        # retry 시 이전 검증 오류를 프롬프트에 주입
+        retry_context = ""
+        if retry_count > 0 and validation_error:
+            retry_context = (
+                f"\n[이전 시도 오류 - 반드시 수정]\n{validation_error}\n"
+            )
 
-    # PR 품질 안정화를 위해 crash/error 계열은 규칙 기반 우선 처리
-    rule_result = _rule_based_fix(issue, original_yaml)
-    if rule_result is not None:
-        fix_content, fix_description, root_cause = rule_result
-        return {
-            "analysis": f"rule_based_fix applied for {issue.get('type', 'unknown')}",
-            "root_cause": root_cause,
-            "severity": "high",
-            "suggestions": [
-                "서비스 레플리카를 증설해 단일 장애점(SPOF)을 줄였습니다.",
-                "후속으로 timeout/retry 정책을 서비스 코드/차트에 반영하세요.",
-            ],
-            "fix_content": fix_content,
-            "fix_description": fix_description,
-            "status": "analyzed",
-        }
-
-    prompt = ANALYZE_AND_FIX_PROMPT.format(
-        type=issue.get("type", "unknown"),
-        namespace=issue.get("namespace", "default"),
-        resource=issue.get("resource", "unknown"),
-        error_message=issue.get("error_message", ""),
-        logs=logs_text,
-        target_file=target_file,
-        current_yaml=original_yaml,
-    )
+        prompt = LLM_FIX_PROMPT.format(
+            retry_context=retry_context,
+            type=issue.get("type", "unknown"),
+            namespace=issue.get("namespace", "default"),
+            resource=issue.get("resource", "unknown"),
+            error_message=issue.get("error_message", ""),
+            logs=logs_text,
+            target_file=target_file,
+            current_yaml=original_yaml,
+        )
 
     try:
         llm = get_llm()
         response = llm.invoke(prompt)
         result = _extract_llm_content(response)
 
-        # 파싱
-        root_cause = _parse_field(result, r"근본 원인:\s*(.+?)(?:\n|$)")
+        root_cause = _parse_root_cause(result)
         severity = _parse_severity(result)
         suggestions = _parse_suggestions(result)
         fix_content = _parse_yaml_block(result)
-        fix_description = _parse_field(result, r"변경 설명:\s*(.+?)(?:\n|$)") or "자동 생성된 수정안"
+        raw_desc = _parse_field(result, r"변경 설명:\s*(.+?)(?:\n|$)") or "자동 생성된 수정안"
+        # LLM이 마크다운 bold/italic을 넣을 수 있어서 제거
+        fix_description = re.sub(r"[*_`#~]", "", raw_desc).strip()
 
         if not fix_content:
             return {
-                "analysis": result,
                 "root_cause": root_cause or "분석 결과를 파싱할 수 없습니다",
                 "severity": severity,
                 "suggestions": suggestions,
@@ -359,12 +507,12 @@ def analyze_and_fix(state: IssueState) -> IssueState:
             }
 
         return {
-            "analysis": result,
             "root_cause": root_cause or "분석 결과를 파싱할 수 없습니다",
             "severity": severity,
             "suggestions": suggestions or ["로그를 더 확인하세요"],
             "fix_content": fix_content,
             "fix_description": fix_description,
+            "fix_method": "llm",
             "status": "analyzed",
         }
     except Exception as e:
@@ -401,63 +549,49 @@ def _analyze_only(state: IssueState) -> IssueState:
 
 
 def validate(state: IssueState) -> IssueState:
-    """YAML 수정안 검증: 문법 + 변경 확인"""
+    """YAML 수정안 검증: 문법 + 변경 확인 + 정책 준수"""
     fix_content = state.get("fix_content", "")
     original_yaml = state.get("original_yaml", "")
     retry_count = state.get("retry_count", 0)
+
+    def _fail(msg: str) -> IssueState:
+        return {"retry_count": retry_count + 1, "validation_error": msg, "status": "validation_failed"}
 
     # 1. YAML 문법 검증
     try:
         parsed = yaml.safe_load(fix_content)
         if parsed is None:
-            return {"retry_count": retry_count + 1, "error": "YAML 파싱 결과가 비어있습니다", "status": "validation_failed"}
+            return _fail("YAML 파싱 결과가 비어있습니다")
     except yaml.YAMLError as e:
-        return {"retry_count": retry_count + 1, "error": f"YAML 문법 오류: {str(e)}", "status": "validation_failed"}
+        return _fail(f"YAML 문법 오류: {str(e)}")
+
+    # 2. dict 형식인지 확인
+    if not isinstance(parsed, dict):
+        return _fail("YAML이 dict 형식이 아닙니다")
 
     issue = state.get("issue_data", {})
     issue_type = issue.get("type", "unknown")
     original_parsed = None
 
-    # 2. 원본과 동일한지 확인
+    # 3. 원본과 동일한지 확인
     try:
         original_parsed = yaml.safe_load(original_yaml)
         if parsed == original_parsed:
-            return {"retry_count": retry_count + 1, "error": "수정안이 원본과 동일합니다", "status": "validation_failed"}
+            return _fail("수정안이 원본과 동일합니다")
     except yaml.YAMLError:
         pass  # 원본 파싱 실패해도 수정안 검증은 통과
 
-    # 3. dict 형식인지 확인
-    if not isinstance(parsed, dict):
-        return {"retry_count": retry_count + 1, "error": "YAML이 dict 형식이 아닙니다", "status": "validation_failed"}
-
     # 4. 장애 타입별 수정 정책 검증
-    if issue_type in POLICY_RESTRICTED_TYPES:
+    if issue_type in POLICY_RESTRICTED_TYPES | {"composite_incident"}:
         if not isinstance(original_parsed, dict):
-            return {
-                "retry_count": retry_count + 1,
-                "error": f"정책 검증 실패: issue_type={issue_type} 는 원본 YAML 파싱이 필요합니다",
-                "status": "validation_failed",
-            }
+            return _fail(f"정책 검증 실패: issue_type={issue_type} 는 원본 YAML 파싱이 필요합니다")
 
         changed_paths = _collect_changed_paths(original_parsed, parsed)
         policy_error = _validate_remediation_policy(issue_type, changed_paths)
         if policy_error:
-            return {
-                "retry_count": retry_count + 1,
-                "error": policy_error,
-                "status": "validation_failed",
-            }
+            return _fail(policy_error)
 
     return {"status": "validated"}
-
-
-def error_end(state: IssueState) -> IssueState:
-    """에러 상태로 워크플로우 종료"""
-    retry_count = state.get("retry_count", 0)
-    error_msg = state.get("error", "알 수 없는 오류")
-    if retry_count >= MAX_RETRIES:
-        error_msg = f"검증 {MAX_RETRIES}회 실패 후 종료: {error_msg}"
-    return {"status": "error", "error": error_msg}
 
 
 def create_pr(state: IssueState) -> IssueState:
@@ -472,38 +606,30 @@ def create_pr(state: IssueState) -> IssueState:
     if not target_file or not fix_content:
         return {"error": "수정할 파일 또는 내용이 없습니다", "status": "error"}
 
-    # 브랜치명 생성
     branch_name = generate_branch_name(
         issue.get("type", "fix"), issue.get("resource", "unknown")
     )
-
-    # GitHub 클라이언트
     gh = GitHubClient(str(PROJECT_ROOT))
 
     try:
-        # 1. 브랜치 생성
         success, msg = gh.create_branch(branch_name)
         if not success:
             return {"error": f"브랜치 생성 실패: {msg}", "status": "error"}
 
-        # 2. 파일 수정
         target_path = PROJECT_ROOT / target_file
         with open(target_path, "w", encoding="utf-8") as f:
             f.write(fix_content)
 
-        # 3. 커밋 및 푸시
         commit_message = f"fix({issue.get('resource', 'unknown')}): {state.get('fix_description', '자동 수정')}"
         success, msg = gh.commit_and_push(target_file, commit_message, branch_name)
         if not success:
             gh.cleanup()
             return {"error": f"커밋/푸시 실패: {msg}", "status": "error"}
 
-        # 4. PR 생성
         pr_title = f"fix({issue.get('resource', 'unknown')}): {state.get('fix_description', '자동 수정')}"
         pr_body = generate_pr_body(state)
         success, pr_url, pr_number = gh.create_pr(branch_name, pr_title, pr_body)
 
-        # main으로 복귀
         gh.cleanup()
 
         if not success:
@@ -520,16 +646,44 @@ def create_pr(state: IssueState) -> IssueState:
         return {"error": f"PR 생성 중 오류: {str(e)}", "status": "error"}
 
 
+def error_end(state: IssueState) -> IssueState:
+    """에러 상태로 워크플로우 종료"""
+    retry_count = state.get("retry_count", 0)
+    error_msg = state.get("error", "") or state.get("validation_error", "알 수 없는 오류")
+    if retry_count >= MAX_RETRIES:
+        error_msg = f"검증 {MAX_RETRIES}회 실패 후 종료: {error_msg}"
+    return {"status": "error", "error": error_msg}
+
+
 # =============================================================================
 # 라우팅 함수
 # =============================================================================
 
-def _should_create_pr(state: IssueState) -> str:
-    """analyze_and_fix 후 라우팅"""
+def _route_issue(state: IssueState) -> str:
+    """classify_issue 후 라우팅"""
     if state.get("status") == "error":
         return "error_end"
-    if state.get("status") == "done":
-        return "end"  # 분석만 수행 완료
+    return state.get("route", "llm")
+
+
+def _after_rule_based(state: IssueState) -> str:
+    """rule_based_fix 후 라우팅.
+
+    룰 기반 성공 → validate
+    룰 기반 실패(route='llm') → llm_fix
+    에러 → error_end
+    """
+    if state.get("status") == "error":
+        return "error_end"
+    if state.get("route") == "llm":
+        return "llm"
+    return "validate"
+
+
+def _after_llm_fix(state: IssueState) -> str:
+    """llm_fix 후 라우팅"""
+    if state.get("status") == "error":
+        return "error_end"
     return "validate"
 
 
@@ -539,7 +693,7 @@ def _should_retry(state: IssueState) -> str:
         return "create_pr"
     if state.get("retry_count", 0) >= MAX_RETRIES:
         return "error_end"
-    return "retry"
+    return "llm_fix"
 
 
 # =============================================================================
@@ -550,38 +704,66 @@ def create_graph(with_pr: bool = False):
     """LangGraph 워크플로우 생성
 
     Args:
-        with_pr: True면 PR 생성까지 포함, False면 분석만
+        with_pr: True면 validate + PR 생성까지 포함, False면 분석/수정안만
     """
     workflow = StateGraph(IssueState)
 
+    # 공통 노드
     workflow.add_node("load_issue", load_issue)
-    workflow.add_node("analyze_and_fix", analyze_and_fix)
+    workflow.add_node("classify_issue", classify_issue)
+    workflow.add_node("analyze_only", analyze_only)
+    workflow.add_node("rule_based_fix", rule_based_fix)
+    workflow.add_node("llm_fix", llm_fix)
+    workflow.add_node("error_end", error_end)
+
+    workflow.set_entry_point("load_issue")
+    workflow.add_edge("load_issue", "classify_issue")
+
+    # classify → 각 경로
+    _route_map = {
+        "argocd": "analyze_only",
+        "analyze_only": "analyze_only",
+        "rule_based": "rule_based_fix",
+        "llm": "llm_fix",
+        "error_end": "error_end",
+    }
+    workflow.add_conditional_edges("classify_issue", _route_issue, _route_map)
 
     if with_pr:
         workflow.add_node("validate", validate)
         workflow.add_node("create_pr", create_pr)
-        workflow.add_node("error_end", error_end)
 
-        workflow.set_entry_point("load_issue")
-        workflow.add_edge("load_issue", "analyze_and_fix")
+        # analyze_only → 분석 완료 후 END (PR 생성 없음)
+        workflow.add_edge("analyze_only", END)
 
+        # rule_based_fix → validate 또는 llm_fix 폴백
         workflow.add_conditional_edges(
-            "analyze_and_fix",
-            _should_create_pr,
-            {"validate": "validate", "end": END, "error_end": "error_end"},
+            "rule_based_fix",
+            _after_rule_based,
+            {"validate": "validate", "llm": "llm_fix", "error_end": "error_end"},
         )
 
+        # llm_fix → validate
+        workflow.add_conditional_edges(
+            "llm_fix",
+            _after_llm_fix,
+            {"validate": "validate", "error_end": "error_end"},
+        )
+
+        # validate → create_pr / retry / error_end
         workflow.add_conditional_edges(
             "validate",
             _should_retry,
-            {"create_pr": "create_pr", "retry": "analyze_and_fix", "error_end": "error_end"},
+            {"create_pr": "create_pr", "llm_fix": "llm_fix", "error_end": "error_end"},
         )
 
         workflow.add_edge("create_pr", END)
-        workflow.add_edge("error_end", END)
     else:
-        workflow.set_entry_point("load_issue")
-        workflow.add_edge("load_issue", "analyze_and_fix")
-        workflow.add_edge("analyze_and_fix", END)
+        # 분석 전용: 각 노드에서 바로 END
+        workflow.add_edge("analyze_only", END)
+        workflow.add_edge("rule_based_fix", END)
+        workflow.add_edge("llm_fix", END)
+
+    workflow.add_edge("error_end", END)
 
     return workflow.compile()

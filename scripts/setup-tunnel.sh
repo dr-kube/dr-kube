@@ -23,7 +23,7 @@ INGRESS_SVC="nginx-ingress-ingress-nginx-controller.ingress-nginx.svc.cluster.lo
 DOMAIN_SUFFIX="-drkube.huik.site"
 ZONE_NAME="huik.site"
 
-# 서비스 도메인 목록
+# 서비스 도메인 목록 (Nginx Ingress 경유)
 SERVICES=(
     "argocd"
     "grafana"
@@ -32,6 +32,12 @@ SERVICES=(
     "boutique"
     "chaos"
     "jaeger"
+)
+
+# 호스트 직접 라우팅 서비스 (k8s 외부, host.docker.internal 경유)
+# format: "subdomain:port"
+HOST_SERVICES=(
+    "agent:8080"
 )
 
 # secrets.yaml 에서 값 읽기
@@ -140,8 +146,15 @@ setup_tunnel() {
     # 6. 터널 설정 (ingress 규칙)
     log_info "터널 ingress 규칙 설정 중..."
     local INGRESS_RULES=""
+    # Nginx Ingress 경유 서비스
     for svc in "${SERVICES[@]}"; do
         INGRESS_RULES+="{\"hostname\":\"${svc}${DOMAIN_SUFFIX}\",\"service\":\"http://${INGRESS_SVC}:80\"},"
+    done
+    # 호스트 직접 라우팅 서비스 (에이전트 웹훅 서버 등)
+    for entry in "${HOST_SERVICES[@]}"; do
+        local host_svc="${entry%%:*}"
+        local host_port="${entry##*:}"
+        INGRESS_RULES+="{\"hostname\":\"${host_svc}${DOMAIN_SUFFIX}\",\"service\":\"http://host.docker.internal:${host_port}\"},"
     done
     # catch-all 규칙 추가
     INGRESS_RULES+="{\"service\":\"http_status:404\"}"
@@ -169,7 +182,12 @@ setup_tunnel() {
         log_warn "Zone ID를 가져올 수 없습니다. DNS 레코드를 수동으로 설정해주세요."
     else
         local TUNNEL_CNAME="${TUNNEL_ID}.cfargotunnel.com"
-        for svc in "${SERVICES[@]}"; do
+        # 모든 서비스 DNS 레코드 생성 (Nginx Ingress + 호스트 직접 라우팅)
+        local ALL_SVCS=("${SERVICES[@]}")
+        for entry in "${HOST_SERVICES[@]}"; do
+            ALL_SVCS+=("${entry%%:*}")
+        done
+        for svc in "${ALL_SVCS[@]}"; do
             local FQDN="${svc}${DOMAIN_SUFFIX}"
             # 기존 레코드 확인
             local EXISTING
@@ -282,6 +300,9 @@ show_status() {
     echo "  서비스 URL:"
     for svc in "${SERVICES[@]}"; do
         echo "    https://${svc}${DOMAIN_SUFFIX}"
+    done
+    for entry in "${HOST_SERVICES[@]}"; do
+        echo "    https://${entry%%:*}${DOMAIN_SUFFIX}  (host:${entry##*:})"
     done
     echo "=========================================="
     echo ""

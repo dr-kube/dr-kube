@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
+.PHONY: help agent-setup agent-webhook agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-memory chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -22,7 +22,7 @@ help: ## 도움말 표시
 	@grep -E '^(port-forward-boutique|boutique-open).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [Chaos 실험]"
-	@grep -E '^(chaos-track-checkout-cascade|chaos-track-catalog-break|chaos-track-platform-brownout|chaos-stop|chaos-status).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-32s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(chaos-memory|chaos-track-checkout-cascade|chaos-track-catalog-break|chaos-track-platform-brownout|chaos-stop|chaos-status).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-32s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [원격 접속]"
 	@grep -E '^ssh-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -159,17 +159,6 @@ boutique-open: ## Online Boutique 브라우저 열기
 agent-setup: ## 에이전트 환경 설정
 	@./scripts/setup-agent.sh
 
-agent-run: ## 에이전트 실행 (ISSUE=파일경로)
-	@cd $(AGENT_DIR) && .venv/bin/python -m cli analyze $(ISSUE)
-
-agent-fix: ## 이슈 분석 + PR 생성 (ISSUE=파일경로)
-	@cd $(AGENT_DIR) && .venv/bin/python -m cli fix $(ISSUE)
-
-agent-run-all: ## 모든 샘플 이슈 분석
-	@cd $(AGENT_DIR) && for f in issues/*.json; do \
-		echo "\n=== $$f ==="; \
-		.venv/bin/python -m cli analyze $$f; \
-	done
 
 agent-webhook: ## 웹훅 서버 시작 (Alertmanager 수신)
 	@echo ""
@@ -199,22 +188,23 @@ agent-clean: ## 에이전트 가상환경 삭제
 	rm -rf $(AGENT_VENV)
 
 agent-reinstall: agent-clean agent-setup ## 에이전트 재설치
-
-# 샘플 이슈 단축 명령
-agent-oom: ## OOM 이슈 분석
-	@$(MAKE) agent-run ISSUE=issues/sample_oom.json
-
-agent-oom-fix: ## OOM 이슈 분석 + PR 생성
-	@$(MAKE) agent-fix ISSUE=issues/sample_oom.json
-
-agent-cpu: ## CPU Throttle 이슈 분석
-	@$(MAKE) agent-run ISSUE=issues/sample_cpu_throttle.json
-
-agent-image: ## Image Pull 이슈 분석
-	@$(MAKE) agent-run ISSUE=issues/sample_image_pull.json
 # =============================================================================
 # Chaos Mesh 실험 (Online Boutique)
 # =============================================================================
+
+chaos-memory: ## MSA 트래픽 급증 + 연쇄 OOM (loadgen→frontend→checkout→payment/redis/email/shipping, 10분)
+	@echo "🔥 MSA 트래픽 급증 + 연쇄 OOM 시나리오 시작..."
+	@kubectl apply -f chaos/track-memory-oom.yaml
+	@echo "✓ 적용 완료 (권장 관측 10분)"
+	@echo "  - loadgenerator: CPU 과부하 (트래픽 폭증)"
+	@echo "  - frontend: OOMKill + CrashLoopBackOff (150M > 128Mi)"
+	@echo "  - productcatalog: 1200ms 지연 (캐시 미스)"
+	@echo "  - paymentservice: 2500ms 지연 (결제 API 타임아웃)"
+	@echo "  - checkoutservice: 메모리+CPU 과부하"
+	@echo "  - cartservice: 메모리 압박 (세션 폭증)"
+	@echo "  - redis-cart: 30% 패킷 손실 (세션 소실)"
+	@echo "  - emailservice: 40% 패킷 손실 (알림 실패)"
+	@echo "  - shippingservice: 900ms 지연 (물류 API 지연)"
 
 chaos-track-checkout-cascade: ## checkout 경로 복합 장애 (redis/payment/checkout)
 	@echo "🔥 복합 트랙: checkout-cascade 시작..."

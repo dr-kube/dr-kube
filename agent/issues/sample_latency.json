@@ -1,0 +1,16 @@
+{
+  "id": "issue-012",
+  "type": "service_latency",
+  "namespace": "online-boutique",
+  "resource": "checkoutservice",
+  "error_message": "ServiceHighLatencyP99: p99 latency 2.3s > threshold 1s",
+  "logs": [
+    "2026-02-10T09:00:00Z [checkoutservice] PlaceOrder RPC timeout: context deadline exceeded",
+    "2026-02-10T09:00:00Z [checkoutservice] failed to charge payment: rpc error: code = DeadlineExceeded desc = context deadline exceeded",
+    "2026-02-10T08:59:58Z [checkoutservice] GRPC_TIMEOUT_MS=500 - downstream paymentservice response took 623ms",
+    "2026-02-10T08:59:55Z [checkoutservice] retry 1/3: charge payment request timed out",
+    "2026-02-10T08:59:50Z [checkoutservice] p99 latency spike detected: 2347ms"
+  ],
+  "timestamp": "2026-02-10T09:00:00Z",
+  "values_file": "values/online-boutique.yaml"
+}

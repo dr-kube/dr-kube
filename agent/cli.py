@@ -47,7 +47,9 @@ def print_analysis_result(result: dict, verbose: bool = False):
     # 수정안 설명 표시
     fix_description = result.get("fix_description", "").strip()
     if fix_description:
-        print(f"\n🔧 수정안: {fix_description}")
+        fix_method = result.get("fix_method", "")
+        method_label = {"rule_based": "[룰 기반]", "llm": "[LLM]", "none": ""}.get(fix_method, "")
+        print(f"\n🔧 수정안 {method_label}: {fix_description}")
         target_file = result.get("target_file", "")
         if target_file:
             print(f"   파일: {target_file}")
@@ -60,11 +62,11 @@ def print_analysis_result(result: dict, verbose: bool = False):
 
     print("\n" + "=" * 60)
 
-    # VERBOSE 모드
-    if verbose:
-        print("\n📄 전체 분석 내용:")
+    # VERBOSE 모드: fix_content (수정된 YAML) 출력
+    if verbose and result.get("fix_content"):
+        print("\n📄 수정된 YAML:")
         print("-" * 60)
-        print(result.get('analysis', 'N/A'))
+        print(result.get('fix_content', 'N/A'))
         print("=" * 60)
 
 

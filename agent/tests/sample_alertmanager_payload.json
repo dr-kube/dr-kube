@@ -1,0 +1,62 @@
+{
+  "version": "4",
+  "groupKey": "{}:{alertname=\"ContainerOOMKilled\"}",
+  "truncatedAlerts": 0,
+  "status": "firing",
+  "receiver": "dr-kube",
+  "groupLabels": {"alertname": "ContainerOOMKilled"},
+  "commonLabels": {"namespace": "online-boutique"},
+  "commonAnnotations": {},
+  "externalURL": "http://alert.drkube.local",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ContainerOOMKilled",
+        "namespace": "online-boutique",
+        "pod": "frontend-7f8b9c6d5-x2k4j",
+        "container": "server",
+        "severity": "critical"
+      },
+      "annotations": {
+        "summary": "frontend OOMKilled (트래픽 급증으로 메모리 한계 초과)",
+        "description": "frontend 컨테이너가 OOMKill 되었습니다. 현재 메모리 사용량이 limits(128Mi)를 초과했습니다."
+      },
+      "startsAt": "2026-03-16T10:00:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "test-oom-frontend-001"
+    },
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ServiceHighLatencyP99",
+        "namespace": "online-boutique",
+        "service": "checkoutservice",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "checkoutservice P99 지연 4500ms 초과",
+        "description": "checkoutservice의 P99 응답 시간이 4500ms로 SLO(1000ms)를 초과했습니다."
+      },
+      "startsAt": "2026-03-16T10:00:30Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "test-latency-checkout-001"
+    },
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ServiceHighLatencyP99",
+        "namespace": "online-boutique",
+        "service": "productcatalogservice",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "productcatalogservice P99 지연 1800ms 초과",
+        "description": "productcatalogservice의 P99 응답 시간이 1800ms로 SLO를 초과했습니다."
+      },
+      "startsAt": "2026-03-16T10:00:45Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "test-latency-catalog-001"
+    }
+  ]
+}

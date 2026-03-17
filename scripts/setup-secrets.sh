@@ -154,11 +154,13 @@ apply() {
         exit 1
     fi
 
-    local SLACK_URL CLOUDFLARE_TOKEN TUNNEL_TOKEN GEMINI_KEY
+    local SLACK_URL CLOUDFLARE_TOKEN TUNNEL_TOKEN GEMINI_KEY SLACK_BOT_TOKEN SLACK_CHANNEL
     SLACK_URL=$(get_value slack_webhook_url)
     CLOUDFLARE_TOKEN=$(get_value cloudflare_api_token)
     TUNNEL_TOKEN=$(get_value cloudflare_tunnel_token)
     GEMINI_KEY=$(get_value gemini_api_key)
+    SLACK_BOT_TOKEN=$(get_value slack_bot_token)
+    SLACK_CHANNEL=$(get_value slack_channel)
 
     # Slack Webhook → monitoring 네임스페이스
     if [ -n "$SLACK_URL" ]; then
@@ -204,7 +206,18 @@ apply() {
 
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=${FINAL_KEY}
-GEMINI_MODEL=gemini-3-flash-preview
+GEMINI_MODEL=gemini-2.5-flash
+
+# Slack 코파일럿 모드 (SLACK_BOT_TOKEN 설정 시 자동 활성화)
+# Bot Token: Slack App → OAuth & Permissions → Bot User OAuth Token
+SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+SLACK_CHANNEL=${SLACK_CHANNEL:-#dr-kube}
+COPILOT_MODE=true
+
+# Webhook 서버
+WEBHOOK_HOST=0.0.0.0
+WEBHOOK_PORT=8080
+AUTO_PR=false
 EOF
     if [ -z "$FINAL_KEY" ]; then
         log_warn "agent/.env 생성 (GEMINI_API_KEY 미설정 — agent/.env에 직접 입력하세요)"
@@ -240,17 +253,19 @@ show_status() {
     if [ -f "$SECRETS_PLAIN" ]; then
         echo -e "  평문 파일:    ${GREEN}있음${NC} (Git 커밋 금지)"
 
-        local SLACK_URL CLOUDFLARE_TOKEN TUNNEL_TOKEN GEMINI_KEY
+        local SLACK_URL CLOUDFLARE_TOKEN TUNNEL_TOKEN GEMINI_KEY SLACK_BOT_TOKEN
         SLACK_URL=$(get_value slack_webhook_url)
         CLOUDFLARE_TOKEN=$(get_value cloudflare_api_token)
         TUNNEL_TOKEN=$(get_value cloudflare_tunnel_token)
         GEMINI_KEY=$(get_value gemini_api_key)
+        SLACK_BOT_TOKEN=$(get_value slack_bot_token)
 
         echo ""
-        [ -n "$SLACK_URL" ] && echo -e "  Slack:        ${GREEN}설정됨${NC}" || echo -e "  Slack:        ${YELLOW}미설정${NC}"
-        [ -n "$CLOUDFLARE_TOKEN" ] && echo -e "  Cloudflare:   ${GREEN}설정됨${NC}" || echo -e "  Cloudflare:   ${YELLOW}미설정${NC}"
-        [ -n "$TUNNEL_TOKEN" ] && echo -e "  Tunnel:       ${GREEN}설정됨${NC}" || echo -e "  Tunnel:       ${YELLOW}미설정${NC}"
-        [ -n "$GEMINI_KEY" ] && echo -e "  Gemini:       ${GREEN}설정됨${NC}" || echo -e "  Gemini:       ${YELLOW}미설정${NC}"
+        [ -n "$SLACK_URL" ] && echo -e "  Slack Webhook:    ${GREEN}설정됨${NC}" || echo -e "  Slack Webhook:    ${YELLOW}미설정${NC}"
+        [ -n "$SLACK_BOT_TOKEN" ] && echo -e "  Slack Bot Token:  ${GREEN}설정됨 (코파일럿 모드)${NC}" || echo -e "  Slack Bot Token:  ${YELLOW}미설정${NC}"
+        [ -n "$CLOUDFLARE_TOKEN" ] && echo -e "  Cloudflare:       ${GREEN}설정됨${NC}" || echo -e "  Cloudflare:       ${YELLOW}미설정${NC}"
+        [ -n "$TUNNEL_TOKEN" ] && echo -e "  Tunnel:           ${GREEN}설정됨${NC}" || echo -e "  Tunnel:           ${YELLOW}미설정${NC}"
+        [ -n "$GEMINI_KEY" ] && echo -e "  Gemini:           ${GREEN}설정됨${NC}" || echo -e "  Gemini:           ${YELLOW}미설정${NC}"
     else
         echo -e "  평문 파일:    ${RED}없음${NC} → make secrets-decrypt"
     fi

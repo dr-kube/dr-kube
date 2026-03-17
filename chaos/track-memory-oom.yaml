@@ -1,0 +1,192 @@
+# MSA 트래픽 급증 + 연쇄 OOM 시나리오
+#
+# 시나리오: 갑작스러운 트래픽 급증 → frontend OOMKill → MSA 연쇄 장애
+#
+#   loadgenerator CPU 과부하 (트래픽 폭증 시뮬)
+#     └→ frontend 메모리 한계 초과 (OOMKilled + CrashLoopBackOff)
+#          ├→ productcatalog 응답 지연 (상품 목록 조회 실패)
+#          └→ checkoutservice 과부하
+#               ├→ paymentservice 타임아웃 (결제 실패)
+#               ├→ redis-cart 패킷 손실 (세션 소실)
+#               ├→ emailservice 패킷 손실 (주문 확인 메일 실패)
+#               └→ shippingservice 응답 지연 (배송 조회 타임아웃)
+#
+# 유발 알림: ContainerOOMKilled, PodCrashLooping, HighMemoryUsage,
+#            ServiceHighLatencyP99, ServiceHighErrorRate, DeploymentReplicasMismatch
+
+---
+# 1. loadgenerator: CPU 과부하 → 트래픽 폭증 시뮬
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: traffic-spike-loadgen
+  namespace: chaos-mesh
+spec:
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: loadgenerator
+  stressors:
+    cpu:
+      workers: 3
+---
+# 2. frontend: 트래픽 급증으로 메모리 한계 초과 → OOMKill
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: memory-oom-frontend
+  namespace: chaos-mesh
+spec:
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: frontend
+  stressors:
+    memory:
+      workers: 2
+      size: 150M
+    cpu:
+      workers: 2
+---
+# 3. productcatalogservice: 상품 목록 조회 지연 (캐시 미스 + 트래픽 급증)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: catalog-latency-spike
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: productcatalogservice
+  delay:
+    latency: "1200ms"
+    jitter: "400ms"
+    correlation: "50"
+---
+# 4. paymentservice: 외부 결제 API 타임아웃 시뮬
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: payment-timeout
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: paymentservice
+  delay:
+    latency: "2500ms"
+    jitter: "500ms"
+    correlation: "70"
+---
+# 5. checkoutservice: 결제+배송+메일 동시 처리로 메모리+CPU 과부하
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: checkout-overload
+  namespace: chaos-mesh
+spec:
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: checkoutservice
+  stressors:
+    memory:
+      workers: 1
+      size: 110M
+    cpu:
+      workers: 2
+---
+# 6. cartservice: 세션 데이터 압박 (트래픽 급증으로 cart 조회 폭발)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: cart-memory-pressure
+  namespace: chaos-mesh
+spec:
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: cartservice
+  stressors:
+    memory:
+      workers: 1
+      size: 110M
+---
+# 7. redis-cart: 세션 패킷 손실 → cart 조회 실패 + 세션 소실
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: redis-session-loss
+  namespace: chaos-mesh
+spec:
+  action: loss
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: redis-cart
+  loss:
+    loss: "30"
+    correlation: "50"
+---
+# 8. emailservice: 주문 확인 메일 전송 실패 (외부 SMTP 불안정)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: email-notification-loss
+  namespace: chaos-mesh
+spec:
+  action: loss
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: emailservice
+  loss:
+    loss: "40"
+    correlation: "60"
+---
+# 9. shippingservice: 배송 조회 API 지연 (물류 시스템 연동 느려짐)
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: shipping-latency
+  namespace: chaos-mesh
+spec:
+  action: delay
+  mode: all
+  duration: 10m
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: shippingservice
+  delay:
+    latency: "900ms"
+    jitter: "300ms"

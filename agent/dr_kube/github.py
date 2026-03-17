@@ -100,6 +100,49 @@ class GitHubClient:
         except FileNotFoundError:
             return False, "gh CLI가 설치되어 있지 않습니다. brew install gh", 0
 
+    def update_pr_branch(self, branch_name: str, file_path: str, content: str, message: str) -> tuple[bool, str]:
+        """기존 PR 브랜치에 새 커밋 추가 (AGENT-2: Human-in-the-Loop)"""
+        success, msg = self._run_git("checkout", branch_name)
+        if not success:
+            return False, f"브랜치 체크아웃 실패: {msg}"
+
+        Path(self.repo_path / file_path).write_text(content, encoding="utf-8")
+
+        success, msg = self._run_git("add", file_path)
+        if not success:
+            return False, f"git add 실패: {msg}"
+
+        success, msg = self._run_git("commit", "-m", message)
+        if not success:
+            return False, f"git commit 실패: {msg}"
+
+        success, msg = self._run_git("push", "origin", branch_name)
+        if not success:
+            return False, f"git push 실패: {msg}"
+
+        return True, "PR 브랜치 업데이트 완료"
+
+    def merge_pr(self, pr_number: int, merge_method: str = "squash") -> tuple[bool, str]:
+        """GitHub PR 머지 (gh CLI 사용)
+
+        Args:
+            pr_number: 머지할 PR 번호
+            merge_method: squash | merge | rebase
+        """
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "merge", str(pr_number), f"--{merge_method}", "--delete-branch"],
+                cwd=self.repo_path,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return True, result.stdout.strip() or f"PR #{pr_number} 머지 완료"
+        except subprocess.CalledProcessError as e:
+            return False, e.stderr.strip()
+        except FileNotFoundError:
+            return False, "gh CLI가 설치되어 있지 않습니다. brew install gh"
+
     def cleanup(self) -> None:
         """main 브랜치로 복귀"""
         self._run_git("checkout", "main")
