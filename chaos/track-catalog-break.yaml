@@ -1,12 +1,29 @@
-# 복합 트랙 2: catalog 장애 + 연쇄 에러
-# productcatalog pod kill + frontend→backend 네트워크 차단
+# 복합 트랙 2: catalog 장애 + edge 과부하
+# frontend DNS 오류 (모든 outbound 호출 실패) + network loss
 apiVersion: chaos-mesh.org/v1alpha1
-kind: PodChaos
+kind: DNSChaos
 metadata:
-  name: track-catalog-pod-kill
+  name: track-catalog-dns-error
   namespace: chaos-mesh
 spec:
-  action: pod-kill
+  action: error
+  mode: all
+  duration: 5m
+  patterns:
+    - ".*"
+  selector:
+    namespaces:
+      - online-boutique
+    labelSelectors:
+      app: frontend
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: track-catalog-network-loss
+  namespace: chaos-mesh
+spec:
+  action: loss
   mode: all
   duration: 5m
   selector:
@@ -14,26 +31,6 @@ spec:
       - online-boutique
     labelSelectors:
       app: productcatalogservice
----
-apiVersion: chaos-mesh.org/v1alpha1
-kind: NetworkChaos
-metadata:
-  name: track-catalog-network-partition
-  namespace: chaos-mesh
-spec:
-  action: partition
-  mode: all
-  duration: 5m
-  direction: both
-  selector:
-    namespaces:
-      - online-boutique
-    labelSelectors:
-      app: currencyservice
-  target:
-    mode: all
-    selector:
-      namespaces:
-        - online-boutique
-      labelSelectors:
-        app: frontend
+  loss:
+    loss: "80"
+    correlation: "25"

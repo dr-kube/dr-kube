@@ -1,12 +1,12 @@
 # Chaos Mesh 실험: Redis 장애 -> 연쇄 실패
-# 방법: Redis pod kill -> cartservice에서 Redis 연결 에러 발생
+# 방법: Redis에 NetworkChaos(패킷 손실 90%) 적용 -> cartservice에서 Redis 연결 에러 발생
 apiVersion: chaos-mesh.org/v1alpha1
-kind: PodChaos
+kind: NetworkChaos
 metadata:
   name: boutique-redis-failure
   namespace: chaos-mesh
 spec:
-  action: pod-kill
+  action: loss
   mode: all
   duration: 3m
   selector:
@@ -14,3 +14,6 @@ spec:
       - online-boutique
     labelSelectors:
       app: redis-cart
+  loss:
+    loss: "90"
+    correlation: "25"
