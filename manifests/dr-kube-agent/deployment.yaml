@@ -69,6 +69,15 @@ spec:
             - name: WEBHOOK_PORT
               value: "8080"
             - name: AUTO_PR
+              value: "false"
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: slack-bot-token
+            - name: SLACK_CHANNEL
+              value: "#dr-kube"
+            - name: COPILOT_MODE
               value: "true"
             - name: COST_MODE
               value: "normal"
