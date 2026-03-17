@@ -91,14 +91,14 @@ currencyservice:
 # ============================================
 paymentservice:
   enabled: true
-  replicas: 1
+  replicas: 2
   resources:
     requests:
       cpu: 50m
-      memory: 64Mi
+      memory: 128Mi
     limits:
       cpu: 100m
-      memory: 128Mi
+      memory: 256Mi
   service:
     type: ClusterIP
     port: 8081
