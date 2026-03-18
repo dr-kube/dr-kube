@@ -46,14 +46,9 @@ spec:
               mountPath: /workspace
           env:
             - name: LLM_PROVIDER
-              value: "copilot"
+              value: "github"
             - name: COPILOT_MODEL
               value: "gpt-4o"
-            - name: COPILOT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: dr-kube-agent-secrets
-                  key: copilot-token
             - name: COPILOT_MODE
               value: "true"
             - name: SLACK_BOT_TOKEN
