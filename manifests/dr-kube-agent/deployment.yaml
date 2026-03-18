@@ -46,14 +46,23 @@ spec:
               mountPath: /workspace
           env:
             - name: LLM_PROVIDER
-              value: "copilot"
-            - name: COPILOT_MODEL
-              value: "claude-haiku-4.5"
-            - name: COPILOT_TOKEN
+              value: "gemini"
+            - name: GEMINI_MODEL
+              value: "gemini-2.0-flash"
+            - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: dr-kube-agent-secrets
-                  key: copilot-token
+                  key: gemini-api-key
+            - name: COPILOT_MODE
+              value: "true"
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: slack-bot-token
+            - name: SLACK_CHANNEL
+              value: "#dr-kube"
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
