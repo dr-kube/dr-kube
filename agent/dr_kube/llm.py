@@ -23,6 +23,12 @@ def get_llm() -> BaseChatModel:
             base_url="https://api.githubcopilot.com",
             api_key=os.getenv("COPILOT_TOKEN"),
             temperature=0.3,
+            default_headers={
+                "Editor-Version": "vscode/1.96.0",
+                "Editor-Plugin-Version": "copilot-chat/0.22.4",
+                "Openai-Intent": "conversation-panel",
+                "X-GitHub-Api-Version": "2023-07-07",
+            },
         )
 
     # GitHub Models (Azure AI 호환)
