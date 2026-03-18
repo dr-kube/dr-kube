@@ -40,7 +40,7 @@ def send_proposal(result: dict, action_id: str, thread_ts: str = "") -> tuple[bo
     Returns:
         (success, channel, message_ts)
     """
-    channel = os.getenv("SLACK_CHANNEL", "#dr-kube")
+    channel = os.getenv("SLACK_CHANNEL", "dr-kube").lstrip("#")
     issue = result.get("issue_data", {})
     severity = result.get("severity", "medium")
     root_cause = result.get("root_cause", "N/A")
