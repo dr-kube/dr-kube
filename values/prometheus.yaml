@@ -87,7 +87,7 @@ alertmanager:
   # Alertmanager webhook 설정
   config:
     global:
-      resolve_timeout: 5m
+      resolve_timeout: 15m
       slack_api_url_file: /etc/alertmanager/secrets/slack-webhook/url
     route:
       receiver: "slack"
@@ -130,6 +130,24 @@ alertmanager:
         target_matchers:
           - severity="warning"
         equal: ["namespace", "pod"]
+      # ContainerWaiting이 있으면 같은 pod의 PodNotReady 억제 (중복 방지)
+      - source_matchers:
+          - alertname="ContainerWaiting"
+        target_matchers:
+          - alertname="PodNotReady"
+        equal: ["namespace", "pod"]
+      # Pod 이슈가 있으면 같은 namespace의 DeploymentReplicasMismatch 억제 (파생 알람 방지)
+      - source_matchers:
+          - alertname=~"PodCrashLooping|ContainerWaiting|ContainerOOMKilled"
+        target_matchers:
+          - alertname="DeploymentReplicasMismatch"
+        equal: ["namespace"]
+      # OOMKilled가 발생한 pod의 HighMemoryUsage 억제 (OOM 5분 window 만료 후 타이밍 gap 방지)
+      - source_matchers:
+          - alertname="ContainerOOMKilled"
+        target_matchers:
+          - alertname="HighMemoryUsage"
+        equal: ["namespace", "pod", "container"]
     receivers:
       # Agent 전용 receiver (LLM 비용 절약을 위해 critical만 사용)
       - name: "agent-critical"
@@ -373,9 +391,9 @@ serverFiles:
         rules:
           - alert: DeploymentReplicasMismatch
             expr: |
-              kube_deployment_spec_replicas
+              kube_deployment_spec_replicas{namespace!="argocd-test"}
               !=
-              kube_deployment_status_replicas_available
+              kube_deployment_status_replicas_available{namespace!="argocd-test"}
             for: 10m
             labels:
               severity: warning
