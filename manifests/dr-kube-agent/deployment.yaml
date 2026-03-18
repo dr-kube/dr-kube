@@ -46,9 +46,14 @@ spec:
               mountPath: /workspace
           env:
             - name: LLM_PROVIDER
-              value: "github"
+              value: "copilot"
             - name: COPILOT_MODEL
               value: "claude-haiku-4.5"
+            - name: COPILOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: copilot-token
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
