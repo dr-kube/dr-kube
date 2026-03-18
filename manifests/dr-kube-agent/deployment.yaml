@@ -46,9 +46,14 @@ spec:
               mountPath: /workspace
           env:
             - name: LLM_PROVIDER
-              value: "github"
-            - name: COPILOT_MODEL
-              value: "claude-haiku-4-5"
+              value: "gemini"
+            - name: GEMINI_MODEL
+              value: "gemini-2.0-flash"
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: gemini-api-key
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
