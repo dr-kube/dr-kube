@@ -45,15 +45,6 @@ spec:
             - name: workspace
               mountPath: /workspace
           env:
-            - name: LLM_PROVIDER
-              value: "gemini"
-            - name: GEMINI_MODEL
-              value: "gemini-2.0-flash"
-            - name: GEMINI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: dr-kube-agent-secrets
-                  key: gemini-api-key
             - name: COPILOT_MODE
               value: "true"
             - name: SLACK_BOT_TOKEN
