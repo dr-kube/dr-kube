@@ -21,8 +21,8 @@ spec:
           emptyDir: {}
       containers:
         - name: agent
-          image: ghcr.io/dr-kube/dr-kube-agent:latest
-          imagePullPolicy: IfNotPresent
+          image: dr-kube-agent:local
+          imagePullPolicy: Never
           command:
             - /bin/sh
             - -c
