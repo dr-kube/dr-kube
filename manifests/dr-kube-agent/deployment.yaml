@@ -48,7 +48,7 @@ spec:
             - name: LLM_PROVIDER
               value: "github"
             - name: COPILOT_MODEL
-              value: "claude-haiku-4-5"
+              value: "claude-haiku-4.5"
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:

@@ -16,7 +16,7 @@ def get_llm() -> BaseChatModel:
     from langchain_openai import ChatOpenAI
 
     token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
-    model_name = os.getenv("COPILOT_MODEL", "claude-haiku-4-5")
+    model_name = os.getenv("COPILOT_MODEL", "claude-haiku-4.5")
     logger.info("[llm] provider=github-copilot model=%s", model_name)
     return ChatOpenAI(
         model=model_name,
