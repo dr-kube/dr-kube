@@ -51,9 +51,4 @@ def get_llm() -> BaseChatModel:
             temperature=0.3,
         )
 
-    # 폴백: Ollama (로컬)
-    from langchain_ollama import ChatOllama
-    return ChatOllama(
-        model=os.getenv("OLLAMA_MODEL", "llama3.2"),
-        temperature=0.3,
-    )
+    raise ValueError("LLM 설정 없음: COPILOT_TOKEN 또는 GEMINI_API_KEY 환경변수를 설정하세요.")

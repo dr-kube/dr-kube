@@ -45,6 +45,15 @@ spec:
             - name: workspace
               mountPath: /workspace
           env:
+            - name: LLM_PROVIDER
+              value: "copilot"
+            - name: COPILOT_MODEL
+              value: "claude-haiku-4.5"
+            - name: COPILOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: copilot-token
             - name: COPILOT_MODE
               value: "true"
             - name: SLACK_BOT_TOKEN
