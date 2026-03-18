@@ -8,7 +8,7 @@ load_dotenv()
 
 logger = logging.getLogger("dr-kube-llm")
 
-COPILOT_BASE_URL = "https://api.githubcopilot.com"
+GITHUB_MODELS_BASE_URL = "https://models.inference.ai.azure.com"
 
 
 def get_llm() -> BaseChatModel:
@@ -24,11 +24,11 @@ def get_llm() -> BaseChatModel:
 
         token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
         model_name = os.getenv("COPILOT_MODEL", "claude-haiku-4-5")
-        logger.info("[llm] provider=github-copilot model=%s", model_name)
+        logger.info("[llm] provider=github-models model=%s", model_name)
         return ChatOpenAI(
             model=model_name,
             openai_api_key=token,
-            openai_api_base=COPILOT_BASE_URL,
+            openai_api_base=GITHUB_MODELS_BASE_URL,
             temperature=0.3,
         )
 
