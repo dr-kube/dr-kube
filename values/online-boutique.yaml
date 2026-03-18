@@ -176,7 +176,7 @@ recommendationservice:
 # ============================================
 adservice:
   enabled: true
-  replicas: 1
+  replicas: 2 # Increased replicas to improve availability
   resources:
     requests:
       cpu: 50m
@@ -187,6 +187,7 @@ adservice:
   service:
     type: ClusterIP
     port: 9555
+  timeout: 5s # Added timeout to improve network stability
 
 # ============================================
 # Redis (Cart 캐시)
