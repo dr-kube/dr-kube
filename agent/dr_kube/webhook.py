@@ -585,6 +585,48 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
     }
 
 
+def _verify_and_notify(pr_number: int, entry: dict) -> None:
+    """ArgoCD sync 후 복구 여부를 검증하고 Slack에 결과를 전송."""
+    from dr_kube.verifier import verify_fix
+    issue_data = entry.get("issue_data", {})
+    namespace = issue_data.get("namespace", "")
+    resource = issue_data.get("resource", "")
+    fingerprint = issue_data.get("fingerprint", "")
+    channel = entry["channel"]
+    ts = entry["ts"]
+
+    logger.info(f"복구 검증 시작: pr={pr_number} namespace={namespace} resource={resource}")
+
+    success, detail = verify_fix(
+        namespace=namespace,
+        resource=resource,
+        fingerprint=fingerprint,
+        poll_interval=30,
+        timeout=600,
+    )
+
+    if success:
+        logger.info(f"복구 확인됨: pr={pr_number} {detail}")
+        slack_client.send_recovery_complete(
+            channel=channel,
+            ts=ts,
+            issue_data=issue_data,
+            fix_description=entry.get("fix_description", ""),
+            pr_url=entry.get("pr_url", ""),
+            pr_number=pr_number,
+        )
+    else:
+        logger.warning(f"복구 미확인: pr={pr_number} {detail}")
+        slack_client.update_proposal(
+            channel=channel,
+            ts=ts,
+            status="error",
+            detail=f"⚠️ 복구 미확인 (10분 경과)\n{detail}\nPR: {entry.get('pr_url', '')}",
+        )
+
+    _pending_merges.pop(pr_number, None)
+
+
 @app.post("/webhook/argocd")
 async def argocd_webhook(request: Request, background_tasks: BackgroundTasks):
     """ArgoCD Notifications webhook (sync-failed, health-degraded, synced)."""
@@ -593,7 +635,7 @@ async def argocd_webhook(request: Request, background_tasks: BackgroundTasks):
     issue_type = body.get("type", "")
     logger.info(f"ArgoCD 이벤트 수신: {issue_id} (type={issue_type})")
 
-    # argocd_synced: 복구 완료 알림 처리
+    # argocd_synced: 복구 검증 후 완료 알림
     if issue_type == "argocd_synced":
         merged_entry = None
         merged_pr_number = None
@@ -604,16 +646,8 @@ async def argocd_webhook(request: Request, background_tasks: BackgroundTasks):
                 break
 
         if merged_entry and slack_client.is_configured():
-            slack_client.send_recovery_complete(
-                channel=merged_entry["channel"],
-                ts=merged_entry["ts"],
-                issue_data=merged_entry["issue_data"],
-                fix_description=merged_entry["fix_description"],
-                pr_url=merged_entry["pr_url"],
-                pr_number=merged_pr_number,
-            )
-            _pending_merges.pop(merged_pr_number, None)
-            logger.info(f"복구 완료 알림 전송: pr_number={merged_pr_number}")
+            background_tasks.add_task(_verify_and_notify, merged_pr_number, merged_entry)
+            logger.info(f"복구 검증 시작 (백그라운드): pr_number={merged_pr_number}")
         else:
             logger.info("argocd_synced 수신 - 대기 중인 머지 없음, 스킵")
         return {"status": "accepted", "queued": 0, "type": "argocd_synced"}
