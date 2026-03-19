@@ -239,6 +239,12 @@ def send_pr_ready(
                     "url": pr_url,
                     "action_id": "view_pr",
                 },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "✏️ 수정 요청"},
+                    "action_id": "request_modify_pr",
+                    "value": str(pr_number),
+                },
             ],
         },
     ]

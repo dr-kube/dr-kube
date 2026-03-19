@@ -340,6 +340,20 @@ def analyze_and_fix(state: IssueState) -> IssueState:
 
     logger.info("[analyze_and_fix] LLM call: type=%s resource=%s target=%s",
                 issue.get("type"), issue.get("resource"), target_file)
+
+    # 리뷰 코멘트가 있으면 프롬프트에 추가 (Human-in-the-Loop 재시도)
+    review_comment = issue.get("_review_comment", "")
+    previous_fix = issue.get("_previous_fix", "")
+    if review_comment:
+        review_section = (
+            f"\n## 이전 수정안에 대한 피드백\n"
+            f"사용자 요청: {review_comment}\n"
+        )
+        if previous_fix:
+            review_section += f"\n이전 수정안 (이걸 기반으로 수정하세요):\n```yaml\n{previous_fix}\n```\n"
+    else:
+        review_section = ""
+
     prompt = ANALYZE_AND_FIX_PROMPT.format(
         type=issue.get("type", "unknown"),
         namespace=issue.get("namespace", "default"),
@@ -348,6 +362,7 @@ def analyze_and_fix(state: IssueState) -> IssueState:
         logs=logs_text,
         target_file=target_file,
         current_yaml=original_yaml,
+        review_section=review_section,
     )
 
     try:

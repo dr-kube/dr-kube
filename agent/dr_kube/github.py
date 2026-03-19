@@ -100,6 +100,34 @@ class GitHubClient:
         except FileNotFoundError:
             return False, "gh CLI가 설치되어 있지 않습니다. brew install gh", 0
 
+    def close_pr(self, pr_number: int) -> tuple[bool, str]:
+        """GitHub PR 닫기 (gh CLI 사용)"""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "close", str(pr_number), "--comment", "수정 요청으로 인해 닫힘. 새 PR로 대체됩니다."],
+                cwd=self.repo_path,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return True, result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            return False, e.stderr.strip()
+
+    def merge_pr(self, pr_number: int) -> tuple[bool, str]:
+        """GitHub PR squash merge (gh CLI 사용)"""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "merge", str(pr_number), "--squash", "--auto"],
+                cwd=self.repo_path,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return True, result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            return False, e.stderr.strip()
+
     def cleanup(self) -> None:
         """main 브랜치로 복귀"""
         self._run_git("checkout", "main")

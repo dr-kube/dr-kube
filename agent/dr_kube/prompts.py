@@ -20,7 +20,7 @@ ANALYZE_AND_FIX_PROMPT = """당신은 Kubernetes 전문가이자 Helm values YAM
 ```yaml
 {current_yaml}
 ```
-
+{review_section}
 ## 요청사항
 다음 형식으로 **정확하게** 응답해주세요:
 

@@ -210,6 +210,36 @@ def merge_and_notify(pr_number: int) -> None:
         _pending_merges.pop(pr_number, None)
 
 
+def modify_pr_issue(pr_number: int, comment: str) -> None:
+    """PR 생성 후 수정 요청 - 기존 PR 닫고 재분석 → 새 PR 생성."""
+    entry = _pending_merges.pop(pr_number, None)
+    if not entry:
+        logger.error(f"modify_pr_issue: pr_number={pr_number} 없음")
+        return
+
+    channel = entry["channel"]
+    ts = entry["ts"]
+    issue_data = dict(entry["issue_data"])
+    previous_fix = entry.get("fix_content", "")
+
+    logger.info(f"PR 수정 요청: pr_number={pr_number} comment={comment[:50]}")
+    slack_client.update_proposal(channel, ts, "modified", f"PR #{pr_number} 닫고 재분석 중...")
+
+    # 기존 PR 닫기
+    try:
+        from dr_kube.github import GitHubClient
+        gh = GitHubClient(str(PROJECT_ROOT))
+        gh.close_pr(pr_number)
+        logger.info(f"기존 PR 닫힘: pr_number={pr_number}")
+    except Exception as e:
+        logger.warning(f"PR 닫기 실패 (계속 진행): {e}")
+
+    # 피드백 주입 후 재분석
+    issue_data["_review_comment"] = comment
+    issue_data["_previous_fix"] = previous_fix
+    process_issue(issue_data, with_pr=False, thread_ts=ts)
+
+
 def modify_issue(action_id: str, comment: str) -> None:
     """Slack ✏️ 수정 요청 처리 - 댓글 주입 후 LLM 재분석 → 새 제안 전송."""
     entry = _pending_approvals.pop(action_id, None)
@@ -463,6 +493,17 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
         elif action_id_btn == "view_pr":
             return {"ok": True}
 
+        elif action_id_btn == "request_modify_pr":
+            # PR 생성 후 수정 요청: 모달 열기
+            try:
+                pr_number = int(value)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="invalid pr_number")
+            trigger_id = payload.get("trigger_id", "")
+            # _pending_merges의 action_id 역할을 pr_number로 대체
+            slack_client.open_modify_modal(trigger_id, f"pr_{pr_number}")
+            return {"ok": True}
+
         elif action_id_btn == "request_modify":
             trigger_id = payload.get("trigger_id", "")
             slack_client.open_modify_modal(trigger_id, value)
@@ -480,7 +521,15 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
                 .get("comment", {})
                 .get("value", "")
             )
-            background_tasks.add_task(modify_issue, action_id_modal, comment)
+            # PR 생성 후 수정 요청: pr_{pr_number} 형식
+            if action_id_modal.startswith("pr_"):
+                try:
+                    pr_number = int(action_id_modal[3:])
+                    background_tasks.add_task(modify_pr_issue, pr_number, comment)
+                except ValueError:
+                    pass
+            else:
+                background_tasks.add_task(modify_issue, action_id_modal, comment)
             return {"response_action": "clear"}
 
     return {"ok": True}
