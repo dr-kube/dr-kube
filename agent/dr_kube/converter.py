@@ -30,11 +30,33 @@ ALERT_TYPE_MAP = {
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
-# Online Boutique 서비스명 목록
+# Online Boutique 서비스명 목록 (하위 호환)
 ONLINE_BOUTIQUE_SERVICES = {
     "frontend", "cartservice", "productcatalogservice", "currencyservice",
     "paymentservice", "shippingservice", "emailservice", "checkoutservice",
     "recommendationservice", "adservice", "redis-cart", "loadgenerator",
+}
+
+# 네임스페이스 → values 파일 (단일 앱 네임스페이스)
+NAMESPACE_TO_VALUES: dict[str, str] = {
+    "online-boutique": "values/online-boutique.yaml",
+    "argocd":          "values/argocd.yaml",
+    "cert-manager":    "values/cert-manager.yaml",
+    "chaos-mesh":      "values/chaos-mesh.yaml",
+    "ingress-nginx":   "values/nginx-ingress.yaml",
+    "kube-system":     "values/metrics-server.yaml",
+}
+
+# 리소스명 prefix → values 파일 (monitoring 네임스페이스 다중 앱)
+RESOURCE_PREFIX_TO_VALUES: dict[str, str] = {
+    "prometheus":    "values/prometheus.yaml",
+    "alertmanager":  "values/prometheus.yaml",
+    "grafana":       "values/grafana.yaml",
+    "loki":          "values/loki.yaml",
+    "alloy":         "values/alloy.yaml",
+    "tempo":         "values/tempo.yaml",
+    "pyroscope":     "values/pyroscope.yaml",
+    "dr-kube-agent": "",  # manifest 기반, values 없음
 }
 
 
@@ -58,19 +80,37 @@ def derive_values_file(resource: str, namespace: str = "") -> str:
 
     우선순위:
     1. values/{resource}.yaml 파일이 직접 존재하는 경우
-    2. 리소스가 Online Boutique 서비스인 경우
-    3. 네임스페이스가 online-boutique인 경우
+    2. 리소스명 prefix가 RESOURCE_PREFIX_TO_VALUES에 매핑된 경우
+    3. Online Boutique 서비스 목록에 포함된 경우
+    4. 네임스페이스가 NAMESPACE_TO_VALUES에 매핑된 경우
+    5. values/ 디렉토리에서 파일명이 리소스명의 prefix인 경우 (동적 탐색)
     """
     # 1. 직접 매칭
     candidate = f"values/{resource}.yaml"
     if (PROJECT_ROOT / candidate).exists():
         return candidate
-    # 2. Online Boutique 서비스 매칭
+
+    # 2. 리소스명 prefix 매칭 (e.g. prometheus-server → values/prometheus.yaml)
+    for prefix, values_file in RESOURCE_PREFIX_TO_VALUES.items():
+        if resource == prefix or resource.startswith(f"{prefix}-"):
+            return values_file
+
+    # 3. Online Boutique 서비스 매칭
     if resource in ONLINE_BOUTIQUE_SERVICES:
         return "values/online-boutique.yaml"
-    # 3. 네임스페이스 기반 fallback
-    if namespace == "online-boutique":
-        return "values/online-boutique.yaml"
+
+    # 4. 네임스페이스 기반 매핑
+    if namespace in NAMESPACE_TO_VALUES:
+        return NAMESPACE_TO_VALUES[namespace]
+
+    # 5. values/ 디렉토리 동적 탐색 (values 파일명이 리소스명의 prefix인 경우)
+    values_dir = PROJECT_ROOT / "values"
+    if values_dir.exists():
+        for values_file in sorted(values_dir.glob("*.yaml")):
+            stem = values_file.stem  # e.g. "nginx-ingress"
+            if resource == stem or resource.startswith(f"{stem}-"):
+                return f"values/{values_file.name}"
+
     return ""
 
 
