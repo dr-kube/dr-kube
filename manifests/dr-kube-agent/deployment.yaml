@@ -57,7 +57,7 @@ spec:
                   name: dr-kube-agent-secrets
                   key: slack-bot-token
             - name: SLACK_CHANNEL
-              value: "#dr-kube"
+              value: "C0ALL9RU96F"
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
