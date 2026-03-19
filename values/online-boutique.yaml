@@ -22,7 +22,7 @@ googleCloudOperations:
 # ============================================
 frontend:
   enabled: true
-  replicas: 1
+  replicas: 2 # Increased replicas for higher availability
   resources:
     requests:
       cpu: 50m
@@ -34,6 +34,7 @@ frontend:
   service:
     type: ClusterIP
     port: 80
+  timeout: 5s # Added timeout to improve network stability
 
 # ============================================
 # Cart Service (Redis 기반인거 같음)
