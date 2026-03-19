@@ -8,3 +8,4 @@ pydantic>=2.0.0
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 slack-sdk>=3.27.0
+kubernetes>=29.0.0

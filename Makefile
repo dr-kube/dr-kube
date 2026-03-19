@@ -171,10 +171,13 @@ agent-run-all: ## 모든 샘플 이슈 분석
 		.venv/bin/python -m cli analyze $$f; \
 	done
 
-agent-webhook: ## 웹훅 서버 시작 (Alertmanager 수신)
+agent-webhook: ## 웹훅 서버 시작 (Alertmanager 수신 + K8s 리소스 감시)
 	@echo ""
 	@echo "⚠️  경고: 이 서버는 LLM API를 호출하여 토큰 비용이 발생합니다!"
 	@echo "⚠️  사용하지 않을 때는 반드시 Ctrl+C로 종료하세요!"
+	@echo ""
+	@echo "📡 K8s 워처 감시 대상: $${WATCH_NAMESPACES:-online-boutique}"
+	@echo "   변경 감지 시 Slack [♻️ 복구] 버튼 전송"
 	@echo ""
 	@cd $(AGENT_DIR) && .venv/bin/python -m dr_kube.webhook
 
@@ -189,10 +192,10 @@ agent-webhook-check: ## 웹훅 URL 도달 여부 확인 (로컬 + 클러스터).
 	@echo "1. 로컬 (이 기기에서 에이전트):"
 	@curl -sf http://localhost:8080/health >/dev/null && echo "   OK - 에이전트 수신 가능" || echo "   실패 - make agent-webhook 실행 후 다시 시도"
 	@echo ""
-	@url=$${WEBHOOK_URL:-http://host.docker.internal:8080}; \
+	@url=$${WEBHOOK_URL:-http://host.docker.internal:8081}; \
 	echo "2. 클러스터 → $$url (ArgoCD가 쓰는 주소):"; \
 	code=$$(kubectl run curl-webhook-check --rm -i --restart=Never --image=curlimages/curl -- curl -sf -o /dev/null -w "%{http_code}" "$$url/health" 2>/dev/null | head -1 | tr -d '\r\n' | grep -oE '[0-9]+' || true); \
-	if [ "$$code" = "200" ]; then echo "   OK (HTTP $$code) - 클러스터에서 웹훅 도달 가능"; else echo "   실패 (HTTP $${code:-none}) - WSL 사용 시: make agent-webhook-check WEBHOOK_URL=http://<WSL_IP>:8080"; fi
+	if [ "$$code" = "200" ]; then echo "   OK (HTTP $$code) - 클러스터에서 웹훅 도달 가능"; else echo "   실패 (HTTP $${code:-none}) - WSL 사용 시: make agent-webhook-check WEBHOOK_URL=http://<WSL_IP>:8081"; fi
 	@echo ""
 
 agent-clean: ## 에이전트 가상환경 삭제

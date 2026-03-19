@@ -41,7 +41,21 @@ _pending_approvals: dict[str, dict] = {}
 # 머지 대기: pr_number → {channel, ts, issue_data, fix_description, pr_url, merged}
 _pending_merges: dict[int, dict] = {}
 
-app = FastAPI(title="DR-Kube Webhook Server")
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app_: FastAPI):
+    """서버 시작 시 K8s 리소스 워처 시작."""
+    try:
+        from dr_kube.watcher import start as start_watcher
+        start_watcher()
+    except Exception as e:
+        logger.warning(f"워처 시작 실패 (계속 진행): {e}")
+    yield
+
+
+app = FastAPI(title="DR-Kube Webhook Server", lifespan=lifespan)
 
 
 def _copilot_mode() -> bool:
@@ -509,6 +523,26 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
             slack_client.open_modify_modal(trigger_id, value)
             return {"ok": True}
 
+        elif action_id_btn == "restore_resource":
+            background_tasks.add_task(_do_restore, value, payload)
+            return {"ok": True}
+
+        elif action_id_btn == "ignore_resource":
+            from dr_kube.watcher import _restore_pending
+            entry = _restore_pending.pop(value, None)
+            if entry:
+                try:
+                    from slack_sdk import WebClient
+                    WebClient(token=os.getenv("SLACK_BOT_TOKEN", "")).chat_update(
+                        channel=entry.get("channel", ""),
+                        ts=entry.get("ts", ""),
+                        blocks=[{"type": "section", "text": {"type": "mrkdwn", "text": "❌ *무시됨*"}}],
+                        text="DR-Kube: 무시됨",
+                    )
+                except Exception:
+                    pass
+            return {"ok": True}
+
     elif payload_type == "view_submission":
         callback_id = payload.get("view", {}).get("callback_id", "")
         if callback_id.startswith("modify_modal_"):
@@ -632,6 +666,30 @@ async def alertmanager_webhook(request: Request, background_tasks: BackgroundTas
         "skipped_group_cooldown": skipped_group_cooldown,
         "skipped_batch_limit": skipped_batch_limit,
     }
+
+
+def _do_restore(action_id: str, payload: dict) -> None:
+    """Slack [복구] 버튼 클릭 시 kubectl apply로 리소스 복구."""
+    from dr_kube.watcher import restore_resource, _restore_pending
+    entry = _restore_pending.get(action_id)
+    channel = (entry or {}).get("channel", "")
+    ts = (entry or {}).get("ts", "")
+
+    success, msg = restore_resource(action_id)
+
+    try:
+        from slack_sdk import WebClient
+        client = WebClient(token=os.getenv("SLACK_BOT_TOKEN", ""))
+        if channel and ts:
+            text = f"✅ *복구 완료*\n{msg}" if success else f"⚠️ *복구 실패*\n{msg}"
+            client.chat_update(
+                channel=channel,
+                ts=ts,
+                blocks=[{"type": "section", "text": {"type": "mrkdwn", "text": text}}],
+                text=text,
+            )
+    except Exception as e:
+        logger.error(f"복구 알림 업데이트 실패: {e}")
 
 
 def _verify_and_notify(pr_number: int, entry: dict) -> None:

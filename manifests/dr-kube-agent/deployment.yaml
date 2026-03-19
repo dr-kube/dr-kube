@@ -39,16 +39,21 @@ spec:
               python -m dr_kube.webhook
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 8081
               protocol: TCP
           volumeMounts:
             - name: workspace
               mountPath: /workspace
           env:
             - name: LLM_PROVIDER
-              value: "github"
+              value: "copilot"
             - name: COPILOT_MODEL
-              value: "gpt-4o"
+              value: "gpt-5.3-codex"
+            - name: COPILOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dr-kube-agent-secrets
+                  key: copilot-token
             - name: COPILOT_MODE
               value: "true"
             - name: SLACK_BOT_TOKEN
@@ -74,7 +79,7 @@ spec:
             - name: WEBHOOK_HOST
               value: "0.0.0.0"
             - name: WEBHOOK_PORT
-              value: "8080"
+              value: "8081"
             - name: AUTO_PR
               value: "false"
             - name: COST_MODE
@@ -93,6 +98,10 @@ spec:
               value: "200"
             - name: HIGH_DEDUP_COOLDOWN_MINUTES
               value: "10"
+            - name: WATCH_NAMESPACES
+              value: "online-boutique"
+            - name: WATCH_ENABLED
+              value: "true"
           resources:
             requests:
               cpu: 100m
@@ -123,7 +132,7 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 8080
+    - port: 8081
       targetPort: http
       protocol: TCP
       name: http
@@ -167,12 +176,16 @@ kind: ClusterRole
 metadata:
   name: dr-kube-agent
 rules:
+  # 읽기 (모니터링 + 워처 감지)
   - apiGroups: [""]
-    resources: ["pods", "pods/log", "events", "nodes", "namespaces", "services", "configmaps"]
+    resources: ["pods", "pods/log", "events", "nodes", "namespaces"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: ["batch"]
     resources: ["jobs", "cronjobs"]
     verbs: ["get", "list", "watch"]
