@@ -7,7 +7,7 @@ metadata:
   name: opentelemetrycollector
   namespace: online-boutique
 spec:
-  replicas: 1
+  replicas: 0  # GCP exporter는 Kind에서 동작 불가 — otel-jaeger-forwarder가 대신 처리
   selector:
     matchLabels:
       app: opentelemetrycollector
