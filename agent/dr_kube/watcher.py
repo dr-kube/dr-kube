@@ -9,10 +9,7 @@ Slack에 알림 + [복구] [무시] 버튼을 제공한다.
 """
 import os
 import copy
-import json
 import logging
-import subprocess
-import tempfile
 import threading
 import time
 import uuid
@@ -101,37 +98,54 @@ def _get_ports(resource: dict) -> list:
 
 
 def restore_resource(action_id: str) -> tuple[bool, str]:
-    """저장된 스냅샷으로 kubectl apply 복구."""
+    """저장된 스냅샷으로 Kubernetes Python client를 통해 복구."""
     entry = _restore_pending.pop(action_id, None)
     if not entry:
         return False, f"action_id={action_id} 없음 (만료되었을 수 있음)"
 
-    resource_yaml = entry["resource_yaml"]
+    resource = entry["resource_yaml"]
     kind = entry["kind"]
     name = entry["name"]
     namespace = entry["namespace"]
 
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
-            yaml.dump(resource_yaml, f, allow_unicode=True)
-            tmp_path = f.name
+        from kubernetes import client as k8s_client
 
-        result = subprocess.run(
-            ["kubectl", "apply", "-f", tmp_path],
-            capture_output=True, text=True,
-        )
-        os.unlink(tmp_path)
+        if kind == "Deployment":
+            api = k8s_client.AppsV1Api()
+            try:
+                api.create_namespaced_deployment(namespace=namespace, body=resource)
+            except Exception:
+                api.replace_namespaced_deployment(name=name, namespace=namespace, body=resource)
 
-        if result.returncode == 0:
-            msg = f"{kind}/{name} (ns={namespace}) 복구 완료"
-            logger.info(msg)
-            return True, msg
+        elif kind == "StatefulSet":
+            api = k8s_client.AppsV1Api()
+            try:
+                api.create_namespaced_stateful_set(namespace=namespace, body=resource)
+            except Exception:
+                api.replace_namespaced_stateful_set(name=name, namespace=namespace, body=resource)
+
+        elif kind == "Service":
+            api = k8s_client.CoreV1Api()
+            try:
+                api.create_namespaced_service(namespace=namespace, body=resource)
+            except Exception:
+                api.replace_namespaced_service(name=name, namespace=namespace, body=resource)
+
+        elif kind == "ConfigMap":
+            api = k8s_client.CoreV1Api()
+            try:
+                api.create_namespaced_config_map(namespace=namespace, body=resource)
+            except Exception:
+                api.replace_namespaced_config_map(name=name, namespace=namespace, body=resource)
+
         else:
-            msg = result.stderr.strip() or result.stdout.strip()
-            logger.error(f"복구 실패: {msg}")
-            return False, msg
+            return False, f"지원하지 않는 리소스 종류: {kind}"
+
+        msg = f"{kind}/{name} (ns={namespace}) 복구 완료"
+        logger.info(msg)
+        return True, msg
+
     except Exception as e:
         logger.error(f"restore_resource 예외: {e}")
         return False, str(e)
