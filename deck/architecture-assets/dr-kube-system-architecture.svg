@@ -1,0 +1,220 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FBFD"/>
+      <stop offset="1" stop-color="#EEF6FB"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#1E293B"/>
+    </linearGradient>
+    <linearGradient id="agentGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#06B6D4"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <linearGradient id="gitopsGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#DCFCE7"/>
+      <stop offset="1" stop-color="#BBF7D0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563EB"/>
+    </marker>
+    <marker id="arrowCyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#06B6D4"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16A34A"/>
+    </marker>
+    <style>
+      .title { font: 700 42px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #0F172A; }
+      .subtitle { font: 400 20px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #64748B; }
+      .zone-title { font: 700 24px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #0F172A; }
+      .zone-sub { font: 500 14px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #64748B; }
+      .card-title { font: 700 20px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #0F172A; }
+      .card-body { font: 500 13px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #475569; }
+      .chip { font: 700 13px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #0F172A; }
+      .logo { font: 800 18px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: white; text-anchor: middle; dominant-baseline: middle; }
+      .agent-big { font: 800 28px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: white; }
+      .agent-small { font: 600 14px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #DDF7FD; }
+      .footer { font: 600 13px 'Pretendard', 'SUIT', 'Apple SD Gothic Neo', sans-serif; fill: #64748B; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" rx="32" fill="url(#bg)"/>
+  <circle cx="1460" cy="120" r="160" fill="#D9F6FD" fill-opacity="0.55"/>
+  <circle cx="1480" cy="110" r="105" fill="#CFFAFE" fill-opacity="0.8"/>
+  <circle cx="120" cy="780" r="200" fill="#E2E8F0" fill-opacity="0.35"/>
+
+  <rect x="72" y="66" width="112" height="8" rx="4" fill="#06B6D4"/>
+  <text x="72" y="118" class="title">DR-Kube 시스템 아키텍처</text>
+  <text x="72" y="152" class="subtitle">관측성으로 장애를 감지하고, 에이전트가 수정안을 만들고, GitOps가 안전하게 반영한 뒤 후속 검증 경로가 복구를 다시 확인합니다.</text>
+
+  <!-- Zones -->
+  <g filter="url(#shadow)">
+    <rect x="72" y="210" width="300" height="340" rx="28" fill="#FFFFFF"/>
+    <rect x="392" y="210" width="404" height="340" rx="28" fill="#F0FDFF"/>
+    <rect x="816" y="210" width="300" height="340" rx="28" fill="#FFFFFF"/>
+    <rect x="1136" y="210" width="392" height="340" rx="28" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Zone labels -->
+  <text x="102" y="252" class="zone-title">1. 장애 감지 / 근거 수집</text>
+  <text x="102" y="278" class="zone-sub">문제 신호를 수집하고 판단 근거를 확보</text>
+
+  <text x="422" y="252" class="zone-title">2. AI 복구 판단</text>
+  <text x="422" y="278" class="zone-sub">이슈 정규화, 원인 분석, 수정안 생성, validate</text>
+
+  <text x="846" y="252" class="zone-title">3. GitOps 반영</text>
+  <text x="846" y="278" class="zone-sub">변경을 Git diff와 PR로 표현</text>
+
+  <text x="1166" y="252" class="zone-title">4. 후속 복구 검증 / 알림</text>
+  <text x="1166" y="278" class="zone-sub">ArgoCD 반영 이후 운영 관점에서 다시 확인</text>
+
+  <!-- Zone 1 cards -->
+  <g filter="url(#soft)">
+    <rect x="102" y="316" width="98" height="92" rx="22" fill="#F8FAFC"/>
+    <rect x="216" y="316" width="126" height="92" rx="22" fill="#F8FAFC"/>
+    <rect x="150" y="434" width="146" height="92" rx="22" fill="#F8FAFC"/>
+  </g>
+
+  <circle cx="151" cy="348" r="18" fill="#326CE5"/>
+  <text x="151" y="350" class="logo">K</text>
+  <text x="151" y="380" class="card-title" text-anchor="middle">Kubernetes</text>
+  <text x="151" y="400" class="card-body" text-anchor="middle">Cluster</text>
+
+  <circle cx="256" cy="348" r="18" fill="#E6522C"/>
+  <text x="256" y="350" class="logo">P</text>
+  <text x="279" y="378" class="card-title" text-anchor="middle">Prometheus</text>
+  <text x="279" y="398" class="card-body" text-anchor="middle">Alert Rules</text>
+
+  <circle cx="186" cy="466" r="18" fill="#F97316"/>
+  <text x="186" y="468" class="logo">A</text>
+  <text x="223" y="496" class="card-title" text-anchor="middle">Alertmanager</text>
+  <text x="223" y="516" class="card-body" text-anchor="middle">Slack + Webhook</text>
+
+  <!-- Zone 2 cards -->
+  <g filter="url(#soft)">
+    <rect x="422" y="316" width="108" height="86" rx="22" fill="#FFFFFF"/>
+    <rect x="546" y="316" width="132" height="86" rx="22" fill="#FFFFFF"/>
+    <rect x="694" y="300" width="72" height="126" rx="22" fill="url(#hero)"/>
+    <rect x="536" y="432" width="162" height="86" rx="22" fill="url(#agentGlow)"/>
+  </g>
+
+  <circle cx="458" cy="346" r="18" fill="#8B5CF6"/>
+  <text x="458" y="348" class="logo">C</text>
+  <text x="476" y="376" class="card-title" text-anchor="middle">Converter</text>
+  <text x="476" y="396" class="card-body" text-anchor="middle">Alert → Issue</text>
+
+  <circle cx="582" cy="346" r="18" fill="#111827"/>
+  <text x="582" y="348" class="logo">L</text>
+  <text x="612" y="376" class="card-title" text-anchor="middle">LLM</text>
+  <text x="612" y="396" class="card-body" text-anchor="middle">원인 분석 + 수정안</text>
+
+  <text x="715" y="340" class="agent-big">LangGraph</text>
+  <text x="715" y="372" class="agent-big">Agent</text>
+  <text x="715" y="404" class="agent-small">load_issue</text>
+  <text x="715" y="424" class="agent-small">analyze_and_fix</text>
+
+  <text x="617" y="466" class="card-title" text-anchor="middle" fill="white">Validate + Retry</text>
+  <text x="617" y="488" class="card-body" text-anchor="middle" fill="#E6FAFE">정책 검증 / YAML 검사 / 최대 3회 재시도</text>
+
+  <!-- Zone 3 cards -->
+  <g filter="url(#soft)">
+    <rect x="846" y="316" width="98" height="92" rx="22" fill="#F8FAFC"/>
+    <rect x="960" y="316" width="126" height="92" rx="22" fill="#F8FAFC"/>
+    <rect x="900" y="434" width="132" height="92" rx="22" fill="url(#gitopsGlow)"/>
+  </g>
+
+  <circle cx="895" cy="348" r="18" fill="#171515"/>
+  <text x="895" y="350" class="logo">G</text>
+  <text x="895" y="380" class="card-title" text-anchor="middle">GitHub</text>
+  <text x="895" y="400" class="card-body" text-anchor="middle">PR</text>
+
+  <circle cx="1004" cy="348" r="18" fill="#0F172A"/>
+  <text x="1004" y="350" class="logo">Y</text>
+  <text x="1023" y="380" class="card-title" text-anchor="middle">values/*.yaml</text>
+  <text x="1023" y="400" class="card-body" text-anchor="middle">Git change</text>
+
+  <circle cx="938" cy="466" r="18" fill="#F43F5E"/>
+  <text x="938" y="468" class="logo">A</text>
+  <text x="966" y="496" class="card-title" text-anchor="middle">ArgoCD Sync</text>
+  <text x="966" y="516" class="card-body" text-anchor="middle">안전한 반영</text>
+
+  <!-- Zone 4 cards -->
+  <g filter="url(#soft)">
+    <rect x="1166" y="316" width="142" height="94" rx="22" fill="#F8FAFC"/>
+    <rect x="1328" y="316" width="162" height="94" rx="22" fill="#F8FAFC"/>
+    <rect x="1210" y="434" width="236" height="92" rx="22" fill="#EFF6FF"/>
+  </g>
+
+  <circle cx="1204" cy="348" r="18" fill="#2563EB"/>
+  <text x="1204" y="350" class="logo">V</text>
+  <text x="1237" y="378" class="card-title" text-anchor="middle">Verifier</text>
+  <text x="1237" y="398" class="card-body" text-anchor="middle">Pod + Alert 상태</text>
+
+  <circle cx="1364" cy="348" r="18" fill="#4A154B"/>
+  <text x="1364" y="350" class="logo">S</text>
+  <text x="1409" y="378" class="card-title" text-anchor="middle">Slack / Notifications</text>
+  <text x="1409" y="398" class="card-body" text-anchor="middle">복구 완료 / 미확인 알림</text>
+
+  <text x="1328" y="470" class="card-title" text-anchor="middle">후속 복구 검증 경로</text>
+  <text x="1328" y="492" class="card-body" text-anchor="middle">PR 생성으로 끝내지 않고 ArgoCD sync 이후 운영 관점에서 다시 확인</text>
+
+  <!-- Main arrows -->
+  <path d="M200 362 H216" stroke="#2563EB" stroke-width="5" marker-end="url(#arrowBlue)"/>
+  <path d="M342 362 H422" stroke="#2563EB" stroke-width="5" marker-end="url(#arrowBlue)"/>
+  <path d="M530 356 H546" stroke="#2563EB" stroke-width="5" marker-end="url(#arrowBlue)"/>
+  <path d="M678 356 H694" stroke="#2563EB" stroke-width="5" marker-end="url(#arrowBlue)"/>
+  <path d="M766 356 H846" stroke="#2563EB" stroke-width="5" marker-end="url(#arrowBlue)"/>
+  <path d="M944 362 H960" stroke="#2563EB" stroke-width="5" marker-end="url(#arrowBlue)"/>
+  <path d="M1032 480 H1210" stroke="#16A34A" stroke-width="5" marker-end="url(#arrowGreen)"/>
+  <path d="M1308 362 H1328" stroke="#16A34A" stroke-width="5" marker-end="url(#arrowGreen)"/>
+
+  <!-- Supporting links -->
+  <path d="M678 470 H694 V426" stroke="#06B6D4" stroke-width="4" stroke-dasharray="8 8" marker-end="url(#arrowCyan)"/>
+  <path d="M612 432 V402" stroke="#06B6D4" stroke-width="4" stroke-dasharray="8 8" marker-end="url(#arrowCyan)"/>
+
+  <!-- Evidence layer -->
+  <g filter="url(#shadow)">
+    <rect x="72" y="616" width="1180" height="176" rx="30" fill="#FFFFFF"/>
+    <rect x="1272" y="616" width="256" height="176" rx="30" fill="#0F172A"/>
+  </g>
+
+  <text x="102" y="658" class="zone-title">Observability Evidence Layer</text>
+  <text x="102" y="684" class="zone-sub">메트릭, 로그, 트레이스, 프로파일이 에이전트 판단 근거를 제공</text>
+
+  <g filter="url(#soft)">
+    <rect x="340" y="644" width="140" height="54" rx="18" fill="#F8FAFC"/>
+    <rect x="498" y="644" width="120" height="54" rx="18" fill="#F8FAFC"/>
+    <rect x="636" y="644" width="128" height="54" rx="18" fill="#F8FAFC"/>
+    <rect x="782" y="644" width="136" height="54" rx="18" fill="#F8FAFC"/>
+    <rect x="936" y="644" width="126" height="54" rx="18" fill="#F8FAFC"/>
+  </g>
+
+  <text x="410" y="678" class="chip" text-anchor="middle">Metrics / Prometheus</text>
+  <text x="558" y="678" class="chip" text-anchor="middle">Logs / Loki</text>
+  <text x="700" y="678" class="chip" text-anchor="middle">Traces / Tempo</text>
+  <text x="850" y="678" class="chip" text-anchor="middle">Profiles / Pyroscope</text>
+  <text x="999" y="678" class="chip" text-anchor="middle">Alloy Collector</text>
+
+  <path d="M410 644 C430 590, 520 560, 620 520" stroke="#94A3B8" stroke-width="3.5" stroke-dasharray="8 8" marker-end="url(#arrowCyan)"/>
+  <path d="M700 644 C710 590, 710 560, 715 430" stroke="#94A3B8" stroke-width="3.5" stroke-dasharray="8 8" marker-end="url(#arrowCyan)"/>
+  <path d="M850 644 C940 600, 1100 570, 1238 410" stroke="#94A3B8" stroke-width="3.5" stroke-dasharray="8 8" marker-end="url(#arrowCyan)"/>
+
+  <!-- Chaos lane -->
+  <text x="1302" y="658" style="font:700 24px 'Pretendard','SUIT','Apple SD Gothic Neo',sans-serif; fill:#FFFFFF;">Chaos / Fault Injection</text>
+  <text x="1302" y="688" style="font:500 14px 'Pretendard','SUIT','Apple SD Gothic Neo',sans-serif; fill:#CBD5E1;">장애를 의도적으로 주입해 데모와 회귀 검증에 활용</text>
+  <rect x="1302" y="718" width="196" height="48" rx="18" fill="#1E293B"/>
+  <circle cx="1332" cy="742" r="16" fill="#F59E0B"/>
+  <text x="1332" y="744" class="logo">C</text>
+  <text x="1410" y="748" style="font:700 18px 'Pretendard','SUIT','Apple SD Gothic Neo',sans-serif; fill:#FFFFFF;" text-anchor="middle">Chaos Mesh</text>
+  <path d="M1302 774 C1180 760, 970 720, 180 394" stroke="#F59E0B" stroke-width="4" stroke-dasharray="9 8" marker-end="url(#arrowGreen)"/>
+
+  <text x="72" y="838" class="footer">Key message: 관측성으로 근거를 만들고, LangGraph가 수정안을 만들고, GitOps가 반영하고, 후속 검증 경로가 복구를 다시 확인한다.</text>
+</svg>
