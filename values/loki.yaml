@@ -113,19 +113,19 @@ extraObjects:
           # ---------------------------------------------------------
           # 2. Connection Errors (TCP/gRPC)
           # ---------------------------------------------------------
-          - name: log-connection-error
-            rules:
-              - alert: LogConnectionRefused
-                expr: |
-                  sum by (namespace, app) (
-                    count_over_time({namespace="online-boutique"} |~ "(?i)(connection refused|connection reset|connect: connection)" [5m])
-                  ) > 5
-                for: 1m
-                labels:
-                  severity: critical
-                annotations:
-                  summary: "Connection refused/reset detected in logs"
-                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} has connection errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
+          # - name: log-connection-error
+          #   rules:
+          #     - alert: LogConnectionRefused
+          #       expr: |
+          #         sum by (namespace, app) (
+          #           count_over_time({namespace="online-boutique"} |~ "(?i)(connection refused|connection reset|connect: connection)" [5m])
+          #         ) > 5
+          #       for: 1m
+          #       labels:
+          #         severity: critical
+          #       annotations:
+          #         summary: "Connection refused/reset detected in logs"
+          #         description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} has connection errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
 
               - alert: LogGRPCUnavailable
                 expr: |
@@ -210,19 +210,19 @@ extraObjects:
           # ---------------------------------------------------------
           # 7. Error Level Log Detected
           # ---------------------------------------------------------
-          - name: log-error-level
-            rules:
-              - alert: LogErrorDetected
-                expr: |
-                  sum by (namespace, app) (
-                    count_over_time({namespace="online-boutique", level="error"} [3m])
-                  ) > 3
-                for: 0m
-                labels:
-                  severity: critical
-                annotations:
-                  summary: "Error level logs detected"
-                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} emitted error level logs ({{ "{{" }} $value {{ "}}" }} occurrences in 3m)'
+          # - name: log-error-level
+          #   rules:
+          #     - alert: LogErrorDetected
+          #       expr: |
+          #         sum by (namespace, app) (
+          #           count_over_time({namespace="online-boutique", level="error"} [3m])
+          #         ) > 3
+          #       for: 0m
+          #       labels:
+          #         severity: critical
+          #       annotations:
+          #         summary: "Error level logs detected"
+          #         description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} emitted error level logs ({{ "{{" }} $value {{ "}}" }} occurrences in 3m)'
 
           # ---------------------------------------------------------
           # 8. HTTP 5xx in Application Logs

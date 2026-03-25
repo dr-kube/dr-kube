@@ -277,22 +277,22 @@ serverFiles:
   # ============================================
   alerting_rules.yml:
     groups:
-      - name: container-oom.rules
-        rules:
-          - alert: ContainerOOMKilled
-            expr: |
-              increase(kube_pod_container_status_restarts_total[5m]) >= 1
-              and on (namespace, pod, container)
-              max_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[5m]) == 1
-            for: 0m
-            labels:
-              severity: critical
-            annotations:
-              summary: "Container OOMKilled 발생"
-              description: |
-                Pod {{ $labels.namespace }}/{{ $labels.pod }}
-                컨테이너 {{ $labels.container }} 가
-                최근 5분 내 OOMKilled로 인해 재시작되었습니다.
+      # - name: container-oom.rules
+      #   rules:
+      #     - alert: ContainerOOMKilled
+      #       expr: |
+      #         increase(kube_pod_container_status_restarts_total[5m]) >= 1
+      #         and on (namespace, pod, container)
+      #         max_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[5m]) == 1
+      #       for: 0m
+      #       labels:
+      #         severity: critical
+      #       annotations:
+      #         summary: "Container OOMKilled 발생"
+      #         description: |
+      #           Pod {{ $labels.namespace }}/{{ $labels.pod }}
+      #           컨테이너 {{ $labels.container }} 가
+      #           최근 5분 내 OOMKilled로 인해 재시작되었습니다.
 
       - name: container-cpu.rules
         rules:
@@ -320,20 +320,20 @@ serverFiles:
                 컨테이너 {{ $labels.container }} 가
                 CPU throttling 비율 70% 이상입니다.
 
-      - name: container-crash.rules
-        rules:
-          - alert: PodCrashLooping
-            expr: |
-              increase(kube_pod_container_status_restarts_total[10m]) >= 3
-            for: 0m
-            labels:
-              severity: critical
-            annotations:
-              summary: "Pod CrashLoopBackOff 발생"
-              description: |
-                Pod {{ $labels.namespace }}/{{ $labels.pod }}
-                컨테이너 {{ $labels.container }} 가
-                최근 10분 내 3회 이상 재시작되었습니다.
+      # - name: container-crash.rules
+      #   rules:
+      #     - alert: PodCrashLooping
+      #       expr: |
+      #         increase(kube_pod_container_status_restarts_total[10m]) >= 3
+      #       for: 0m
+      #       labels:
+      #         severity: critical
+      #       annotations:
+      #         summary: "Pod CrashLoopBackOff 발생"
+      #         description: |
+      #           Pod {{ $labels.namespace }}/{{ $labels.pod }}
+      #           컨테이너 {{ $labels.container }} 가
+      #           최근 10분 내 3회 이상 재시작되었습니다.
       - name: container-memory.rules
         rules:
           - alert: HighMemoryUsage
@@ -354,21 +354,21 @@ serverFiles:
                 컨테이너 {{ $labels.container }} 의
                 메모리 사용률이 92%를 초과했습니다.
 
-      - name: pod-ready.rules
-        rules:
-          - alert: PodNotReady
-            expr: |
-              kube_pod_status_ready{condition="true"} == 0
-              and on (namespace, pod)
-              kube_pod_status_phase{phase=~"Succeeded|Failed"} == 0
-            for: 10m
-            labels:
-              severity: warning
-            annotations:
-              summary: "Pod Ready 상태 아님"
-              description: |
-                Pod {{ $labels.namespace }}/{{ $labels.pod }} 가
-                Ready 상태가 아닙니다.
+      # - name: pod-ready.rules
+      #   rules:
+      #     - alert: PodNotReady
+      #       expr: |
+      #         kube_pod_status_ready{condition="true"} == 0
+      #         and on (namespace, pod)
+      #         kube_pod_status_phase{phase=~"Succeeded|Failed"} == 0
+      #       for: 10m
+      #       labels:
+      #         severity: warning
+      #       annotations:
+      #         summary: "Pod Ready 상태 아님"
+      #         description: |
+      #           Pod {{ $labels.namespace }}/{{ $labels.pod }} 가
+      #           Ready 상태가 아닙니다.
 
       - name: container-waiting.rules
         rules:
