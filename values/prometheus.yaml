@@ -339,17 +339,17 @@ serverFiles:
           - alert: DeliveryAppHighErrorRate
             expr: |
               (
-                sum by (job) (
+                sum by (app) (
                   rate(http_requests_total{
-                    job=~"menu-service|order-service|delivery-service",
+                    namespace="delivery-app",
                     status=~"5.."
                   }[1m])
                 )
                 /
                 clamp_min(
-                  sum by (job) (
+                  sum by (app) (
                     rate(http_requests_total{
-                      job=~"menu-service|order-service|delivery-service"
+                      namespace="delivery-app"
                     }[1m])
                   ),
                   0.01
@@ -359,11 +359,11 @@ serverFiles:
             labels:
               severity: critical
               namespace: delivery-app
-              deployment: "{{ $labels.job }}"
+              deployment: "{{ $labels.app }}"
             annotations:
               summary: "delivery-app 서비스 에러율 급증"
               description: |
-                서비스 {{ $labels.job }} 에러율이 10%를 초과했습니다.
+                서비스 {{ $labels.app }} 에러율이 10%를 초과했습니다.
                 연쇄 장애 가능성 있음.
 
           - alert: DeliveryAppOOMKilled
