@@ -147,6 +147,7 @@ def convert_alert_to_issue(alert: dict) -> dict:
         "logs": [annotations.get("description", "")],
         "timestamp": alert.get("startsAt", ""),
         "values_file": derive_values_file(resource, namespace),
+        "_raw_alert": alert,  # delivery_agent에서 원본 labels 접근용
     }
 
 

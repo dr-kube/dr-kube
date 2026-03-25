@@ -47,6 +47,7 @@ def load_alert(state: DeliveryState) -> DeliveryState:
 
     affected_service = (
         labels.get("deployment")
+        or labels.get("app")  # DeliveryAppHighErrorRate: app="menu-service"
         or labels.get("pod", "").rsplit("-", 2)[0]  # pod명 → deployment명 추출
         or labels.get("service", "unknown")
     )
@@ -94,6 +95,12 @@ def classify_issue(state: DeliveryState) -> DeliveryState:
         issue_type: IssueType = "replica_shortage" if "replicas" in error_message else "crash_loop"
         logger.info("이슈 분류 결과: %s (watcher 감지)", issue_type)
         return {**state, "issue_type": issue_type, "status": "classified"}
+    if alertname == "DeliveryAppHighErrorRate":
+        logger.info("이슈 분류 결과: service_error (Prometheus alert)")
+        return {**state, "issue_type": "service_error", "status": "classified"}
+    if alertname == "DeliveryAppOOMKilled":
+        logger.info("이슈 분류 결과: oom (Prometheus alert)")
+        return {**state, "issue_type": "oom", "status": "classified"}
 
     error_message = state.get("error_message", "")
     context = state.get("context", {})
