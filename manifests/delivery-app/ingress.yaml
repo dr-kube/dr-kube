@@ -3,37 +3,14 @@ kind: Ingress
 metadata:
   name: delivery-app
   namespace: delivery-app
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
     - host: delivery-drkube.huik.site
       http:
         paths:
-          - path: /orders(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: order-service
-                port:
-                  number: 8000
-          - path: /menu(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: menu-service
-                port:
-                  number: 8001
-          - path: /deliveries(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: delivery-service
-                port:
-                  number: 8002
-          - path: /()(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: order-service
@@ -42,29 +19,8 @@ spec:
     - host: delivery.drkube.local
       http:
         paths:
-          - path: /orders(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: order-service
-                port:
-                  number: 8000
-          - path: /menu(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: menu-service
-                port:
-                  number: 8001
-          - path: /deliveries(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: delivery-service
-                port:
-                  number: 8002
-          - path: /()(.*)
-            pathType: ImplementationSpecific
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: order-service

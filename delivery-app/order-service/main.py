@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import httpx
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from starlette.responses import Response
+from starlette.responses import Response, RedirectResponse
 
 app = FastAPI(title="order-service", version="1.0.0")
 
@@ -40,6 +40,11 @@ class OrderRequest(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     status: str  # pending, confirmed, preparing, delivering, delivered, cancelled
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health")
