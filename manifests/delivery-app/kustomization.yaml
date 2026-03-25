@@ -5,6 +5,7 @@ namespace: delivery-app
 
 resources:
   - namespace.yaml
+  - frontend.yaml
   - menu-service.yaml
   - order-service.yaml
   - delivery-service.yaml

@@ -13,9 +13,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: order-service
+                name: frontend
                 port:
-                  number: 8000
+                  number: 80
     - host: delivery.drkube.local
       http:
         paths:
@@ -23,6 +23,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: order-service
+                name: frontend
                 port:
-                  number: 8000
+                  number: 80

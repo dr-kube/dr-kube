@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DR 배달 앱</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+
+    header { background: #ff5a00; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header span { font-size: 13px; opacity: 0.85; }
+
+    nav { background: white; border-bottom: 1px solid #eee; padding: 0 24px; display: flex; gap: 0; }
+    nav button { padding: 14px 20px; border: none; background: none; cursor: pointer; font-size: 14px; color: #666; border-bottom: 3px solid transparent; transition: all 0.2s; }
+    nav button.active { color: #ff5a00; border-bottom-color: #ff5a00; font-weight: 600; }
+
+    .container { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* 레스토랑 목록 */
+    .restaurant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .restaurant-card { background: white; border-radius: 12px; padding: 20px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .restaurant-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .restaurant-card .category { font-size: 12px; color: #ff5a00; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .restaurant-card h3 { font-size: 18px; margin-bottom: 8px; }
+    .restaurant-card .rating { font-size: 14px; color: #666; }
+    .restaurant-card .rating span { color: #ffa500; }
+
+    /* 메뉴 */
+    .back-btn { display: flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; color: #ff5a00; font-size: 15px; margin-bottom: 16px; padding: 4px 0; }
+    .menu-header { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .menu-header h2 { font-size: 22px; margin-bottom: 4px; }
+    .menu-list { display: flex; flex-direction: column; gap: 12px; }
+    .menu-item { background: white; border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .menu-item-info h4 { font-size: 16px; margin-bottom: 4px; }
+    .menu-item-info p { font-size: 13px; color: #888; }
+    .menu-item-right { display: flex; align-items: center; gap: 16px; }
+    .price { font-weight: 700; font-size: 16px; color: #333; white-space: nowrap; }
+    .add-btn { background: #ff5a00; color: white; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background 0.2s; }
+    .add-btn:hover { background: #e05000; }
+
+    /* 장바구니 */
+    .cart-bar { background: #ff5a00; color: white; border-radius: 12px; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; cursor: pointer; }
+    .cart-bar span { font-weight: 600; font-size: 15px; }
+    .cart-bar .cart-count { background: white; color: #ff5a00; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+
+    /* 주문 폼 */
+    .order-form { background: white; border-radius: 12px; padding: 24px; }
+    .order-form h2 { font-size: 20px; margin-bottom: 20px; }
+    .cart-items { margin-bottom: 20px; }
+    .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 15px; }
+    .cart-item:last-child { border-bottom: none; }
+    .cart-total { display: flex; justify-content: space-between; padding: 16px 0 20px; font-weight: 700; font-size: 18px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 600; color: #555; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; transition: border-color 0.2s; }
+    .form-group input:focus { border-color: #ff5a00; }
+    .submit-btn { width: 100%; background: #ff5a00; color: white; border: none; border-radius: 10px; padding: 14px; font-size: 16px; font-weight: 700; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
+    .submit-btn:hover { background: #e05000; }
+    .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* 주문 목록 */
+    .order-list { display: flex; flex-direction: column; gap: 12px; }
+    .order-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .order-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .order-card h4 { font-size: 16px; margin-bottom: 4px; }
+    .order-card .time { font-size: 12px; color: #aaa; }
+    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-confirmed { background: #d1f2eb; color: #0e6655; }
+    .status-cancelled { background: #fde8e8; color: #c0392b; }
+    .order-items { font-size: 14px; color: #666; margin-bottom: 8px; }
+    .order-total { font-size: 15px; font-weight: 700; }
+    .order-delivery { font-size: 13px; color: #888; margin-top: 6px; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+    .empty-state p { font-size: 16px; margin-top: 12px; }
+
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 24px; font-size: 14px; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+
+    .loading { text-align: center; padding: 40px; color: #aaa; font-size: 15px; }
+    .refresh-btn { float: right; background: #f0f0f0; border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 13px; color: #555; }
+    .refresh-btn:hover { background: #e0e0e0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>🛵</div>
+    <h1>DR 배달</h1>
+    <span>Kubernetes MSA 테스트 앱</span>
+  </header>
+
+  <nav>
+    <button class="active" onclick="showPage('restaurants')">레스토랑</button>
+    <button onclick="showPage('orders')">주문 내역</button>
+  </nav>
+
+  <div class="container">
+
+    <!-- 레스토랑 목록 -->
+    <div id="page-restaurants" class="page active">
+      <div id="restaurant-list" class="loading">불러오는 중...</div>
+    </div>
+
+    <!-- 메뉴 -->
+    <div id="page-menu" class="page">
+      <button class="back-btn" onclick="showPage('restaurants')">← 목록으로</button>
+      <div id="menu-header" class="menu-header"></div>
+      <div id="menu-list" class="menu-list"></div>
+      <div id="cart-bar" style="display:none" class="cart-bar" onclick="showPage('checkout')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="cart-count" id="cart-count">0</div>
+          <span>장바구니 보기</span>
+        </div>
+        <span id="cart-total-bar">0원</span>
+      </div>
+    </div>
+
+    <!-- 주문 폼 -->
+    <div id="page-checkout" class="page">
+      <button class="back-btn" onclick="showPage('menu')">← 메뉴로</button>
+      <div class="order-form">
+        <h2>주문하기</h2>
+        <div class="cart-items" id="checkout-items"></div>
+        <div class="cart-total">
+          <span>합계</span>
+          <span id="checkout-total">0원</span>
+        </div>
+        <div class="form-group">
+          <label>이름</label>
+          <input type="text" id="input-name" placeholder="홍길동" />
+        </div>
+        <div class="form-group">
+          <label>배달 주소</label>
+          <input type="text" id="input-address" placeholder="서울시 강남구 테헤란로 123" />
+        </div>
+        <button class="submit-btn" id="order-btn" onclick="submitOrder()">주문하기</button>
+      </div>
+    </div>
+
+    <!-- 주문 내역 -->
+    <div id="page-orders" class="page">
+      <button class="refresh-btn" onclick="loadOrders()">새로고침</button>
+      <h2 style="margin-bottom:16px">주문 내역</h2>
+      <div id="order-list" class="loading">불러오는 중...</div>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let cart = [];
+    let currentRestaurant = null;
+
+    // ── 페이지 전환 ──────────────────────────────────
+    function showPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+
+      if (name === 'restaurants') {
+        document.querySelector('nav button:nth-child(1)').classList.add('active');
+        loadRestaurants();
+      } else if (name === 'orders') {
+        document.querySelector('nav button:nth-child(2)').classList.add('active');
+        loadOrders();
+      }
+    }
+
+    // ── 토스트 알림 ──────────────────────────────────
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2500);
+    }
+
+    // ── 레스토랑 목록 ──────────────────────────────────
+    async function loadRestaurants() {
+      const el = document.getElementById('restaurant-list');
+      el.innerHTML = '<div class="loading">불러오는 중...</div>';
+      try {
+        const res = await fetch('/restaurants');
+        const data = await res.json();
+        if (!data.length) {
+          el.innerHTML = '<div class="empty-state"><p>레스토랑이 없습니다.</p></div>';
+          return;
+        }
+        el.className = 'restaurant-grid';
+        el.innerHTML = data.map(r => `
+          <div class="restaurant-card" onclick="openMenu('${r.id}', '${r.name}', '${r.category}', ${r.rating})">
+            <div class="category">${r.category}</div>
+            <h3>${r.name}</h3>
+            <div class="rating"><span>★</span> ${r.rating}</div>
+          </div>
+        `).join('');
+      } catch(e) {
+        el.innerHTML = '<div class="empty-state"><p>불러오기 실패: ' + e.message + '</p></div>';
+      }
+    }
+
+    // ── 메뉴 ──────────────────────────────────────────
+    async function openMenu(id, name, category, rating) {
+      currentRestaurant = { id, name };
+      cart = [];
+      updateCartBar();
+
+      document.getElementById('menu-header').innerHTML = `
+        <div class="category">${category}</div>
+        <h2>${name}</h2>
+        <div class="rating" style="margin-top:4px"><span>★</span> ${rating}</div>
+      `;
+      document.getElementById('menu-list').innerHTML = '<div class="loading">불러오는 중...</div>';
+      showPage('menu');
+
+      try {
+        const res = await fetch('/restaurants/' + id + '/menu');
+        const items = await res.json();
+        document.getElementById('menu-list').innerHTML = items.map(item => `
+          <div class="menu-item">
+            <div class="menu-item-info">
+              <h4>${item.name}</h4>
+              <p>${item.description}</p>
+            </div>
+            <div class="menu-item-right">
+              <span class="price">${item.price.toLocaleString()}원</span>
+              <button class="add-btn" onclick="addToCart('${item.id}', '${item.name}', ${item.price})">담기</button>
+            </div>
+          </div>
+        `).join('');
+      } catch(e) {
+        document.getElementById('menu-list').innerHTML = '<div class="empty-state"><p>메뉴 불러오기 실패</p></div>';
+      }
+
+      // 페이지를 menu로 다시 설정 (showPage가 덮어쓰지 않도록)
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-menu').classList.add('active');
+    }
+
+    // ── 장바구니 ──────────────────────────────────────
+    function addToCart(id, name, price) {
+      const existing = cart.find(i => i.id === id);
+      if (existing) {
+        existing.qty++;
+      } else {
+        cart.push({ id, name, price, qty: 1 });
+      }
+      updateCartBar();
+      toast(name + ' 추가됨');
+    }
+
+    function updateCartBar() {
+      const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      const count = cart.reduce((s, i) => s + i.qty, 0);
+      document.getElementById('cart-count').textContent = count;
+      document.getElementById('cart-total-bar').textContent = total.toLocaleString() + '원';
+      document.getElementById('cart-bar').style.display = count > 0 ? 'flex' : 'none';
+    }
+
+    // ── 주문 폼 ───────────────────────────────────────
+    function showPage_checkout() {
+      const items = document.getElementById('checkout-items');
+      const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      items.innerHTML = cart.map(i => `
+        <div class="cart-item">
+          <span>${i.name} × ${i.qty}</span>
+          <span>${(i.price * i.qty).toLocaleString()}원</span>
+        </div>
+      `).join('');
+      document.getElementById('checkout-total').textContent = total.toLocaleString() + '원';
+    }
+
+    // checkout 페이지로 이동할 때 폼 채우기
+    const origShowPage = showPage;
+    function showPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      if (name === 'restaurants') {
+        document.querySelector('nav button:nth-child(1)').classList.add('active');
+        loadRestaurants();
+      } else if (name === 'orders') {
+        document.querySelector('nav button:nth-child(2)').classList.add('active');
+        loadOrders();
+      } else if (name === 'checkout') {
+        showPage_checkout();
+      }
+    }
+
+    async function submitOrder() {
+      const name = document.getElementById('input-name').value.trim();
+      const address = document.getElementById('input-address').value.trim();
+      if (!name || !address) { toast('이름과 주소를 입력해주세요'); return; }
+      if (!cart.length) { toast('메뉴를 선택해주세요'); return; }
+
+      const btn = document.getElementById('order-btn');
+      btn.disabled = true;
+      btn.textContent = '주문 중...';
+
+      try {
+        const menuItems = cart.flatMap(i => Array(i.qty).fill(i.id));
+        const res = await fetch('/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            restaurant_id: currentRestaurant.id,
+            menu_items: menuItems,
+            address,
+            customer_name: name,
+          })
+        });
+        if (!res.ok) throw new Error('주문 실패 (' + res.status + ')');
+        const order = await res.json();
+        cart = [];
+        updateCartBar();
+        toast('주문 완료! 주문번호: ' + order.id);
+        showPage('orders');
+      } catch(e) {
+        toast('오류: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '주문하기';
+      }
+    }
+
+    // ── 주문 내역 ──────────────────────────────────────
+    const STATUS_LABELS = {
+      pending: '대기중', confirmed: '확인됨', preparing: '준비중',
+      delivering: '배달중', delivered: '배달완료', cancelled: '취소됨'
+    };
+    const STATUS_CLASS = {
+      pending: 'status-pending', confirmed: 'status-confirmed',
+      delivering: 'status-confirmed', delivered: 'status-confirmed',
+      cancelled: 'status-cancelled'
+    };
+
+    async function loadOrders() {
+      const el = document.getElementById('order-list');
+      el.innerHTML = '<div class="loading">불러오는 중...</div>';
+      try {
+        const res = await fetch('/orders');
+        const orders = await res.json();
+        if (!orders.length) {
+          el.innerHTML = '<div class="empty-state"><p>아직 주문 내역이 없습니다.</p></div>';
+          return;
+        }
+        el.className = 'order-list';
+        el.innerHTML = orders.slice().reverse().map(o => `
+          <div class="order-card">
+            <div class="order-card-header">
+              <div>
+                <h4>${o.restaurant?.name ?? '알 수 없음'}</h4>
+                <div class="time">#${o.id} · ${new Date(o.created_at).toLocaleString('ko-KR')}</div>
+              </div>
+              <span class="status-badge ${STATUS_CLASS[o.status] || 'status-pending'}">${STATUS_LABELS[o.status] || o.status}</span>
+            </div>
+            <div class="order-items">${o.items?.map(i => i.name).join(', ') || '-'}</div>
+            <div class="order-total">${o.total?.toLocaleString()}원</div>
+            ${o.delivery ? `<div class="order-delivery">🛵 ${o.delivery.status} · 예상 ${o.delivery.estimated_minutes}분</div>` : ''}
+          </div>
+        `).join('');
+      } catch(e) {
+        el.innerHTML = '<div class="empty-state"><p>불러오기 실패: ' + e.message + '</p></div>';
+      }
+    }
+
+    // 초기 로드
+    loadRestaurants();
+  </script>
+</body>
+</html>
