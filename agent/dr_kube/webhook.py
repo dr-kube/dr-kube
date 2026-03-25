@@ -63,8 +63,31 @@ def _copilot_mode() -> bool:
     return slack_client.is_configured() and os.getenv("COPILOT_MODE", "true").lower() == "true"
 
 
+def _is_delivery_app_issue(issue_data: dict) -> bool:
+    """delivery-app 네임스페이스 이슈인지 확인"""
+    return issue_data.get("namespace", "") == "delivery-app"
+
+
+def process_delivery_issue(issue_data: dict) -> None:
+    """delivery-app 전용 LangGraph 에이전트로 처리"""
+    try:
+        from delivery_agent.graph import run as delivery_run
+        alert_payload = issue_data.get("_raw_alert", issue_data)
+        result = delivery_run(alert_payload=alert_payload, thread_id=issue_data.get("id"))
+        logger.info(
+            "delivery-agent 완료: id=%s status=%s pr=%s",
+            issue_data.get("id"), result.get("status"), result.get("pr_url"),
+        )
+    except Exception as e:
+        logger.error("delivery-agent 실패: %s", e, exc_info=True)
+
+
 def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
     """이슈를 LangGraph 파이프라인으로 처리.
+
+    네임스페이스별 에이전트 라우팅:
+      - delivery-app → delivery_agent (전용 에이전트)
+      - 그 외         → dr_kube 기존 에이전트
 
     코파일럿 모드(SLACK_BOT_TOKEN 설정 시):
       - 분석만 수행(with_pr=False) → Slack에 제안 메시지 전송
@@ -75,6 +98,12 @@ def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
     """
     issue_id = issue_data["id"]
     logger.info(f"처리 시작: {issue_id} (type={issue_data['type']}, with_pr={with_pr})")
+
+    # delivery-app은 전용 에이전트로 처리
+    if _is_delivery_app_issue(issue_data):
+        logger.info("delivery-app 이슈 → delivery_agent로 라우팅")
+        process_delivery_issue(issue_data)
+        return
 
     # 코파일럿 모드: 항상 분석만 먼저
     copilot = _copilot_mode()

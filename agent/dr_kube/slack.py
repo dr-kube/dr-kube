@@ -328,6 +328,83 @@ def send_recovery_complete(
         logger.error(f"복구 완료 메시지 전송 실패: {e}")
 
 
+class SlackClient:
+    """delivery_agent에서 사용하는 Slack 클라이언트 래퍼"""
+
+    def send_proposal(
+        self,
+        issue_type: str,
+        affected_service: str,
+        root_cause: str,
+        fix_description: str,
+        rationale: str,
+        severity: str,
+        diff: str = "",
+    ) -> str:
+        """수정 제안을 Slack에 전송하고 message ts 반환"""
+        result = {
+            "issue_data": {"type": issue_type, "resource": affected_service},
+            "severity": severity,
+            "root_cause": root_cause,
+            "fix_description": f"{fix_description}\n\n{rationale}",
+            "target_file": "",
+            "fix_method": "llm",
+        }
+        import uuid
+        action_id = str(uuid.uuid4())[:8]
+        success, _channel, ts = send_proposal(result, action_id)
+        return ts if success else ""
+
+    def send_recovery_complete(
+        self,
+        service: str,
+        root_cause: str,
+        fix_description: str,
+        pr_url: str,
+        thread_ts: str | None = None,
+    ) -> None:
+        """복구 완료 알림 전송"""
+        channel = os.getenv("SLACK_CHANNEL", "dr-kube").lstrip("#")
+        issue_data = {"type": "recovered", "resource": service, "namespace": "delivery-app"}
+        send_recovery_complete(
+            channel=channel,
+            ts=thread_ts or "",
+            issue_data=issue_data,
+            fix_description=fix_description,
+            pr_url=pr_url,
+            pr_number=0,
+        )
+
+    def send_escalation(
+        self,
+        service: str,
+        issue_type: str,
+        root_cause: str,
+        retry_count: int = 0,
+        errors: list | None = None,
+    ) -> None:
+        """에스컬레이션 알림 전송"""
+        channel = os.getenv("SLACK_CHANNEL", "dr-kube").lstrip("#")
+        error_text = "\n".join(errors or []) or "없음"
+        text = (
+            f"⚠️ *DR-Kube 자동 복구 실패 — 수동 조치 필요*\n\n"
+            f"📌 서비스: `{service}`\n"
+            f"🏷️ 이슈 타입: `{issue_type}`\n"
+            f"🔍 원인: {root_cause}\n"
+            f"🔄 재시도: {retry_count}회\n"
+            f"❌ 오류:\n```{error_text}```"
+        )
+        try:
+            _client().chat_postMessage(
+                channel=channel,
+                blocks=[{"type": "section", "text": {"type": "mrkdwn", "text": text}}],
+                text=text,
+            )
+            logger.info("에스컬레이션 전송: service=%s", service)
+        except Exception as e:
+            logger.error("에스컬레이션 전송 실패: %s", e)
+
+
 def open_modify_modal(trigger_id: str, action_id: str) -> bool:
     """수정 요청 모달 열기.
 
