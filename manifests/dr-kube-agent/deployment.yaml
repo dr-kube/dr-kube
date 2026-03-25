@@ -99,7 +99,7 @@ spec:
             - name: HIGH_DEDUP_COOLDOWN_MINUTES
               value: "10"
             - name: WATCH_NAMESPACES
-              value: "online-boutique"
+              value: "delivery-app"
             - name: WATCH_ENABLED
               value: "true"
           resources:

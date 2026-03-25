@@ -291,3 +291,43 @@ delivery-logs: ## Delivery App 로그 확인 (SERVICE=order-service|menu-service
 	@SERVICE=$${SERVICE:-order-service}; \
 	echo "📋 $$SERVICE 로그:"; \
 	kubectl logs -n delivery-app -l app=$$SERVICE --tail=50 -f
+
+# ============================================================
+# Demo 시나리오
+# ============================================================
+
+demo-break: ## [데모] menu-service 에러 100% 주입 → order-service 연쇄 장애
+	@echo "💥 menu-service 에러율 100% 주입 중..."
+	@kubectl run demo-inject --rm -i --restart=Never --image=curlimages/curl --namespace=delivery-app \
+		-- curl -sf -X POST "http://menu-service:8001/simulate/error?rate=1.0"
+	@echo ""
+	@echo "⚠️  연쇄 장애 시작 — 30초 후 Alertmanager → 에이전트 자동 처리"
+	@echo "📊 Grafana: https://grafana-drkube.huik.site"
+	@echo "🔔 Slack 채널에서 에이전트 알림 확인"
+
+demo-break-partial: ## [데모] menu-service 에러 50% 주입 (간헐적 장애)
+	@echo "💥 menu-service 에러율 50% 주입 중..."
+	@kubectl run demo-inject --rm -i --restart=Never --image=curlimages/curl --namespace=delivery-app \
+		-- curl -sf -X POST "http://menu-service:8001/simulate/error?rate=0.5"
+	@echo ""
+	@echo "⚠️  간헐적 장애 시작"
+
+demo-scale-zero: ## [데모] order-service replicas=0 → watcher 즉시 감지
+	@echo "💥 order-service replicas → 0..."
+	@kubectl scale deployment/order-service -n delivery-app --replicas=0
+	@echo "🔍 watcher가 즉시 감지 → 에이전트 자동 PR 생성"
+
+demo-reset: ## [데모] delivery-app 전체 정상화
+	@echo "✅ delivery-app 초기화 중..."
+	@kubectl run demo-reset --rm -i --restart=Never --image=curlimages/curl --namespace=delivery-app \
+		-- curl -sf -X POST "http://menu-service:8001/simulate/reset"
+	@echo ""
+	@kubectl scale deployment/order-service -n delivery-app --replicas=1 2>/dev/null || true
+	@echo "✅ 정상화 완료"
+
+demo-status: ## [데모] 현재 장애 상태 확인
+	@echo "📊 delivery-app Pod 상태:"
+	@kubectl get pods -n delivery-app
+	@echo ""
+	@echo "📈 최근 에러 로그 (order-service):"
+	@kubectl logs -n delivery-app -l app=order-service --tail=10 2>/dev/null || true

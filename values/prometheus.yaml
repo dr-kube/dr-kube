@@ -294,6 +294,60 @@ serverFiles:
       #           컨테이너 {{ $labels.container }} 가
       #           최근 5분 내 OOMKilled로 인해 재시작되었습니다.
 
+      # ── delivery-app 전용 룰 (데모용: for 짧게) ──────────────
+      - name: delivery-app.rules
+        rules:
+          - alert: DeliveryAppHighErrorRate
+            expr: |
+              (
+                sum by (job) (
+                  rate(http_requests_total{
+                    job=~"menu-service|order-service|delivery-service",
+                    status=~"5.."
+                  }[1m])
+                )
+                /
+                clamp_min(
+                  sum by (job) (
+                    rate(http_requests_total{
+                      job=~"menu-service|order-service|delivery-service"
+                    }[1m])
+                  ),
+                  0.01
+                )
+              ) > 0.1
+            for: 30s
+            labels:
+              severity: critical
+              namespace: delivery-app
+              deployment: "{{ $labels.job }}"
+            annotations:
+              summary: "delivery-app 서비스 에러율 급증"
+              description: |
+                서비스 {{ $labels.job }} 에러율이 10%를 초과했습니다.
+                연쇄 장애 가능성 있음.
+
+          - alert: DeliveryAppOOMKilled
+            expr: |
+              increase(kube_pod_container_status_restarts_total{
+                namespace="delivery-app"
+              }[5m]) >= 1
+              and on (namespace, pod, container)
+              max_over_time(kube_pod_container_status_last_terminated_reason{
+                namespace="delivery-app",
+                reason="OOMKilled"
+              }[5m]) == 1
+            for: 0m
+            labels:
+              severity: critical
+              namespace: delivery-app
+            annotations:
+              summary: "delivery-app OOMKilled 발생"
+              description: |
+                Pod {{ $labels.namespace }}/{{ $labels.pod }}
+                컨테이너 {{ $labels.container }} OOMKilled 재시작.
+
+      # ─────────────────────────────────────────────────────────
       - name: container-cpu.rules
         rules:
           - alert: CPUThrottling

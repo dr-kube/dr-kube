@@ -2,11 +2,12 @@
 menu-service: 레스토랑 및 메뉴 관리 서비스
 """
 import os
+import random
 import time
 import threading
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 
 app = FastAPI(title="menu-service", version="1.0.0")
 
@@ -41,6 +42,20 @@ MENUS = {
 
 # 메모리 점유용 (OOM 테스트)
 _memory_hog: list = []
+
+# 에러 주입용
+_error_rate: float = 0.0
+
+
+@app.middleware("http")
+async def inject_error_middleware(request: Request, call_next):
+    """에러율에 따라 503 반환 (simulate/health/metrics 제외)"""
+    path = request.url.path
+    if _error_rate > 0 and not path.startswith("/simulate") and path not in ("/health", "/metrics"):
+        if random.random() < _error_rate:
+            REQUEST_COUNT.labels(method=request.method, endpoint=path, status="503").inc()
+            return JSONResponse(status_code=503, content={"detail": "서비스 오류 (장애 시뮬레이션)"})
+    return await call_next(request)
 
 
 @app.get("/health")
@@ -117,11 +132,22 @@ def simulate_cpu(seconds: int = 5):
     return {"status": "started", "seconds": seconds}
 
 
+@app.post("/simulate/error")
+def simulate_error(rate: float = 1.0):
+    """에러율 주입 — 호출되는 API에서 rate 비율만큼 503 반환
+    rate: 0.0(정상) ~ 1.0(100% 오류)
+    """
+    global _error_rate
+    _error_rate = max(0.0, min(1.0, rate))
+    return {"status": "error_rate_set", "rate": _error_rate}
+
+
 @app.post("/simulate/reset")
 def simulate_reset():
-    """점유한 메모리 해제"""
-    global _memory_hog
+    """점유한 메모리 해제 + 에러 주입 초기화"""
+    global _memory_hog, _error_rate
     _memory_hog = []
+    _error_rate = 0.0
     return {"status": "reset"}
 
 
