@@ -268,7 +268,7 @@ serverFiles:
 
       # Pod 어노테이션 기반 자동 스크랩
       # prometheus.io/scrape: "true" 가 붙은 모든 Pod 수집
-      - job_name: "kubernetes-pods"
+      - job_name: "annotated-pods"
         kubernetes_sd_configs:
           - role: pod
 
