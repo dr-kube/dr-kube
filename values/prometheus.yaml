@@ -266,6 +266,45 @@ serverFiles:
             target_label: __metrics_path__
             replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
 
+      # Pod 어노테이션 기반 자동 스크랩
+      # prometheus.io/scrape: "true" 가 붙은 모든 Pod 수집
+      - job_name: "kubernetes-pods"
+        kubernetes_sd_configs:
+          - role: pod
+
+        relabel_configs:
+          # scrape: "true" 어노테이션이 있는 Pod만 수집
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+
+          # prometheus.io/path 어노테이션 → metrics_path
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+
+          # prometheus.io/port 어노테이션 → 스크랩 포트
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+          # Pod 라벨 → Prometheus 라벨
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+
+          # namespace, pod 라벨 추가
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+          # app 라벨 → job (menu-service, order-service 등)
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: job
+
       # OTel Collector span 메트릭 (Grafana Drilldown Traces 용)
       - job_name: "otel-spanmetrics"
         scrape_interval: 15s
