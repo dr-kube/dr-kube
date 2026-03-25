@@ -152,7 +152,7 @@ alertmanager:
       # Agent 전용 receiver (LLM 비용 절약을 위해 critical만 사용)
       - name: "agent-critical"
         webhook_configs:
-          - url: "http://dr-kube-agent.monitoring.svc.cluster.local:8080/webhook/alertmanager"
+          - url: "http://dr-kube-agent.monitoring.svc.cluster.local:8081/webhook/alertmanager"
             send_resolved: false  # firing만 분석
       # Slack만 (필요시 사용)
       - name: "slack"
