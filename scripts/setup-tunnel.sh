@@ -32,6 +32,7 @@ SERVICES=(
     "boutique"
     "chaos"
     "jaeger"
+    "delivery"
 )
 
 # secrets.yaml 에서 값 읽기
