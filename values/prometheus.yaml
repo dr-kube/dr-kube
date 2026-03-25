@@ -343,14 +343,14 @@ serverFiles:
                   rate(http_requests_total{
                     namespace="delivery-app",
                     status=~"5.."
-                  }[1m])
+                  }[2m])
                 )
                 /
                 clamp_min(
                   sum by (app) (
                     rate(http_requests_total{
                       namespace="delivery-app"
-                    }[1m])
+                    }[2m])
                   ),
                   0.01
                 )
