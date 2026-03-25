@@ -7,6 +7,8 @@ IssueType = Literal[
     "service_error",     # 서비스 간 503/connection refused
     "high_latency",      # P99 지연 임계 초과
     "resource_exhaustion",  # CPU throttle
+    "replica_shortage",  # replicas 0으로 강제 다운 (watcher 감지)
+    "resource_deleted",  # Deployment/Service 삭제 (watcher 감지)
     "unknown",
 ]
 

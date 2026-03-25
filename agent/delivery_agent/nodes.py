@@ -83,6 +83,18 @@ def gather_context(state: DeliveryState) -> DeliveryState:
 
 def classify_issue(state: DeliveryState) -> DeliveryState:
     """규칙 기반 이슈 타입 분류 (LLM 없이)"""
+    # watcher 이벤트: alertname으로 직접 분류
+    labels = state.get("alert_payload", {}).get("labels", {})
+    alertname = labels.get("alertname", "")
+    if alertname == "ResourceDeleted":
+        logger.info("이슈 분류 결과: resource_deleted (watcher 감지)")
+        return {**state, "issue_type": "resource_deleted", "status": "classified"}
+    if alertname == "ResourceModified":
+        error_message = state.get("error_message", "")
+        issue_type: IssueType = "replica_shortage" if "replicas" in error_message else "crash_loop"
+        logger.info("이슈 분류 결과: %s (watcher 감지)", issue_type)
+        return {**state, "issue_type": issue_type, "status": "classified"}
+
     error_message = state.get("error_message", "")
     context = state.get("context", {})
     service = state.get("affected_service", "")

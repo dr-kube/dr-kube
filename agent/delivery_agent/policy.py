@@ -71,6 +71,25 @@ ISSUE_POLICY: dict[str, dict] = {
         "requires_human": False,
         "retry_strategies": ["conservative", "moderate", "aggressive"],
     },
+    "replica_shortage": {
+        # replicas 0 → 적정 수로 복구
+        "allowed_field_patterns": ["spec.replicas"],
+        "forbidden_field_patterns": [],
+        "requires_human": False,
+        "retry_strategies": ["conservative", "moderate"],
+    },
+    "resource_deleted": {
+        # 삭제된 Deployment 복구 (manifest 원본 그대로 재적용)
+        "allowed_field_patterns": [
+            "spec.replicas",
+            "spec.template.spec.containers[*].image",
+            "resources.limits.memory",
+            "resources.limits.cpu",
+        ],
+        "forbidden_field_patterns": [],
+        "requires_human": True,  # 삭제는 의도적일 수 있으므로 human 확인
+        "retry_strategies": ["conservative"],
+    },
     "unknown": {
         "allowed_field_patterns": [],
         "forbidden_field_patterns": [],

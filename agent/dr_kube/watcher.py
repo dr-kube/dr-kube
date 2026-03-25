@@ -151,9 +151,46 @@ def restore_resource(action_id: str) -> tuple[bool, str]:
         return False, str(e)
 
 
+_DELIVERY_NAMESPACES = {"delivery-app"}
+
+
+def _route_to_delivery_agent(kind: str, name: str, namespace: str,
+                              event_type: str, detail: str) -> None:
+    """delivery-app 이벤트를 delivery_agent LangGraph로 라우팅"""
+    try:
+        from delivery_agent.graph import run as delivery_run
+
+        alertname = "ResourceDeleted" if event_type == "DELETED" else "ResourceModified"
+        alert_payload = {
+            "labels": {
+                "alertname": alertname,
+                "namespace": namespace,
+                "deployment": name,
+                "severity": "critical" if event_type == "DELETED" else "high",
+            },
+            "annotations": {
+                "summary": f"{kind}/{name} {event_type}",
+                "description": detail,
+            },
+            "fingerprint": str(uuid.uuid4())[:8],
+        }
+
+        logger.info("[워처] delivery_agent 라우팅: %s/%s (%s)", namespace, name, event_type)
+        result = delivery_run(alert_payload=alert_payload)
+        logger.info("[워처] delivery_agent 완료: status=%s pr=%s",
+                    result.get("status"), result.get("pr_url"))
+    except Exception as e:
+        logger.error("[워처] delivery_agent 라우팅 실패: %s", e, exc_info=True)
+
+
 def _send_alert(kind: str, name: str, namespace: str,
                 event_type: str, detail: str, resource_yaml: dict) -> None:
     """Slack에 변경 감지 알림 + [복구] [무시] 버튼 전송."""
+    # delivery-app은 에이전트로 라우팅
+    if namespace in _DELIVERY_NAMESPACES:
+        _route_to_delivery_agent(kind, name, namespace, event_type, detail)
+        return
+
     try:
         import dr_kube.slack as slack_client
         if not slack_client.is_configured():
@@ -363,7 +400,7 @@ def start(namespaces: list[str] | None = None) -> None:
         return
 
     if namespaces is None:
-        env_ns = os.getenv("WATCH_NAMESPACES", "online-boutique")
+        env_ns = os.getenv("WATCH_NAMESPACES", "delivery-app")
         namespaces = [ns.strip() for ns in env_ns.split(",") if ns.strip()]
 
     logger.info(f"[워처] 시작: namespaces={namespaces}")
