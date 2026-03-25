@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: delivery-app
+  namespace: argocd
+  annotations:
+    notifications.argoproj.io/subscribe.on-health-degraded.dr-kube: ""
+    notifications.argoproj.io/subscribe.on-out-of-sync.dr-kube: ""
+    notifications.argoproj.io/subscribe.on-sync-failed.dr-kube: ""
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dr-kube/dr-kube.git
+    targetRevision: main
+    path: manifests/delivery-app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: delivery-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true

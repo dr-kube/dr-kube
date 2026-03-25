@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status delivery-build delivery-load delivery-deploy delivery-status delivery-logs
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -29,6 +29,9 @@ help: ## 도움말 표시
 	@echo ""
 	@echo "  [에이전트]"
 	@grep -E '^agent-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  [Delivery App (테스트 MSA)]"
+	@grep -E '^delivery-.*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # =============================================================================
 # 클러스터 명령어
@@ -245,3 +248,43 @@ chaos-status: ## Chaos 실험 상태 확인
 	@echo ""
 	@echo "📊 영향받는 Pod 상태:"
 	@kubectl get pods -n online-boutique -l "app in (frontend,cartservice,checkoutservice,productcatalogservice,paymentservice,redis-cart)" -o wide
+
+# =============================================================================
+# Delivery App (테스트용 MSA 배달 앱)
+# =============================================================================
+
+KIND_CLUSTER ?= dr-kube
+DELIVERY_APP_DIR := delivery-app
+
+delivery-build: ## 배달 앱 Docker 이미지 빌드 (3개 서비스)
+	@echo "🔨 Delivery App 이미지 빌드 중..."
+	@docker build -t delivery-app/menu-service:local $(DELIVERY_APP_DIR)/menu-service
+	@docker build -t delivery-app/order-service:local $(DELIVERY_APP_DIR)/order-service
+	@docker build -t delivery-app/delivery-service:local $(DELIVERY_APP_DIR)/delivery-service
+	@echo "✓ 빌드 완료"
+
+delivery-load: ## Kind 클러스터에 이미지 로드
+	@echo "📦 Kind 클러스터에 이미지 로드 중..."
+	@kind load docker-image delivery-app/menu-service:local --name $(KIND_CLUSTER)
+	@kind load docker-image delivery-app/order-service:local --name $(KIND_CLUSTER)
+	@kind load docker-image delivery-app/delivery-service:local --name $(KIND_CLUSTER)
+	@echo "✓ 이미지 로드 완료"
+
+delivery-deploy: delivery-build delivery-load ## 빌드 + 로드 + K8s 배포 (ArgoCD 없이 직접)
+	@echo "🚀 Delivery App 배포 중..."
+	@kubectl apply -k manifests/delivery-app/
+	@echo "⏳ Pod 시작 대기 중..."
+	@kubectl rollout status deployment/menu-service -n delivery-app --timeout=60s
+	@kubectl rollout status deployment/order-service -n delivery-app --timeout=60s
+	@kubectl rollout status deployment/delivery-service -n delivery-app --timeout=60s
+	@echo "✓ 배포 완료"
+	@$(MAKE) delivery-status
+
+delivery-status: ## Delivery App Pod 상태 확인
+	@echo "📊 Delivery App 상태:"
+	@kubectl get pods,svc,ingress -n delivery-app -o wide
+
+delivery-logs: ## Delivery App 로그 확인 (SERVICE=order-service|menu-service|delivery-service)
+	@SERVICE=$${SERVICE:-order-service}; \
+	echo "📋 $$SERVICE 로그:"; \
+	kubectl logs -n delivery-app -l app=$$SERVICE --tail=50 -f

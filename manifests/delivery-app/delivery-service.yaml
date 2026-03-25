@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery-service
+  namespace: delivery-app
+  labels:
+    app: delivery-service
+    app.kubernetes.io/part-of: delivery-app
+  annotations:
+    notifications.argoproj.io/subscribe.on-health-degraded.dr-kube: ""
+    notifications.argoproj.io/subscribe.on-out-of-sync.dr-kube: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: delivery-service
+  template:
+    metadata:
+      labels:
+        app: delivery-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8002"
+    spec:
+      containers:
+        - name: delivery-service
+          image: delivery-app/delivery-service:local
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8002
+          env:
+            - name: PORT
+              value: "8002"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi  # ← 에이전트가 수정할 대상 (OOMKilled 유발 가능)
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery-service
+  namespace: delivery-app
+  labels:
+    app: delivery-service
+spec:
+  selector:
+    app: delivery-service
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
+  type: ClusterIP

@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: delivery-app
+
+resources:
+  - namespace.yaml
+  - menu-service.yaml
+  - order-service.yaml
+  - delivery-service.yaml
+  - ingress.yaml
