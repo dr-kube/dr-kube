@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status delivery-build delivery-load delivery-deploy delivery-status delivery-logs
+.PHONY: help agent-setup agent-run agent-clean setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status delivery-build delivery-load delivery-deploy delivery-status delivery-logs argocd-sync
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -16,7 +16,7 @@ help: ## 도움말 표시
 	@echo "DR-Kube 명령어"
 	@echo ""
 	@echo "  [클러스터]"
-	@grep -E '^(setup|teardown|hosts|tls|tunnel|secrets|port-forward).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^(setup|teardown|hosts|tls|tunnel|secrets|port-forward|argocd).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  [Online Boutique]"
 	@grep -E '^(port-forward-boutique|boutique-open).*:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -57,6 +57,9 @@ tls: ## Let's Encrypt TLS 설정 (Cloudflare 토큰 필요)
 
 tls-status: ## TLS 인증서 상태 확인
 	@./scripts/setup-tls.sh status
+
+argocd-sync: ## ArgoCD 강제 sync (APP=delivery-app 으로 특정 앱만 가능)
+	@./scripts/argocd-sync.sh $${APP:-root}
 
 tunnel: ## Cloudflare Tunnel 설정 (API 자동)
 	@./scripts/setup-tunnel.sh setup
