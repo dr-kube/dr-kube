@@ -427,25 +427,25 @@ serverFiles:
       #           Pod {{ $labels.namespace }}/{{ $labels.pod }}
       #           컨테이너 {{ $labels.container }} 가
       #           최근 10분 내 3회 이상 재시작되었습니다.
-      - name: container-memory.rules
-        rules:
-          - alert: HighMemoryUsage
-            expr: |
-              (
-                container_memory_working_set_bytes{container!="",container!="POD"}
-                / container_spec_memory_limit_bytes{container!="",container!="POD"}
-              ) > 0.92
-              and on (namespace, pod, container)
-              container_spec_memory_limit_bytes{container!="",container!="POD"} > 0
-            for: 5m
-            labels:
-              severity: warning
-            annotations:
-              summary: "메모리 사용량 임계치 초과"
-              description: |
-                Pod {{ $labels.namespace }}/{{ $labels.pod }}
-                컨테이너 {{ $labels.container }} 의
-                메모리 사용률이 92%를 초과했습니다.
+      # - name: container-memory.rules
+      #   rules:
+      #     - alert: HighMemoryUsage
+      #       expr: |
+      #         (
+      #           container_memory_working_set_bytes{container!="",container!="POD"}
+      #           / container_spec_memory_limit_bytes{container!="",container!="POD"}
+      #         ) > 0.92
+      #         and on (namespace, pod, container)
+      #         container_spec_memory_limit_bytes{container!="",container!="POD"} > 0
+      #       for: 5m
+      #       labels:
+      #         severity: warning
+      #       annotations:
+      #         summary: "메모리 사용량 임계치 초과"
+      #         description: |
+      #           Pod {{ $labels.namespace }}/{{ $labels.pod }}
+      #           컨테이너 {{ $labels.container }} 의
+      #           메모리 사용률이 92%를 초과했습니다.
 
       # - name: pod-ready.rules
       #   rules:

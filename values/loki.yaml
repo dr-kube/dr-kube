@@ -127,34 +127,34 @@ extraObjects:
           #         summary: "Connection refused/reset detected in logs"
           #         description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} has connection errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
 
-              - alert: LogGRPCUnavailable
-                expr: |
-                  sum by (namespace, app) (
-                    count_over_time({namespace="online-boutique"} |~ "(?i)(rpc error.*unavailable|transport.*closing|grpc.*failed)" [5m])
-                  ) > 5
-                for: 1m
-                labels:
-                  severity: warning
-                annotations:
-                  summary: "gRPC unavailable errors in logs"
-                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} has gRPC errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
+              # - alert: LogGRPCUnavailable
+              #   expr: |
+              #     sum by (namespace, app) (
+              #       count_over_time({namespace="online-boutique"} |~ "(?i)(rpc error.*unavailable|transport.*closing|grpc.*failed)" [5m])
+              #     ) > 5
+              #   for: 1m
+              #   labels:
+              #     severity: warning
+              #   annotations:
+              #     summary: "gRPC unavailable errors in logs"
+              #     description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} has gRPC errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
 
           # ---------------------------------------------------------
           # 3. Timeout / Deadline Exceeded
           # ---------------------------------------------------------
-          - name: log-timeout
-            rules:
-              - alert: LogTimeoutDetected
-                expr: |
-                  sum by (namespace, app) (
-                    count_over_time({namespace="online-boutique"} |~ "(?i)(timeout|deadline exceeded|context canceled|context deadline)" [5m])
-                  ) > 5
-                for: 1m
-                labels:
-                  severity: warning
-                annotations:
-                  summary: "Timeout/deadline errors in logs"
-                  description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} logged timeout errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
+          # - name: log-timeout
+          #   rules:
+          #     - alert: LogTimeoutDetected
+          #       expr: |
+          #         sum by (namespace, app) (
+          #           count_over_time({namespace="online-boutique"} |~ "(?i)(timeout|deadline exceeded|context canceled|context deadline)" [5m])
+          #         ) > 5
+          #       for: 1m
+          #       labels:
+          #         severity: warning
+          #       annotations:
+          #         summary: "Timeout/deadline errors in logs"
+          #         description: '{{ "{{" }} $labels.app {{ "}}" }} in {{ "{{" }} $labels.namespace {{ "}}" }} logged timeout errors ({{ "{{" }} $value {{ "}}" }} in 5m)'
 
           # ---------------------------------------------------------
           # 4. Redis Errors
