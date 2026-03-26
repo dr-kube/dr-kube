@@ -331,7 +331,7 @@ def human_gate(state: DeliveryState) -> DeliveryState:
     slack = SlackClient()
 
     try:
-        ts = slack.send_proposal(
+        ts, action_id = slack.send_proposal(
             issue_type=state.get("issue_type", ""),
             affected_service=state.get("affected_service", ""),
             root_cause=state.get("root_cause", ""),
@@ -343,15 +343,25 @@ def human_gate(state: DeliveryState) -> DeliveryState:
                 fix_plan.get("modified_manifest", ""),
             ),
         )
-        logger.info("Slack 승인 요청 전송 (ts=%s)", ts)
+        logger.info("Slack 승인 요청 전송 (ts=%s, action_id=%s)", ts, action_id)
         return {
             **state,
             "slack_ts": ts,
+            "slack_action_id": action_id,
             "status": "awaiting_approval",
         }
     except Exception as e:
         logger.warning("Slack 전송 실패 (%s), 자동 승인으로 진행", e)
         return {**state, "human_decision": None, "status": "approved"}
+
+
+def human_gate_wait(state: DeliveryState) -> DeliveryState:
+    """LangGraph interrupt: Slack 버튼 클릭까지 대기"""
+    from langgraph.types import interrupt as lg_interrupt
+
+    decision = lg_interrupt("Slack 승인 대기 중")
+    logger.info("Human 결정 수신: %s", decision)
+    return {**state, "human_decision": decision}
 
 
 def create_pr(state: DeliveryState) -> DeliveryState:

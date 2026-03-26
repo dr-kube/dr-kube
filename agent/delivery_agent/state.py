@@ -64,6 +64,7 @@ class DeliveryState(TypedDict, total=False):
     # ── Human-in-the-Loop ─────────────────────────
     requires_human_approval: bool
     slack_ts: str               # Slack 메시지 ts (스레드 답글용)
+    slack_action_id: str        # Slack 버튼 action_id (resume 매핑용)
     human_decision: Literal["approve", "reject", "modify"] | None
     human_comment: str          # 수정 요청 시 사용자 코멘트
 

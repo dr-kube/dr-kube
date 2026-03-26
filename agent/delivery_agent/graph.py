@@ -33,7 +33,6 @@ import logging
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
-from langgraph.types import interrupt
 
 from delivery_agent.nodes import (
     analyze,
@@ -42,6 +41,7 @@ from delivery_agent.nodes import (
     escalate,
     gather_context,
     human_gate,
+    human_gate_wait,
     load_alert,
     notify_complete,
     notify_skip,
@@ -89,22 +89,21 @@ def route_after_validate(state: DeliveryState) -> str:
 
 def route_after_human_gate(state: DeliveryState) -> str:
     status = state.get("status")
-
-    # 자동 통과 또는 승인
-    if status in ("approved", "pr_approved"):
+    if status == "approved":
         return "create_pr"
-
-    # Slack 승인 대기 중 — interrupt로 처리
     if status == "awaiting_approval":
-        decision = interrupt("Slack 승인 대기 중")
-        if decision == "approve":
-            return "create_pr"
-        elif decision == "modify":
-            return "plan_fix"
-        else:  # reject
-            return "notify_skip"
-
+        return "human_gate_wait"
     return "create_pr"
+
+
+def route_after_human_gate_wait(state: DeliveryState) -> str:
+    decision = state.get("human_decision", "")
+    if decision == "approve":
+        return "create_pr"
+    elif decision == "modify":
+        return "plan_fix"
+    else:  # reject / unknown
+        return "notify_skip"
 
 
 def route_after_verify(state: DeliveryState) -> str:
@@ -127,6 +126,7 @@ def build_graph() -> StateGraph:
     workflow.add_node("plan_fix", plan_fix)
     workflow.add_node("validate_fix", validate_fix)
     workflow.add_node("human_gate", human_gate)
+    workflow.add_node("human_gate_wait", human_gate_wait)
     workflow.add_node("create_pr", create_pr)
     workflow.add_node("verify_recovery", verify_recovery)
     workflow.add_node("notify_complete", notify_complete)
@@ -161,6 +161,12 @@ def build_graph() -> StateGraph:
     workflow.add_conditional_edges(
         "human_gate",
         route_after_human_gate,
+        {"create_pr": "create_pr", "human_gate_wait": "human_gate_wait"},
+    )
+
+    workflow.add_conditional_edges(
+        "human_gate_wait",
+        route_after_human_gate_wait,
         {"create_pr": "create_pr", "plan_fix": "plan_fix", "notify_skip": "notify_skip"},
     )
 
@@ -179,20 +185,36 @@ def build_graph() -> StateGraph:
     return workflow
 
 
+# ── 싱글톤 그래프 (MemorySaver 유지) ────────────────────
+
+_singleton_graph = None
+_singleton_checkpointer = None
+
+
+def get_graph():
+    """싱글톤 컴파일 그래프 반환. MemorySaver를 프로세스 수명 동안 유지."""
+    global _singleton_graph, _singleton_checkpointer
+    if _singleton_graph is None:
+        _singleton_checkpointer = MemorySaver()
+        _singleton_graph = build_graph().compile(checkpointer=_singleton_checkpointer)
+        logger.info("delivery-agent 그래프 초기화 완료")
+    return _singleton_graph
+
+
 def create_graph():
-    """체크포인터가 포함된 컴파일된 그래프 반환"""
-    checkpointer = MemorySaver()  # 운영 환경에서는 SqliteSaver로 교체
-    return build_graph().compile(checkpointer=checkpointer)
+    """하위 호환용 — get_graph() 사용 권장"""
+    return get_graph()
 
 
 # ── CLI 실행 (테스트용) ────────────────────────────────
 
 def run(alert_payload: dict, thread_id: str | None = None) -> DeliveryState:
-    """Alert payload를 받아 워크플로우 실행"""
+    """Alert payload를 받아 워크플로우 실행. interrupt 발생 시 현재 상태 반환."""
     import uuid as _uuid
 
-    graph = create_graph()
-    config = {"configurable": {"thread_id": thread_id or str(_uuid.uuid4())}}
+    graph = get_graph()
+    thread_id = thread_id or str(_uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
 
     initial_state: DeliveryState = {
         "alert_payload": alert_payload,
@@ -200,5 +222,5 @@ def run(alert_payload: dict, thread_id: str | None = None) -> DeliveryState:
     }
 
     result = graph.invoke(initial_state, config=config)
-    logger.info("워크플로우 완료: status=%s", result.get("status"))
+    logger.info("워크플로우 완료/중단: status=%s thread_id=%s", result.get("status"), thread_id)
     return result

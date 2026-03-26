@@ -38,6 +38,9 @@ _pr_to_thread: dict[int, str] = {}
 # 코파일럿 모드: action_id → {result, channel, ts}
 _pending_approvals: dict[str, dict] = {}
 
+# delivery-agent Human-in-the-Loop: action_id → thread_id (LangGraph resume용)
+_delivery_pending: dict[str, str] = {}
+
 # 머지 대기: pr_number → {channel, ts, issue_data, fix_description, pr_url, merged}
 _pending_merges: dict[int, dict] = {}
 
@@ -73,13 +76,62 @@ def process_delivery_issue(issue_data: dict) -> None:
     try:
         from delivery_agent.graph import run as delivery_run
         alert_payload = issue_data.get("_raw_alert", issue_data)
-        result = delivery_run(alert_payload=alert_payload, thread_id=issue_data.get("id"))
+        thread_id = issue_data.get("id", "")
+        result = delivery_run(alert_payload=alert_payload, thread_id=thread_id)
+
+        # Slack 승인 대기 중이면 action_id → thread_id 등록
+        if result.get("status") == "awaiting_approval":
+            action_id = result.get("slack_action_id", "")
+            if action_id and thread_id:
+                _delivery_pending[action_id] = thread_id
+                logger.info(
+                    "delivery-agent 승인 대기 등록: action_id=%s thread_id=%s",
+                    action_id, thread_id,
+                )
+
         logger.info(
             "delivery-agent 완료: id=%s status=%s pr=%s",
             issue_data.get("id"), result.get("status"), result.get("pr_url"),
         )
     except Exception as e:
         logger.error("delivery-agent 실패: %s", e, exc_info=True)
+
+
+def resume_delivery(thread_id: str, decision: str) -> None:
+    """Slack 버튼 클릭 후 delivery-agent LangGraph 재개"""
+    try:
+        from delivery_agent.graph import get_graph
+        from langgraph.types import Command
+
+        graph = get_graph()
+        config = {"configurable": {"thread_id": thread_id}}
+        result = graph.invoke(Command(resume=decision), config=config)
+        logger.info(
+            "delivery-agent 재개 완료: thread=%s status=%s pr=%s",
+            thread_id, result.get("status"), result.get("pr_url"),
+        )
+    except Exception as e:
+        logger.error("delivery-agent 재개 실패: thread=%s error=%s", thread_id, e, exc_info=True)
+
+
+def resume_delivery_with_comment(thread_id: str, comment: str) -> None:
+    """수정 요청 코멘트와 함께 delivery-agent 재개 (plan_fix 경로)"""
+    try:
+        from delivery_agent.graph import get_graph
+        from langgraph.types import Command
+
+        graph = get_graph()
+        config = {"configurable": {"thread_id": thread_id}}
+        # human_comment를 state에 주입한 뒤 "modify"로 재개
+        # graph.update_state로 comment 추가 후 resume
+        graph.update_state(config, {"human_comment": comment})
+        result = graph.invoke(Command(resume="modify"), config=config)
+        logger.info(
+            "delivery-agent 수정 재개 완료: thread=%s status=%s",
+            thread_id, result.get("status"),
+        )
+    except Exception as e:
+        logger.error("delivery-agent 수정 재개 실패: thread=%s error=%s", thread_id, e, exc_info=True)
 
 
 def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
@@ -516,13 +568,21 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
         value = action.get("value", "")
 
         if action_id_btn == "approve":
-            background_tasks.add_task(approve_issue, value)
+            if value in _delivery_pending:
+                thread_id = _delivery_pending.pop(value)
+                background_tasks.add_task(resume_delivery, thread_id, "approve")
+            else:
+                background_tasks.add_task(approve_issue, value)
             return {"ok": True}
 
         elif action_id_btn == "reject":
-            entry = _pending_approvals.pop(value, None)
-            if entry:
-                slack_client.update_proposal(entry["channel"], entry["ts"], "rejected")
+            if value in _delivery_pending:
+                thread_id = _delivery_pending.pop(value)
+                background_tasks.add_task(resume_delivery, thread_id, "reject")
+            else:
+                entry = _pending_approvals.pop(value, None)
+                if entry:
+                    slack_client.update_proposal(entry["channel"], entry["ts"], "rejected")
             return {"ok": True}
 
         elif action_id_btn == "merge_pr":
@@ -549,6 +609,7 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
 
         elif action_id_btn == "request_modify":
             trigger_id = payload.get("trigger_id", "")
+            # delivery-agent와 일반 모드 모두 동일 모달 → callback_id로 구분
             slack_client.open_modify_modal(trigger_id, value)
             return {"ok": True}
 
@@ -591,6 +652,11 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
                     background_tasks.add_task(modify_pr_issue, pr_number, comment)
                 except ValueError:
                     pass
+            elif action_id_modal in _delivery_pending:
+                # delivery-agent 수정 요청: LangGraph resume with "modify"
+                thread_id = _delivery_pending.pop(action_id_modal)
+                # human_comment를 상태에 반영하기 위해 별도 처리
+                background_tasks.add_task(resume_delivery_with_comment, thread_id, comment)
             else:
                 background_tasks.add_task(modify_issue, action_id_modal, comment)
             return {"response_action": "clear"}

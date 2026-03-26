@@ -340,8 +340,8 @@ class SlackClient:
         rationale: str,
         severity: str,
         diff: str = "",
-    ) -> str:
-        """수정 제안을 Slack에 전송하고 message ts 반환"""
+    ) -> tuple[str, str]:
+        """수정 제안을 Slack에 전송하고 (ts, action_id) 반환"""
         result = {
             "issue_data": {"type": issue_type, "resource": affected_service},
             "severity": severity,
@@ -353,7 +353,7 @@ class SlackClient:
         import uuid
         action_id = str(uuid.uuid4())[:8]
         success, _channel, ts = send_proposal(result, action_id)
-        return ts if success else ""
+        return (ts if success else ""), action_id
 
     def send_recovery_complete(
         self,
