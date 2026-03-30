@@ -16,6 +16,13 @@ spec:
         app: dr-kube-agent
     spec:
       serviceAccountName: dr-kube-agent
+      initContainers:
+        - name: fix-checkpoints-perms
+          image: busybox:1.36
+          command: ["sh", "-c", "chmod 777 /checkpoints"]
+          volumeMounts:
+            - name: checkpoints
+              mountPath: /checkpoints
       volumes:
         - name: workspace
           emptyDir: {}
