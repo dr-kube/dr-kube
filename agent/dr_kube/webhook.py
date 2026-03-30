@@ -591,7 +591,14 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
         value = action.get("value", "")
 
         if action_id_btn == "approve":
-            if value in _delivery_pending:
+            # 파일에서 직접 읽어 소스로 사용 (thread import 객체 불일치 방지)
+            _pending_file = _load_delivery_pending()
+            if value in _pending_file:
+                thread_id = _pending_file.pop(value)
+                _delivery_pending.pop(value, None)
+                _save_delivery_pending(_pending_file)
+                background_tasks.add_task(resume_delivery, thread_id, "approve")
+            elif value in _delivery_pending:
                 thread_id = _delivery_pending.pop(value)
                 _save_delivery_pending(_delivery_pending)
                 background_tasks.add_task(resume_delivery, thread_id, "approve")
@@ -600,7 +607,13 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
             return {"ok": True}
 
         elif action_id_btn == "reject":
-            if value in _delivery_pending:
+            _pending_file = _load_delivery_pending()
+            if value in _pending_file:
+                thread_id = _pending_file.pop(value)
+                _delivery_pending.pop(value, None)
+                _save_delivery_pending(_pending_file)
+                background_tasks.add_task(resume_delivery, thread_id, "reject")
+            elif value in _delivery_pending:
                 thread_id = _delivery_pending.pop(value)
                 _save_delivery_pending(_delivery_pending)
                 background_tasks.add_task(resume_delivery, thread_id, "reject")
