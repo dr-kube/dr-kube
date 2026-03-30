@@ -175,10 +175,20 @@ def _route_to_delivery_agent(kind: str, name: str, namespace: str,
             "fingerprint": str(uuid.uuid4())[:8],
         }
 
+        thread_id = str(uuid.uuid4())
         logger.info("[워처] delivery_agent 라우팅: %s/%s (%s)", namespace, name, event_type)
-        result = delivery_run(alert_payload=alert_payload)
+        result = delivery_run(alert_payload=alert_payload, thread_id=thread_id)
         logger.info("[워처] delivery_agent 완료: status=%s pr=%s",
                     result.get("status"), result.get("pr_url"))
+
+        # Slack 승인 대기 중이면 action_id → thread_id 등록 (lazy import: 순환참조 방지)
+        if result.get("status") == "awaiting_approval":
+            action_id = result.get("slack_action_id", "")
+            if action_id:
+                from dr_kube.webhook import _delivery_pending
+                _delivery_pending[action_id] = thread_id
+                logger.info("[워처] delivery_agent 승인 대기 등록: action_id=%s thread_id=%s",
+                            action_id, thread_id)
     except Exception as e:
         logger.error("[워처] delivery_agent 라우팅 실패: %s", e, exc_info=True)
 
