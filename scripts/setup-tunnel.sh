@@ -33,6 +33,7 @@ SERVICES=(
     "chaos"
     "jaeger"
     "delivery"
+    "agent"
 )
 
 # secrets.yaml 에서 값 읽기
