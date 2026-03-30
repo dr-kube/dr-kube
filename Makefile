@@ -1,4 +1,4 @@
-.PHONY: help agent-setup agent-run agent-clean agent-webhook agent-oom agent-cpu setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status delivery-build delivery-load delivery-deploy delivery-status delivery-logs argocd-sync demo-break demo-break-partial demo-scale-zero demo-reset demo-status
+.PHONY: help agent-setup agent-run agent-clean agent-webhook agent-oom agent-cpu setup teardown port-forward port-forward-stop port-forward-boutique boutique-open chaos-track-checkout-cascade chaos-track-catalog-break chaos-track-platform-brownout chaos-stop chaos-status hosts hosts-remove hosts-status tls tls-status tunnel tunnel-status tunnel-teardown ssh-setup ssh-connect ssh-tunnel ssh-tunnel-stop secrets-init secrets-import secrets-encrypt secrets-decrypt secrets-apply secrets-status delivery-build delivery-load delivery-deploy delivery-status delivery-logs argocd-sync demo-break demo-break-partial demo-scale-zero demo-reset demo-status test-watcher test-watcher-reset test-approve
 
 # bash 사용 (source 명령 지원)
 SHELL := /bin/bash
@@ -297,3 +297,47 @@ demo-status: ## [데모] 현재 장애 상태 확인
 	@echo ""
 	@echo "📈 최근 에러 로그 (order-service):"
 	@kubectl logs -n delivery-app -l app=order-service --tail=10 2>/dev/null || true
+
+# ── watcher e2e 테스트 ─────────────────────────────────────────────────────────
+
+AGENT_HOST ?= https://agent-drkube.huik.site
+BOUTIQUE_NS ?= online-boutique
+TEST_DEPLOY ?= frontend
+
+test-watcher: ## [테스트] frontend scale=0 → watcher 감지 → Slack 버튼 전송까지 확인
+	@echo "=== watcher e2e 테스트 시작 ==="
+	@echo "1. frontend 정상화 (replicas=1)..."
+	@kubectl scale deployment/$(TEST_DEPLOY) -n $(BOUTIQUE_NS) --replicas=1
+	@echo "   Pod 준비 대기 (15s)..."
+	@sleep 15
+	@echo "2. frontend 강제 다운 (replicas=0) — watcher 감지 트리거..."
+	@kubectl scale deployment/$(TEST_DEPLOY) -n $(BOUTIQUE_NS) --replicas=0
+	@echo "   LLM 분석 대기 (30s)..."
+	@sleep 30
+	@echo "3. 에이전트 로그 확인..."
+	@POD=$$(kubectl get pods -n monitoring -l app=dr-kube-agent --no-headers | head -1 | awk '{print $$1}'); \
+	  kubectl logs -n monitoring $$POD --tail=20 | grep -v "GET /health\|GET /debug\|HTTP/1.1"
+	@echo ""
+	@echo "=== Slack 채널에서 [PR 생성] 버튼 확인 후 make test-approve ACTION_ID=<id> 실행 ==="
+	@echo "=== 또는 로그에서 action_id 확인 후 make test-approve ACTION_ID=<id> ==="
+
+test-approve: ## [테스트] approve 버튼 클릭 시뮬레이션 (ACTION_ID 필수)
+	@if [ -z "$(ACTION_ID)" ]; then \
+	  echo "사용법: make test-approve ACTION_ID=<action_id>"; \
+	  echo "action_id는 에이전트 로그의 '코파일럿 대기 중: action_id=...' 에서 확인"; \
+	  exit 1; \
+	fi
+	@echo "=== approve 시뮬레이션: action_id=$(ACTION_ID) ==="
+	@PAYLOAD=$$(python3 -c "import json,urllib.parse; print('payload='+urllib.parse.quote(json.dumps({'type':'block_actions','actions':[{'action_id':'approve','value':'$(ACTION_ID)'}],'trigger_id':'test'})))"); \
+	  curl -s -X POST $(AGENT_HOST)/webhook/slack/action \
+	    -H 'Content-Type: application/x-www-form-urlencoded' \
+	    -d "$$PAYLOAD"
+	@echo ""
+	@echo "PR 생성 결과 확인 중 (10s)..."
+	@sleep 10
+	@POD=$$(kubectl get pods -n monitoring -l app=dr-kube-agent --no-headers | head -1 | awk '{print $$1}'); \
+	  kubectl logs -n monitoring $$POD --tail=10 | grep -v "GET /health\|GET /debug\|HTTP/1.1"
+
+test-watcher-reset: ## [테스트] frontend 정상화
+	@kubectl scale deployment/$(TEST_DEPLOY) -n $(BOUTIQUE_NS) --replicas=1
+	@echo "frontend replicas=1 복구 완료"
