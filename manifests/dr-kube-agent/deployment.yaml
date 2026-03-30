@@ -48,7 +48,7 @@ spec:
             - name: LLM_PROVIDER
               value: "copilot"
             - name: COPILOT_MODEL
-              value: "gpt-4o"
+              value: "gpt-5.3-codex"
             - name: COPILOT_TOKEN
               valueFrom:
                 secretKeyRef:
