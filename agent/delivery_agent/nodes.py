@@ -365,7 +365,7 @@ def human_gate_wait(state: DeliveryState) -> DeliveryState:
 
 
 def create_pr(state: DeliveryState) -> DeliveryState:
-    """GitHub PR 생성"""
+    """GitHub PR 생성 (branch → commit → push → PR)"""
     from dr_kube.github import GitHubClient, generate_branch_name
 
     fix_plan = state.get("fix_plan", {})
@@ -379,13 +379,36 @@ def create_pr(state: DeliveryState) -> DeliveryState:
 
     try:
         gh = GitHubClient()
-        pr_url, pr_number = gh.create_pr(
+
+        # 1. 브랜치 생성
+        ok, msg = gh.create_branch(branch_name)
+        if not ok:
+            return {**state, "status": "error", "error": f"브랜치 생성 실패: {msg}"}
+
+        # 2. 파일 쓰기
+        target_file = fix_plan.get("target_file", "")
+        modified_manifest = fix_plan.get("modified_manifest", "")
+        file_abs = PROJECT_ROOT / target_file
+        file_abs.write_text(modified_manifest, encoding="utf-8")
+        logger.info("파일 수정: %s", target_file)
+
+        # 3. 커밋 + 푸시
+        commit_msg = f"fix({service}): {fix_plan.get('fix_description', 'auto fix')}"
+        ok, msg = gh.commit_and_push(target_file, commit_msg, branch_name)
+        if not ok:
+            gh.cleanup()
+            return {**state, "status": "error", "error": f"커밋/푸시 실패: {msg}"}
+
+        # 4. PR 생성
+        ok, pr_url, pr_number = gh.create_pr(
             branch_name=branch_name,
-            title=f"fix({service}): {fix_plan.get('fix_description', 'auto fix')}",
+            title=commit_msg,
             body=_build_pr_body(state),
-            file_path=fix_plan["target_file"],
-            file_content=fix_plan["modified_manifest"],
         )
+        if not ok:
+            gh.cleanup()
+            return {**state, "status": "error", "error": f"PR 생성 실패: {pr_url}"}
+
         logger.info("PR 생성: %s (#%d)", pr_url, pr_number)
 
         return {
