@@ -194,13 +194,50 @@ def _route_to_delivery_agent(kind: str, name: str, namespace: str,
         logger.error("[워처] delivery_agent 라우팅 실패: %s", e, exc_info=True)
 
 
+def _route_to_dr_kube_agent(kind: str, name: str, namespace: str,
+                             event_type: str, detail: str) -> None:
+    """watcher 이벤트를 기존 dr_kube process_issue 파이프라인으로 라우팅.
+
+    분석 → 수정안 생성 → Slack [PR 생성][수정 요청][무시] 버튼 전송.
+    """
+    try:
+        import hashlib
+        from dr_kube.converter import derive_values_file
+        from dr_kube.webhook import process_issue
+
+        issue_type = "replicas_mismatch" if event_type == "MODIFIED" else "pod_unhealthy"
+        issue_id = hashlib.md5(
+            f"watcher-{name}-{namespace}-{event_type}".encode()
+        ).hexdigest()[:8]
+
+        issue_data = {
+            "id": f"watcher-{issue_id}",
+            "type": issue_type,
+            "namespace": namespace,
+            "resource": name,
+            "error_message": f"{kind}/{name} {event_type} in {namespace}",
+            "logs": [detail],
+            "timestamp": "",
+            "values_file": derive_values_file(name, namespace),
+        }
+
+        logger.info("[워처] dr_kube 에이전트 라우팅: %s/%s (%s)", namespace, name, event_type)
+        process_issue(issue_data, with_pr=False)
+    except Exception as e:
+        logger.error("[워처] dr_kube 에이전트 라우팅 실패: %s", e, exc_info=True)
+
+
 def _send_alert(kind: str, name: str, namespace: str,
                 event_type: str, detail: str, resource_yaml: dict) -> None:
-    """Slack에 변경 감지 알림 + [복구] [무시] 버튼 전송."""
-    # delivery-app은 에이전트로 라우팅
+    """Slack에 변경 감지 알림 + 에이전트 라우팅."""
+    # delivery-app은 delivery_agent로 라우팅
     if namespace in _DELIVERY_NAMESPACES:
         _route_to_delivery_agent(kind, name, namespace, event_type, detail)
         return
+
+    # 그 외 네임스페이스는 dr_kube 에이전트로 라우팅 → [PR 생성][수정 요청][무시]
+    _route_to_dr_kube_agent(kind, name, namespace, event_type, detail)
+    return
 
     try:
         import dr_kube.slack as slack_client
