@@ -32,11 +32,10 @@ _processed_fingerprints: dict[str, datetime] = {}
 _recent_pr_groups: dict[str, datetime] = {}
 _processed_alerts: set = set()
 
-# AGENT-2: PR 번호 → LangGraph 스레드 ID 매핑 (Human-in-the-Loop)
-_pr_to_thread: dict[int, str] = {}
-
-# 코파일럿 모드: action_id → {result, channel, ts}
-_pending_approvals: dict[str, dict] = {}
+# 공유 상태 (python -m 이중 로드 방지: _shared_state는 항상 단일 인스턴스)
+from dr_kube._shared_state import pending_approvals as _pending_approvals
+from dr_kube._shared_state import pr_to_thread as _pr_to_thread
+from dr_kube._shared_state import pending_merges as _pending_merges_shared
 
 # delivery-agent Human-in-the-Loop: action_id → thread_id (파일 기반, pod 재시작 생존)
 _PENDING_FILE = os.getenv("PENDING_FILE", "/checkpoints/delivery_pending.json")
@@ -64,7 +63,7 @@ def _save_delivery_pending(d: dict[str, str]) -> None:
 _delivery_pending: dict[str, str] = _load_delivery_pending()
 
 # 머지 대기: pr_number → {channel, ts, issue_data, fix_description, pr_url, merged}
-_pending_merges: dict[int, dict] = {}
+_pending_merges = _pending_merges_shared
 
 from contextlib import asynccontextmanager
 
@@ -215,7 +214,7 @@ def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
                     "channel": channel,
                     "ts": ts,
                 }
-                logger.info(f"코파일럿 대기 중: action_id={action_id} channel={channel} obj_id={id(_pending_approvals)}")
+                logger.info(f"코파일럿 대기 중: action_id={action_id} channel={channel}")
             return
 
         # 일반 모드 PR 처리
@@ -239,7 +238,7 @@ def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
 
 def approve_issue(action_id: str) -> None:
     """Slack ✅ 버튼 클릭 시 호출 - 저장된 분석 결과로 PR 생성."""
-    logger.info(f"approve_issue 호출: action_id={action_id} pending_keys={list(_pending_approvals.keys())} obj_id={id(_pending_approvals)}")
+    logger.info(f"approve_issue 호출: action_id={action_id}")
     entry = _pending_approvals.get(action_id)
     if not entry:
         logger.error(f"approve_issue: action_id={action_id} 없음")
