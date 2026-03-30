@@ -29,8 +29,8 @@
   human_gate modify → plan_fix (human_comment 포함)
 """
 import logging
+import os
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
 
@@ -185,19 +185,25 @@ def build_graph() -> StateGraph:
     return workflow
 
 
-# ── 싱글톤 그래프 (MemorySaver 유지) ────────────────────
+# ── 싱글톤 그래프 (SqliteSaver — pod 재시작 생존) ────────────────────
+
+CHECKPOINT_DB = os.getenv("CHECKPOINT_DB", "/checkpoints/delivery.db")
 
 _singleton_graph = None
 _singleton_checkpointer = None
 
 
 def get_graph():
-    """싱글톤 컴파일 그래프 반환. MemorySaver를 프로세스 수명 동안 유지."""
+    """싱글톤 컴파일 그래프 반환. SqliteSaver로 pod 재시작 후에도 체크포인트 유지."""
     global _singleton_graph, _singleton_checkpointer
     if _singleton_graph is None:
-        _singleton_checkpointer = MemorySaver()
+        os.makedirs(os.path.dirname(CHECKPOINT_DB), exist_ok=True)
+        import sqlite3
+        from langgraph.checkpoint.sqlite import SqliteSaver
+        conn = sqlite3.connect(CHECKPOINT_DB, check_same_thread=False)
+        _singleton_checkpointer = SqliteSaver(conn)
         _singleton_graph = build_graph().compile(checkpointer=_singleton_checkpointer)
-        logger.info("delivery-agent 그래프 초기화 완료")
+        logger.info("delivery-agent 그래프 초기화 완료 (checkpoint_db=%s)", CHECKPOINT_DB)
     return _singleton_graph
 
 

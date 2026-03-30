@@ -38,8 +38,30 @@ _pr_to_thread: dict[int, str] = {}
 # 코파일럿 모드: action_id → {result, channel, ts}
 _pending_approvals: dict[str, dict] = {}
 
-# delivery-agent Human-in-the-Loop: action_id → thread_id (LangGraph resume용)
-_delivery_pending: dict[str, str] = {}
+# delivery-agent Human-in-the-Loop: action_id → thread_id (파일 기반, pod 재시작 생존)
+_PENDING_FILE = os.getenv("PENDING_FILE", "/checkpoints/delivery_pending.json")
+
+
+def _load_delivery_pending() -> dict[str, str]:
+    try:
+        import json
+        with open(_PENDING_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, Exception):
+        return {}
+
+
+def _save_delivery_pending(d: dict[str, str]) -> None:
+    try:
+        import json
+        os.makedirs(os.path.dirname(_PENDING_FILE), exist_ok=True)
+        with open(_PENDING_FILE, "w") as f:
+            json.dump(d, f)
+    except Exception as e:
+        logger.warning("_delivery_pending 저장 실패: %s", e)
+
+
+_delivery_pending: dict[str, str] = _load_delivery_pending()
 
 # 머지 대기: pr_number → {channel, ts, issue_data, fix_description, pr_url, merged}
 _pending_merges: dict[int, dict] = {}
@@ -79,11 +101,12 @@ def process_delivery_issue(issue_data: dict) -> None:
         thread_id = issue_data.get("id", "")
         result = delivery_run(alert_payload=alert_payload, thread_id=thread_id)
 
-        # Slack 승인 대기 중이면 action_id → thread_id 등록
+        # Slack 승인 대기 중이면 action_id → thread_id 등록 (파일에도 저장)
         if result.get("status") == "awaiting_approval":
             action_id = result.get("slack_action_id", "")
             if action_id and thread_id:
                 _delivery_pending[action_id] = thread_id
+                _save_delivery_pending(_delivery_pending)
                 logger.info(
                     "delivery-agent 승인 대기 등록: action_id=%s thread_id=%s",
                     action_id, thread_id,
@@ -570,6 +593,7 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
         if action_id_btn == "approve":
             if value in _delivery_pending:
                 thread_id = _delivery_pending.pop(value)
+                _save_delivery_pending(_delivery_pending)
                 background_tasks.add_task(resume_delivery, thread_id, "approve")
             else:
                 background_tasks.add_task(approve_issue, value)
@@ -578,6 +602,7 @@ async def slack_action(request: Request, background_tasks: BackgroundTasks):
         elif action_id_btn == "reject":
             if value in _delivery_pending:
                 thread_id = _delivery_pending.pop(value)
+                _save_delivery_pending(_delivery_pending)
                 background_tasks.add_task(resume_delivery, thread_id, "reject")
             else:
                 entry = _pending_approvals.pop(value, None)

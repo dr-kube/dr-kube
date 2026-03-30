@@ -185,8 +185,9 @@ def _route_to_delivery_agent(kind: str, name: str, namespace: str,
         if result.get("status") == "awaiting_approval":
             action_id = result.get("slack_action_id", "")
             if action_id:
-                from dr_kube.webhook import _delivery_pending
+                from dr_kube.webhook import _delivery_pending, _save_delivery_pending
                 _delivery_pending[action_id] = thread_id
+                _save_delivery_pending(_delivery_pending)
                 logger.info("[워처] delivery_agent 승인 대기 등록: action_id=%s thread_id=%s",
                             action_id, thread_id)
     except Exception as e:

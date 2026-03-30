@@ -19,6 +19,10 @@ spec:
       volumes:
         - name: workspace
           emptyDir: {}
+        - name: checkpoints
+          hostPath:
+            path: /var/dr-kube/checkpoints
+            type: DirectoryOrCreate
       containers:
         - name: agent
           image: dr-kube-agent:local
@@ -44,6 +48,8 @@ spec:
           volumeMounts:
             - name: workspace
               mountPath: /workspace
+            - name: checkpoints
+              mountPath: /checkpoints
           env:
             - name: LLM_PROVIDER
               value: "copilot"

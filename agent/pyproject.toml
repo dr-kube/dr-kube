@@ -19,6 +19,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "kubernetes>=35.0.0",
+    "langgraph-checkpoint-sqlite>=3.0.3",
 ]
 
 [project.scripts]
