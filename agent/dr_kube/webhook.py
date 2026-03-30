@@ -239,6 +239,7 @@ def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
 
 def approve_issue(action_id: str) -> None:
     """Slack ✅ 버튼 클릭 시 호출 - 저장된 분석 결과로 PR 생성."""
+    logger.info(f"approve_issue 호출: action_id={action_id} pending_keys={list(_pending_approvals.keys())}")
     entry = _pending_approvals.get(action_id)
     if not entry:
         logger.error(f"approve_issue: action_id={action_id} 없음")
