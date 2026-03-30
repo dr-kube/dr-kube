@@ -373,9 +373,8 @@ def create_pr(state: DeliveryState) -> DeliveryState:
     issue_type = state.get("issue_type", "")
 
     branch_name = generate_branch_name(
-        service=service,
         issue_type=issue_type,
-        fix_description=fix_plan.get("fix_description", "fix"),
+        resource=service,
     )
 
     try:
