@@ -215,7 +215,7 @@ def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
                     "channel": channel,
                     "ts": ts,
                 }
-                logger.info(f"코파일럿 대기 중: action_id={action_id} channel={channel}")
+                logger.info(f"코파일럿 대기 중: action_id={action_id} channel={channel} obj_id={id(_pending_approvals)}")
             return
 
         # 일반 모드 PR 처리
@@ -239,7 +239,7 @@ def process_issue(issue_data: dict, with_pr: bool = False, thread_ts: str = ""):
 
 def approve_issue(action_id: str) -> None:
     """Slack ✅ 버튼 클릭 시 호출 - 저장된 분석 결과로 PR 생성."""
-    logger.info(f"approve_issue 호출: action_id={action_id} pending_keys={list(_pending_approvals.keys())}")
+    logger.info(f"approve_issue 호출: action_id={action_id} pending_keys={list(_pending_approvals.keys())} obj_id={id(_pending_approvals)}")
     entry = _pending_approvals.get(action_id)
     if not entry:
         logger.error(f"approve_issue: action_id={action_id} 없음")
