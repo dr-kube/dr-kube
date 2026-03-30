@@ -114,6 +114,8 @@ dr-kube/
 
 ## 빠른 시작
 
+> **처음 사용하시나요?** → [Quick Start Guide](./docs/QUICKSTART.md) — 15분 안에 설치부터 첫 번째 AI 자동 복구까지 확인할 수 있습니다.
+
 ### 사전 요구사항
 
 - Docker
@@ -345,6 +347,7 @@ make chaos-stop        # 실험 중지
 
 ## 문서
 
+- [**QUICKSTART**](./docs/QUICKSTART.md) - 15분 설치 가이드 (처음 시작)
 - [CHANGELOG](./docs/CHANGELOG.md) - 변경 이력
 - [ARCHITECTURE](./docs/ARCHITECTURE.md) - 아키텍처 상세
 - [ROADMAP](./docs/ROADMAP.md) - 개발 로드맵
