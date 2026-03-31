@@ -23,6 +23,9 @@ googleCloudOperations:
 frontend:
   enabled: true
   replicas: 1
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
   resources:
     requests:
       cpu: 50m
