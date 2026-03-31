@@ -47,10 +47,10 @@ cartservice:
   resources:
     requests:
       cpu: 50m
-      memory: 384Mi
+      memory: 256Mi
     limits:
       cpu: 100m
-      memory: 768Mi
+      memory: 512Mi
   service:
     type: ClusterIP
     port: 7070
