@@ -31,7 +31,7 @@ class GitHubClient:
             )
             return True, result.stdout.strip()
         except subprocess.CalledProcessError as e:
-            return False, e.stderr.strip()
+            return False, (e.stderr or e.stdout or "").strip()
 
     def create_branch(self, branch_name: str) -> tuple[bool, str]:
         """새 브랜치 생성 및 체크아웃"""

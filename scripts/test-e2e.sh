@@ -33,7 +33,7 @@ payload = {
         "labels": {
             "alertname": "ContainerOOMKilled",
             "namespace": "online-boutique",
-            "pod": "cartservice-test-xyz12",
+            "pod": "cartservice-7f8b9c-xyz12",
             "container": "server",
             "severity": "critical"
         },
@@ -137,11 +137,11 @@ kubectl get pods -n "$BOUTIQUE_NS" -l app=cartservice
 
 echo ""
 echo "--- 에이전트 복구 검증 로그 ---"
-kubectl logs -n monitoring "$AGENT_POD" --tail=20 2>/dev/null \
-  | grep -v "GET /health\|GET /debug\|HTTP/1.1"
+kubectl logs -n monitoring "$AGENT_POD" --since=3m 2>/dev/null \
+  | grep -v "GET /health\|GET /debug\|HTTP/1.1" | grep -E "verify|복구|argocd" || true
 
-RECOVER_LOG=$(kubectl logs -n monitoring "$AGENT_POD" --tail=30 2>/dev/null \
-  | grep "복구 확인됨\|복구 미확인\|복구 검증 성공\|복구 검증 타임아웃" | tail -1)
+RECOVER_LOG=$(kubectl logs -n monitoring "$AGENT_POD" --since=3m 2>/dev/null \
+  | grep "복구 확인됨\|복구 미확인\|복구 검증 성공\|복구 검증 타임아웃" | tail -1 || true)
 
 echo ""
 echo "=========================================="

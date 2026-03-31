@@ -87,7 +87,7 @@ def check_alert_resolved(fingerprint: str) -> tuple[bool, str]:
 
     url = f"{ALERTMANAGER_URL}/api/v2/alerts?active=true"
     try:
-        with urllib.request.urlopen(url, timeout=KUBECTL_TIMEOUT) as resp:
+        with urllib.request.urlopen(url, timeout=K8S_TIMEOUT) as resp:
             alerts = json.loads(resp.read())
     except Exception as e:
         logger.warning("Alertmanager 조회 실패: %s", e)
