@@ -1,12 +1,11 @@
 """PR 머지 후 복구 검증 모듈
 
 ArgoCD sync 완료 이후 실제로 이슈가 해결됐는지 확인:
-  1. kubectl - 영향 받은 Pod Running 상태 + 재시작 안정
+  1. kubernetes Python client - 영향 받은 Pod Running 상태 + 재시작 안정
   2. Alertmanager API - 원본 alert 해소 여부
 """
 import json
 import logging
-import subprocess
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone, timedelta
@@ -14,23 +13,26 @@ from datetime import datetime, timezone, timedelta
 logger = logging.getLogger("dr-kube-verifier")
 
 ALERTMANAGER_URL = "http://prometheus-alertmanager.monitoring.svc.cluster.local:9093"
-KUBECTL_TIMEOUT = 10  # 초
+K8S_TIMEOUT = 10  # 초
+
+_k8s_v1 = None
 
 
-def _kubectl(args: list[str]) -> dict | list | None:
-    """kubectl 명령 실행 후 JSON 파싱. 실패 시 None 반환."""
+def _get_k8s_client():
+    """kubernetes CoreV1Api 클라이언트 (in-cluster 또는 kubeconfig)."""
+    global _k8s_v1
+    if _k8s_v1 is not None:
+        return _k8s_v1
     try:
-        result = subprocess.run(
-            ["kubectl"] + args + ["-o", "json"],
-            capture_output=True, text=True, timeout=KUBECTL_TIMEOUT,
-        )
-        if result.returncode != 0:
-            logger.warning("kubectl 실패: %s", result.stderr.strip())
-            return None
-        return json.loads(result.stdout)
+        from kubernetes import client as k8s_client, config as k8s_config
+        try:
+            k8s_config.load_incluster_config()
+        except Exception:
+            k8s_config.load_kube_config()
+        _k8s_v1 = k8s_client.CoreV1Api()
     except Exception as e:
-        logger.warning("kubectl 예외: %s", e)
-        return None
+        logger.warning("kubernetes client 초기화 실패: %s", e)
+    return _k8s_v1
 
 
 def check_pods_healthy(namespace: str, resource: str, max_restarts: int = 5) -> tuple[bool, str]:
@@ -39,32 +41,39 @@ def check_pods_healthy(namespace: str, resource: str, max_restarts: int = 5) -> 
     Returns:
         (healthy: bool, reason: str)
     """
-    data = _kubectl(["get", "pods", "-n", namespace, "-l", f"app={resource}"])
-    if data is None:
-        # app 레이블이 없는 경우 deployment 레이블로 재시도
-        data = _kubectl(["get", "pods", "-n", namespace, "-l", f"app.kubernetes.io/name={resource}"])
-    if data is None:
-        return False, f"kubectl 실패 (namespace={namespace}, resource={resource})"
+    v1 = _get_k8s_client()
+    if v1 is None:
+        return False, f"kubernetes client 초기화 실패 (namespace={namespace}, resource={resource})"
 
-    items = data.get("items", [])
-    if not items:
+    # app 레이블로 조회, 없으면 app.kubernetes.io/name 재시도
+    pods = None
+    for selector in [f"app={resource}", f"app.kubernetes.io/name={resource}"]:
+        try:
+            result = v1.list_namespaced_pod(namespace, label_selector=selector, _request_timeout=K8S_TIMEOUT)
+            if result.items:
+                pods = result.items
+                break
+        except Exception as e:
+            logger.warning("Pod 조회 실패 (selector=%s): %s", selector, e)
+
+    if pods is None:
         return False, f"Pod 없음 (namespace={namespace}, resource={resource})"
 
-    for pod in items:
-        name = pod["metadata"]["name"]
-        phase = pod.get("status", {}).get("phase", "")
-        conditions = pod.get("status", {}).get("conditions", [])
-        ready = any(c.get("type") == "Ready" and c.get("status") == "True" for c in conditions)
+    for pod in pods:
+        name = pod.metadata.name
+        phase = pod.status.phase or ""
+        conditions = pod.status.conditions or []
+        ready = any(c.type == "Ready" and c.status == "True" for c in conditions)
 
         if phase != "Running" or not ready:
             return False, f"Pod {name}: phase={phase}, ready={ready}"
 
-        for cs in pod.get("status", {}).get("containerStatuses", []):
-            restarts = cs.get("restartCount", 0)
+        for cs in (pod.status.container_statuses or []):
+            restarts = cs.restart_count or 0
             if restarts > max_restarts:
                 return False, f"Pod {name} 컨테이너 재시작 횟수 과다: {restarts}회"
 
-    return True, f"{len(items)}개 Pod 모두 Running + Ready"
+    return True, f"{len(pods)}개 Pod 모두 Running + Ready"
 
 
 def check_alert_resolved(fingerprint: str) -> tuple[bool, str]:
