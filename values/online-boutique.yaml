@@ -43,7 +43,10 @@ frontend:
 # ============================================
 cartservice:
   enabled: true
-  replicas: 1
+  replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
   resources:
     requests:
       cpu: 50m
@@ -54,6 +57,7 @@ cartservice:
   service:
     type: ClusterIP
     port: 7070
+  timeout: 5s
 
 # ============================================
 # Product Catalog Service
