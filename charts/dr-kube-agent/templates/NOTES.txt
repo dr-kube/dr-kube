@@ -1,0 +1,19 @@
+🚀 DR-Kube Agent가 설치되었습니다!
+
+1. 웹훅 엔드포인트 확인:
+   kubectl get svc {{ include "dr-kube-agent.fullname" . }} -n {{ .Release.Namespace }}
+
+2. Pod 상태 확인:
+   kubectl get pods -l "app.kubernetes.io/name={{ .Chart.Name }}" -n {{ .Release.Namespace }}
+
+3. 로그 확인:
+   kubectl logs -l "app.kubernetes.io/name={{ .Chart.Name }}" -n {{ .Release.Namespace }} -f
+
+4. Alertmanager에서 웹훅 수신 URL:
+   http://{{ include "dr-kube-agent.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.webhook.port }}/webhook/alertmanager
+
+{{- if .Values.ingress.enabled }}
+
+5. 외부 접속:
+   https://{{ .Values.ingress.host }}
+{{- end }}

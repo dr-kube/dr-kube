@@ -1,0 +1,12 @@
+apiVersion: v2
+name: dr-kube-agent
+description: Kubernetes 이슈 자동 감지 → 분석 → PR 생성 → GitOps 복구 에이전트
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - kubernetes
+  - gitops
+  - auto-remediation
+  - langgraph
+home: https://github.com/dr-kube/dr-kube

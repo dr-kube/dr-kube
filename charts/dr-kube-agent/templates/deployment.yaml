@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dr-kube-agent.fullname" . }}
+  labels:
+    {{- include "dr-kube-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "dr-kube-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "dr-kube-agent.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "dr-kube-agent.serviceAccountName" . }}
+      initContainers:
+        - name: fix-checkpoints-perms
+          image: busybox:1.36
+          command: ["sh", "-c", "chmod 777 /checkpoints"]
+          volumeMounts:
+            - name: checkpoints
+              mountPath: /checkpoints
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: checkpoints
+          hostPath:
+            path: {{ .Values.checkpoints.hostPath }}
+            type: DirectoryOrCreate
+      containers:
+        - name: agent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              REPO_DIR=/workspace/dr-kube
+              REPO_URL="https://x-access-token:${GITHUB_TOKEN}@{{ .Values.github.repoUrl | trimPrefix "https://" }}"
+              rm -rf "${REPO_DIR}"
+              git clone --depth 1 "${REPO_URL}" "${REPO_DIR}"
+              git -C "${REPO_DIR}" config user.name "{{ .Values.github.botName }}"
+              git -C "${REPO_DIR}" config user.email "{{ .Values.github.botEmail }}"
+              cd "${REPO_DIR}/agent"
+              python -m dr_kube.webhook
+          ports:
+            - name: http
+              containerPort: {{ .Values.webhook.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: checkpoints
+              mountPath: /checkpoints
+          env:
+            # LLM
+            - name: LLM_PROVIDER
+              value: {{ .Values.llm.provider | quote }}
+            - name: COPILOT_MODEL
+              value: {{ .Values.llm.copilotModel | quote }}
+            - name: COPILOT_MODE
+              value: {{ .Values.llm.copilotMode | quote }}
+            # Secrets
+            - name: COPILOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "dr-kube-agent.secretName" . }}
+                  key: copilot-token
+            - name: SLACK_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "dr-kube-agent.secretName" . }}
+                  key: slack-bot-token
+            - name: SLACK_CHANNEL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "dr-kube-agent.secretName" . }}
+                  key: slack-channel
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "dr-kube-agent.secretName" . }}
+                  key: github-token
+            - name: GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "dr-kube-agent.secretName" . }}
+                  key: github-token
+            # Webhook
+            - name: WEBHOOK_HOST
+              value: {{ .Values.webhook.host | quote }}
+            - name: WEBHOOK_PORT
+              value: {{ .Values.webhook.port | quote }}
+            # PR
+            - name: AUTO_PR
+              value: {{ .Values.autoPR | quote }}
+            # Cost
+            - name: COST_MODE
+              value: {{ .Values.cost.mode | quote }}
+            - name: MAX_LLM_CALLS_PER_DAY
+              value: {{ .Values.cost.maxLLMCallsPerDay | quote }}
+            - name: DEDUP_COOLDOWN_MINUTES
+              value: {{ .Values.cost.dedupCooldownMinutes | quote }}
+            - name: PR_GROUP_COOLDOWN_MINUTES
+              value: {{ .Values.cost.prGroupCooldownMinutes | quote }}
+            - name: MAX_ISSUES_PER_WEBHOOK_WITH_PR
+              value: {{ .Values.cost.maxIssuesPerWebhookWithPR | quote }}
+            - name: COMPOSITE_INCIDENT_MODE
+              value: {{ .Values.cost.compositeIncidentMode | quote }}
+            - name: HIGH_MAX_LLM_CALLS_PER_DAY
+              value: {{ .Values.cost.highMaxLLMCallsPerDay | quote }}
+            - name: HIGH_DEDUP_COOLDOWN_MINUTES
+              value: {{ .Values.cost.highDedupCooldownMinutes | quote }}
+            # Watcher
+            - name: WATCH_ENABLED
+              value: {{ .Values.watcher.enabled | quote }}
+            - name: WATCH_NAMESPACES
+              value: {{ .Values.watcher.namespaces | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}

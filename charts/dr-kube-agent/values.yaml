@@ -1,0 +1,96 @@
+## DR-Kube Agent Helm Values
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/dr-kube/dr-kube-agent
+  tag: latest
+  pullPolicy: IfNotPresent
+
+## GitHub 레포지토리 설정 (에이전트가 clone하여 PR 생성)
+github:
+  repoUrl: "https://github.com/dr-kube/dr-kube.git"
+  botName: "dr-kube-agent[bot]"
+  botEmail: "dr-kube-agent@users.noreply.github.com"
+
+## 시크릿 설정
+## 방법 1: 기존 Secret 참조 (existingSecret 지정)
+## 방법 2: 값 직접 입력 (secrets에 값 지정 → Secret 자동 생성)
+existingSecret: ""
+secrets:
+  copilotToken: ""
+  slackBotToken: ""
+  slackChannel: ""
+  githubToken: ""
+
+## LLM 설정
+llm:
+  provider: copilot        # copilot | github | gemini | ollama
+  copilotModel: "gpt-5.3-codex"
+  copilotMode: true        # Slack Human-in-the-Loop 모드
+
+## 웹훅 서버
+webhook:
+  host: "0.0.0.0"
+  port: 8081
+
+## PR 자동 생성 (false → Slack 승인 후 생성)
+autoPR: false
+
+## 비용 제어
+cost:
+  mode: normal             # normal | high
+  maxLLMCallsPerDay: 20
+  dedupCooldownMinutes: 60
+  prGroupCooldownMinutes: 180
+  maxIssuesPerWebhookWithPR: 1
+  compositeIncidentMode: true
+  # high 모드 설정
+  highMaxLLMCallsPerDay: 200
+  highDedupCooldownMinutes: 10
+
+## K8s 리소스 워처
+watcher:
+  enabled: true
+  namespaces: "online-boutique"
+
+## 체크포인트 (LangGraph 상태 저장)
+checkpoints:
+  hostPath: /var/dr-kube/checkpoints
+
+## 리소스 제한
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+## 헬스체크
+livenessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 30
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+## Ingress 설정
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  host: agent-drkube.huik.site
+  tls:
+    enabled: true
+    secretName: dr-kube-agent-tls
+
+## RBAC (에이전트가 클러스터 읽기/워처용 쓰기 권한 필요)
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: ""
