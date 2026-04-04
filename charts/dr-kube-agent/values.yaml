@@ -19,6 +19,7 @@ github:
 existingSecret: ""
 secrets:
   copilotToken: ""
+  geminiApiKey: ""         # Gemini 사용 시 (Google AI Studio에서 발급)
   slackBotToken: ""
   slackChannel: ""
   githubToken: ""
@@ -27,6 +28,7 @@ secrets:
 llm:
   provider: copilot        # copilot | github | gemini | ollama
   copilotModel: "gpt-5.3-codex"
+  geminiModel: "gemini-2.0-flash"
   copilotMode: true        # Slack Human-in-the-Loop 모드
 
 ## 웹훅 서버

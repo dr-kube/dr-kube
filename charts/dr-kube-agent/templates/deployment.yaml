@@ -62,6 +62,8 @@ spec:
               value: {{ .Values.llm.provider | quote }}
             - name: COPILOT_MODEL
               value: {{ .Values.llm.copilotModel | quote }}
+            - name: GEMINI_MODEL
+              value: {{ .Values.llm.geminiModel | quote }}
             - name: COPILOT_MODE
               value: {{ .Values.llm.copilotMode | quote }}
             # Secrets
@@ -70,6 +72,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "dr-kube-agent.secretName" . }}
                   key: copilot-token
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "dr-kube-agent.secretName" . }}
+                  key: gemini-api-key
             - name: SLACK_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
