@@ -13,6 +13,7 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 셀렉터 라벨
 */}}
 {{- define "dr-kube-agent.selectorLabels" -}}
+app: {{ .Chart.Name }}
 app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

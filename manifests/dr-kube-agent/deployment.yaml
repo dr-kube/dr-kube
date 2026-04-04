@@ -67,8 +67,6 @@ spec:
                 secretKeyRef:
                   name: dr-kube-agent-secrets
                   key: copilot-token
-            - name: COPILOT_MODE
-              value: "true"
             - name: SLACK_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -94,7 +92,7 @@ spec:
             - name: WEBHOOK_PORT
               value: "8081"
             - name: AUTO_PR
-              value: "false"
+              value: "true"
             - name: COST_MODE
               value: "normal"
             - name: MAX_LLM_CALLS_PER_DAY
