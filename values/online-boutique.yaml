@@ -43,7 +43,10 @@ frontend:
 # ============================================
 cartservice:
   enabled: true
-  replicas: 1
+  replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
   resources:
     requests:
       cpu: 50m
