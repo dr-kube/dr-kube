@@ -22,10 +22,10 @@ googleCloudOperations:
 # ============================================
 frontend:
   enabled: true
-  replicas: 1
+  replicas: 3
   podDisruptionBudget:
     enabled: true
-    minAvailable: 1
+    minAvailable: 2
   resources:
     requests:
       cpu: 50m
