@@ -8,7 +8,22 @@ spec:
   source:
     repoURL: https://github.com/dr-kube/dr-kube.git
     targetRevision: main
-    path: manifests/dr-kube-agent
+    path: charts/dr-kube-agent
+    helm:
+      valuesObject:
+        existingSecret: dr-kube-agent-secrets
+        image:
+          repository: dr-kube-agent
+          tag: local
+          pullPolicy: Never
+        autoPR: true
+        llm:
+          provider: copilot
+        ingress:
+          enabled: true
+          annotations:
+            cert-manager.io/cluster-issuer: letsencrypt-prod
+            nginx.ingress.kubernetes.io/ssl-redirect: "false"
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
